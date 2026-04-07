@@ -7,15 +7,11 @@ import {
 } from 'recharts';
 
 export default function SistemaBJCMasterFinal() {
-  // --- NAVEGACIÓN ---
   const [vista, setVista] = useState('ventas'); 
-
-  // --- ESTADOS DE DATOS ---
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [finanzas, setFinanzas] = useState([]);
   
-  // --- ESTADOS FORMULARIOS VENTAS ---
   const [busqueda, setBusqueda] = useState('');
   const [fechaConsulta, setFechaConsulta] = useState(new Date().toISOString().split('T')[0]);
   const [cliente, setCliente] = useState('');
@@ -24,24 +20,18 @@ export default function SistemaBJCMasterFinal() {
   const [cantidades, setCantidades] = useState({});
   const [coloresElegidos, setColoresElegidos] = useState({});
 
-  // ESTADO: CARRITO DE COMPRAS
   const [carrito, setCarrito] = useState([]);
 
-  // --- ESTADOS EDICIÓN DE VENTA ---
   const [idVentaEditando, setIdVentaEditando] = useState(null);
   const [formEditVenta, setFormEditVenta] = useState({});
   
-  // --- ESTADOS GESTIÓN/CONTABILIDAD ---
   const [formProd, setFormProd] = useState({ nombre: '', precio_compra: '', precio_venta: '', stock: '', colores: '' });
   const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '' });
   const [formEditStock, setFormEditStock] = useState({}); 
 
-  // NUEVOS COLORES BJ IMPORTACIONES (Fucsia Clarito)
-  // El color principal es '#F786C1'
   const FUCSIA_PRINCIPAL = '#F786C1';
   const COLORS = ['#F786C1', '#FCA5D4', '#FCC2E2', '#ED64A6', '#C64F8C', '#A13C6D'];
 
-  // --- 📡 EFECTO: TÍTULO Y TIEMPO REAL ---
   useEffect(() => {
     document.title = "Tienda BJ";
     cargarTodo();
@@ -74,20 +64,14 @@ export default function SistemaBJCMasterFinal() {
     if (f) setFinanzas(f);
   };
 
-  // --- 🏆 LÓGICA DE NEGOCIO Y MEMOS ---
-  
-  // Extraer lista única de clientes para el autocompletado
   const clientesUnicos = useMemo(() => {
     const nombres = ventas.map(v => v.cliente_nombre);
-    return [...new Set(nombres)].filter(Boolean); // Remueve duplicados y vacíos
+    return [...new Set(nombres)].filter(Boolean);
   }, [ventas]);
 
-  // Manejador inteligente de clientes
   const handleClienteChange = (e) => {
     const nombreIngresado = e.target.value;
     setCliente(nombreIngresado);
-    
-    // Si el nombre coincide con un cliente pasado, autocompleta sus datos
     const clienteEncontrado = ventas.find(v => v.cliente_nombre.toLowerCase() === nombreIngresado.toLowerCase());
     if (clienteEncontrado) {
       setLocalidad(clienteEncontrado.localidad || '');
@@ -95,13 +79,18 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  const ventasDelDia = useMemo(() => ventas.filter(v => new Date(v.created_at).toISOString().split('T')[0] === fechaConsulta), [ventas, fechaConsulta]);
+  // Traemos todas las ventas (no solo del día) para poder buscar items en almacén de días pasados
+  // Pero la vista principal mostrará los del día o los que estén en almacén
+  const ventasDelDiaOAlmacen = useMemo(() => {
+    return ventas.filter(v => 
+      new Date(v.created_at).toISOString().split('T')[0] === fechaConsulta || 
+      v.estado_pedido === 'En Almacén'
+    );
+  }, [ventas, fechaConsulta]);
   
-  // Agrupar ventas del día por cliente (PEDIDOS)
   const ventasAgrupadas = useMemo(() => {
     const grupos = {};
-    ventasDelDia.forEach(v => {
-      // Agrupamos usando nombre y localidad para no mezclar clientes con mismo nombre
+    ventasDelDiaOAlmacen.forEach(v => {
       const key = `${v.cliente_nombre}-${v.localidad}`;
       if (!grupos[key]) {
         grupos[key] = {
@@ -116,14 +105,15 @@ export default function SistemaBJCMasterFinal() {
       grupos[key].items.push(v);
       grupos[key].total += (v.precio_venta_unitario * v.cantidad);
     });
-    // Convertir el objeto a un arreglo y revertir para mostrar los más recientes arriba
     return Object.values(grupos).reverse();
-  }, [ventasDelDia]);
+  }, [ventasDelDiaOAlmacen]);
+
+  const ventasSoloHoy = useMemo(() => ventas.filter(v => new Date(v.created_at).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]), [ventas]);
 
   const totalesDia = useMemo(() => ({
-    caja: ventasDelDia.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0),
-    ganancia: ventasDelDia.reduce((acc, v) => acc + v.ganancia_total, 0)
-  }), [ventasDelDia]);
+    caja: ventasSoloHoy.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0),
+    ganancia: ventasSoloHoy.reduce((acc, v) => acc + v.ganancia_total, 0)
+  }), [ventasSoloHoy]);
 
   const rankingEstrellas = useMemo(() => {
     const resumen = {};
@@ -146,7 +136,6 @@ export default function SistemaBJCMasterFinal() {
     return Object.values(zonas).sort((a,b) => b.value - a.value).slice(0, 5);
   }, [ventas]);
 
-  // CÁLCULOS FINANCIEROS
   const resumenFinanciero = useMemo(() => {
     const gastosEInversiones = finanzas.filter(f => f.tipo === 'Gasto Local' || f.tipo === 'Compra Stock' || f.tipo === 'Retiro Ganancias').reduce((acc, f) => acc + f.monto, 0);
     const ingresosAdicionales = finanzas.filter(f => f.tipo === 'Ingreso Adicional' || f.tipo === 'Inversión').reduce((acc, f) => acc + f.monto, 0);
@@ -172,7 +161,6 @@ export default function SistemaBJCMasterFinal() {
     ];
   }, [productos]);
 
-  // --- 🛒 LÓGICA DE CARRITO Y VENTAS ---
   const agregarAlCarrito = (p) => {
     const cant = cantidades[p.id] || 1;
     const color = coloresElegidos[p.id] || (p.colores?.split(',')[0].trim() || 'N/A');
@@ -196,7 +184,8 @@ export default function SistemaBJCMasterFinal() {
     setCarrito(nuevo);
   };
 
-  const finalizarVentaLote = async (conWhatsapp = false) => {
+  // NUEVA FUNCIÓN CON ESTADO DE ALMACÉN
+  const finalizarVentaLote = async (estadoPedido = 'Entregado', conWhatsapp = false) => {
     if (!cliente || !localidad) return alert("Por favor, ingresa el Cliente y el Pueblo/Zona.");
     if (carrito.length === 0) return alert("El carrito está vacío.");
 
@@ -209,7 +198,8 @@ export default function SistemaBJCMasterFinal() {
       color: item.color,
       precio_venta_unitario: item.precio_venta,
       precio_costo_unitario: item.precio_compra,
-      ganancia_total: (item.precio_venta - item.precio_compra) * item.cantidad
+      ganancia_total: (item.precio_venta - item.precio_compra) * item.cantidad,
+      estado_pedido: estadoPedido // Guardamos si es "Entregado" o "En Almacén"
     }));
 
     const { error } = await supabase.from('ventas').insert(inserts);
@@ -223,23 +213,33 @@ export default function SistemaBJCMasterFinal() {
       }
 
       if (conWhatsapp && telefono) {
-        let msg = `¡Hola *${cliente}*! 👋 Aquí tienes el ticket de tu compra en *B J Importaciones Chiclayo*.%0A%0A*Detalle de tu pedido:*%0A`;
+        let msg = `¡Hola *${cliente}*! 👋 Aquí tienes el ticket de tu pedido en *B J Importaciones Chiclayo*.%0A%0A`;
+        if (estadoPedido === 'En Almacén') {
+          msg += `📦 *ESTADO:* Tus productos han sido guardados en nuestro almacén para cuando decidas retirarlos.%0A%0A`;
+        }
+        msg += `*Detalle de tu pedido:*%0A`;
         let totalGeneral = 0;
         carrito.forEach(item => {
           msg += `- ${item.cantidad}x ${item.nombre} (${item.color}) : S/ ${(item.precio_venta * item.cantidad).toFixed(2)}%0A`;
           totalGeneral += (item.precio_venta * item.cantidad);
         });
-        msg += `%0A*TOTAL A PAGAR: S/ ${totalGeneral.toFixed(2)}*%0A%0A¡Muchas gracias por tu preferencia! 😊`;
+        msg += `%0A*TOTAL DEL PEDIDO: S/ ${totalGeneral.toFixed(2)}*%0A%0A¡Muchas gracias por tu preferencia! 😊`;
         window.open(`https://wa.me/51${telefono.replace(/\D/g,'')}?text=${msg}`, '_blank');
       }
 
       setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]);
+      if(estadoPedido === 'En Almacén') alert("Los productos se registraron y descontaron del stock, marcados como En Almacén.");
     } else {
-      alert("Error al procesar la venta: " + error.message);
+      alert("Error al procesar la venta: Verifica que hayas creado la columna 'estado_pedido' en Supabase.");
     }
   };
 
-  // --- 🛠️ ACCIONES DE CATÁLOGO ---
+  const marcarComoEntregado = async (idVenta) => {
+    if (!confirm("¿Confirmas que el cliente ya retiró este producto de la tienda?")) return;
+    const { error } = await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', idVenta);
+    if (error) alert("Error al actualizar: " + error.message);
+  };
+
   const eliminarProductoCatalogo = async (p) => {
     if (!confirm(`¿Estás seguro de eliminar "${p.nombre}" permanentemente del catálogo?`)) return;
     const { error } = await supabase.from('productos').delete().eq('id', p.id);
@@ -255,14 +255,9 @@ export default function SistemaBJCMasterFinal() {
   const guardarNuevoStock = async (p) => {
     const nuevoStock = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
     const { error } = await supabase.from('productos').update({ stock: nuevoStock }).eq('id', p.id);
-    if (!error) {
-      alert(`Stock actualizado a ${nuevoStock}`);
-    } else {
-      alert("Error: " + error.message);
-    }
+    if (error) alert("Error: " + error.message);
   };
 
-  // --- 🛠️ ACCIONES DE EDICIÓN DE HISTORIAL ---
   const borrarVenta = async (v) => {
     if (!confirm("¿Deseas anular este ítem del pedido? El stock se devolverá al inventario.")) return;
     const prod = productos.find(p => p.id === v.producto_id);
@@ -276,7 +271,7 @@ export default function SistemaBJCMasterFinal() {
     const vOriginal = ventas.find(v => v.id === idVentaEditando);
     const prod = productos.find(p => p.id === formEditVenta.producto_id);
     const diferenciaStock = formEditVenta.cantidad - vOriginal.cantidad;
-    if (prod.stock < diferenciaStock) return alert("No hay stock suficiente para aumentar la cantidad.");
+    if (prod.stock < diferenciaStock) return alert("No hay stock suficiente.");
 
     const nuevaGanancia = (formEditVenta.precio_venta_unitario - formEditVenta.precio_costo_unitario) * formEditVenta.cantidad;
 
@@ -295,7 +290,6 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  // --- 🛠️ ACCIONES FINANCIERAS ---
   const registrarMovimientoFinanciero = async (e) => {
     e.preventDefault();
     await supabase.from('finanzas').insert([formFinanzas]);
@@ -304,25 +298,26 @@ export default function SistemaBJCMasterFinal() {
 
   const enviarWhatsAppGrupo = (grupo) => {
     if (!grupo.telefono) return alert("Este cliente no tiene número de WhatsApp registrado.");
-    let msg = `¡Hola *${grupo.cliente_nombre}*! 👋 Aquí tienes el ticket de tu compra en *B J Importaciones Chiclayo*.%0A%0A*Detalle de tu pedido:*%0A`;
+    let msg = `¡Hola *${grupo.cliente_nombre}*! 👋 Aquí tienes el resumen de tu cuenta en *B J Importaciones Chiclayo*.%0A%0A*Detalle de tus productos:*%0A`;
     grupo.items.forEach(v => {
       const prod = productos.find(p => p.id === v.producto_id)?.nombre || "Producto";
-      msg += `- ${v.cantidad}x ${prod} (${v.color}) : S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
+      const estado = v.estado_pedido === 'En Almacén' ? '(En Almacén)' : '';
+      msg += `- ${v.cantidad}x ${prod} (${v.color}) ${estado} : S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
     });
-    msg += `%0A*TOTAL PAGADO: S/ ${grupo.total.toFixed(2)}*%0A%0A¡Muchas gracias por tu preferencia! 😊`;
+    msg += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A%0A¡Muchas gracias por tu preferencia! 😊`;
     window.open(`https://wa.me/51${grupo.telefono.replace(/\D/g,'')}?text=${msg}`, '_blank');
   };
 
   const exportarExcel = () => {
-    let csv = "data:text/csv;charset=utf-8,Fecha,Cliente,Pueblo,Producto,Cantidad,Total S/\n";
-    ventasDelDia.forEach(v => {
+    let csv = "data:text/csv;charset=utf-8,Fecha,Cliente,Pueblo,Estado,Producto,Cantidad,Total S/\n";
+    ventasDelDiaOAlmacen.forEach(v => {
       const pn = productos.find(p => p.id === v.producto_id)?.nombre;
-      csv += `${fechaConsulta},${v.cliente_nombre},${v.localidad},${pn},${v.cantidad},${(v.precio_venta_unitario * v.cantidad).toFixed(2)}\n`;
+      const est = v.estado_pedido || 'Entregado';
+      csv += `${new Date(v.created_at).toLocaleDateString()},${v.cliente_nombre},${v.localidad},${est},${pn},${v.cantidad},${(v.precio_venta_unitario * v.cantidad).toFixed(2)}\n`;
     });
     const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", `Cierre_BJC_${fechaConsulta}.csv`); link.click();
   };
 
-  // --- ESTILOS ---
   const glassCard = { backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', boxShadow: `0 10px 15px -3px ${FUCSIA_PRINCIPAL}10`, border: '1px solid #FFF1F2' };
   const bjInput = { padding: '14px', borderRadius: '12px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px' };
 
@@ -342,7 +337,6 @@ export default function SistemaBJCMasterFinal() {
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
         
-        {/* ================= VISTA: VENTAS ================= */}
         {vista === 'ventas' && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '35px' }}>
@@ -352,7 +346,7 @@ export default function SistemaBJCMasterFinal() {
                   <button onClick={exportarExcel} style={{ backgroundColor: `#FCA5D420`, border: 'none', padding: '6px 12px', borderRadius: '8px', color: FUCSIA_PRINCIPAL, cursor: 'pointer', fontWeight: 'bold' }}>EXCEL</button>
                 </div>
                 <h2 style={{ margin: 0, fontSize: '2.5rem' }}>S/ {totalesDia.caja.toFixed(2)}</h2>
-                <div style={{ color: '#16A34A', fontWeight: 'bold' }}>Ganancia: S/ {totalesDia.ganancia.toFixed(2)}</div>
+                <div style={{ color: '#16A34A', fontWeight: 'bold' }}>Ganancia Hoy: S/ {totalesDia.ganancia.toFixed(2)}</div>
               </div>
 
               <div style={glassCard}>
@@ -400,20 +394,20 @@ export default function SistemaBJCMasterFinal() {
               </div>
 
               {carrito.length > 0 && (
-                <div style={{ backgroundColor: '#F0FDF4', border: '2px solid #16A34A', borderRadius: '16px', padding: '20px', marginBottom: '25px' }}>
-                  <h4 style={{ margin: '0 0 15px 0', color: '#16A34A', display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ backgroundColor: '#FFF5F7', border: `2px solid ${FUCSIA_PRINCIPAL}`, borderRadius: '16px', padding: '20px', marginBottom: '25px' }}>
+                  <h4 style={{ margin: '0 0 15px 0', color: FUCSIA_PRINCIPAL, display: 'flex', justifyContent: 'space-between' }}>
                     <span>🛒 Carrito de {cliente || 'Cliente'}</span>
                     <span>{carrito.length} ítems</span>
                   </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px' }}>
                     {carrito.map((item, index) => (
-                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid #BBF7D0' }}>
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid #FCC2E2' }}>
                         <div>
                           <strong style={{ color: '#1E1B1C' }}>{item.cantidad}x {item.nombre}</strong> <small>({item.color})</small>
                         </div>
                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                          <strong style={{ color: '#16A34A' }}>S/ {(item.precio_venta * item.cantidad).toFixed(2)}</strong>
-                          <button onClick={() => quitarDelCarrito(index)} style={{ background: 'none', border: 'none', color: FUCSIA_PRINCIPAL, cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>X</button>
+                          <strong style={{ color: '#1E1B1C' }}>S/ {(item.precio_venta * item.cantidad).toFixed(2)}</strong>
+                          <button onClick={() => quitarDelCarrito(index)} style={{ background: 'none', border: 'none', color: '#E11D48', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>X</button>
                         </div>
                       </div>
                     ))}
@@ -421,12 +415,17 @@ export default function SistemaBJCMasterFinal() {
                   <h3 style={{ margin: '0 0 15px 0', color: '#1E1B1C', textAlign: 'right', fontSize: '1.5rem' }}>
                     Total Pedido: S/ {carrito.reduce((acc, i) => acc + (i.precio_venta * i.cantidad), 0).toFixed(2)}
                   </h3>
-                  <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                    <button onClick={() => finalizarVentaLote(false)} style={{ flex: 1, backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      PAGAR Y GUARDAR
+                  
+                  {/* NUEVA BOTONERA CON OPCIÓN DE ALMACÉN */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    <button onClick={() => finalizarVentaLote('Entregado', false)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      ✅ PAGAR Y ENTREGAR
                     </button>
-                    <button onClick={() => finalizarVentaLote(true)} style={{ flex: 1, backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                      📱 GUARDAR Y ENVIAR WHATSAPP
+                    <button onClick={() => finalizarVentaLote('En Almacén', false)} style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      📦 GUARDAR EN ALMACÉN
+                    </button>
+                    <button onClick={() => finalizarVentaLote('Entregado', true)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', gridColumn: '1 / -1' }}>
+                      📱 ENTREGAR Y ENVIAR WHATSAPP
                     </button>
                   </div>
                 </div>
@@ -463,23 +462,29 @@ export default function SistemaBJCMasterFinal() {
 
             <div style={glassCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-                <h4>Historial de Pedidos</h4>
+                <div>
+                  <h4 style={{ margin: 0, color: '#1E1B1C' }}>Historial y Almacén</h4>
+                  <small style={{ color: '#64748b' }}>Muestra compras de la fecha y TODO lo que está en almacén</small>
+                </div>
                 <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ padding: '8px', borderRadius: '10px', border: `2px solid #FCA5D4` }} />
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {ventasAgrupadas.map(grupo => (
-                  <div key={grupo.id_principal} style={{ padding: '20px', backgroundColor: '#FFF5F7', borderRadius: '16px', border: `1px solid #FCC2E2` }}>
+                {ventasAgrupadas.map(grupo => {
+                  const itemsEnAlmacen = grupo.items.filter(i => i.estado_pedido === 'En Almacén').length;
+                  return (
+                  <div key={grupo.id_principal} style={{ padding: '20px', backgroundColor: '#FFF5F7', borderRadius: '16px', border: `1px solid ${itemsEnAlmacen > 0 ? FUCSIA_PRINCIPAL : '#FCC2E2'}` }}>
                     
                     {/* CABECERA DEL PEDIDO */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #FFF1F2', paddingBottom: '15px', marginBottom: '15px', gap: '10px' }}>
                       <div>
                         <strong style={{ color: FUCSIA_PRINCIPAL, fontSize: '18px' }}>{grupo.cliente_nombre}</strong> <span style={{color: '#64748b'}}>({grupo.localidad})</span>
+                        {itemsEnAlmacen > 0 && <span style={{ marginLeft: '10px', backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}>📦 {itemsEnAlmacen} En Almacén</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <strong style={{ fontSize: '18px', color: '#1E1B1C' }}>Total: S/ {grupo.total.toFixed(2)}</strong>
+                        <strong style={{ fontSize: '18px', color: '#1E1B1C' }}>S/ {grupo.total.toFixed(2)}</strong>
                         <button onClick={() => enviarWhatsAppGrupo(grupo)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          📱 Reenviar Ticket
+                          📱 Ticket
                         </button>
                       </div>
                     </div>
@@ -497,14 +502,20 @@ export default function SistemaBJCMasterFinal() {
                               <button onClick={() => setIdVentaEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: FUCSIA_PRINCIPAL }}>X</button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '10px', borderLeft: v.estado_pedido === 'En Almacén' ? `4px solid ${FUCSIA_PRINCIPAL}` : 'none' }}>
                               <div>
                                 <strong style={{ color: '#1E1B1C' }}>{v.cantidad}x {productos.find(p => p.id === v.producto_id)?.nombre}</strong> | <small>Color: {v.color}</small>
+                                {v.estado_pedido === 'En Almacén' && <small style={{ color: FUCSIA_PRINCIPAL, fontWeight: 'bold', display: 'block' }}>📦 Esperando retiro</small>}
                               </div>
                               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 <span style={{ fontWeight: '900', color: '#16A34A' }}>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</span>
+                                
+                                {v.estado_pedido === 'En Almacén' && (
+                                  <button onClick={() => marcarComoEntregado(v.id)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>ENTREGAR</button>
+                                )}
+
                                 <button onClick={() => prepararEdicionVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✏️</button>
-                                <button onClick={() => borrarVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', color: FUCSIA_PRINCIPAL, cursor: 'pointer' }}>🗑️</button>
+                                <button onClick={() => borrarVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#E11D48', cursor: 'pointer' }}>🗑️</button>
                               </div>
                             </div>
                           )}
@@ -513,8 +524,8 @@ export default function SistemaBJCMasterFinal() {
                     </div>
 
                   </div>
-                ))}
-                {ventasAgrupadas.length === 0 && <p style={{textAlign: 'center', color: '#64748b'}}>No hay pedidos registrados en esta fecha.</p>}
+                )})}
+                {ventasAgrupadas.length === 0 && <p style={{textAlign: 'center', color: '#64748b'}}>No hay operaciones en esta fecha ni productos en almacén.</p>}
               </div>
             </div>
           </div>
