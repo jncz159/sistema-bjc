@@ -98,17 +98,33 @@ export default function SistemaBJCMasterFinal() {
     return Object.values(zonas).sort((a,b) => b.value - a.value).slice(0, 5);
   }, [ventas]);
 
+  // CÁLCULOS FINANCIEROS ACTUALIZADOS
   const resumenFinanciero = useMemo(() => {
-    const inversionStock = finanzas.filter(f => f.tipo === 'Compra Stock').reduce((acc, f) => acc + f.monto, 0);
-    const ingresosAdicionales = finanzas.filter(f => f.tipo === 'Ingreso Adicional' || f.tipo === 'Inversión').reduce((acc, f) => acc + f.monto, 0);
-    const gastos = finanzas.filter(f => f.tipo === 'Gasto Local').reduce((acc, f) => acc + f.monto, 0);
-    const retiros = finanzas.filter(f => f.tipo === 'Retiro Ganancias').reduce((acc, f) => acc + f.monto, 0);
-    const gananciaBrutaTotal = ventas.reduce((acc, v) => acc + v.ganancia_total, 0);
-    
-    // El neto real es la ganancia de ventas + dinero extra ingresado - gastos operativos - retiros personales
-    const netoReal = gananciaBrutaTotal + ingresosAdicionales - gastos - retiros;
+    // 1. Todo lo que SALE de caja (Gastos, Compra de Mercadería, Retiros)
+    const gastosEInversiones = finanzas
+      .filter(f => f.tipo === 'Gasto Local' || f.tipo === 'Compra Stock' || f.tipo === 'Retiro Ganancias')
+      .reduce((acc, f) => acc + f.monto, 0);
 
-    return { inversion: inversionStock, gastos, retiros, ingresosAdicionales, neto: netoReal };
+    // 2. Dinero EXTRA que entra a caja (Inversión inicial, ingresos adicionales)
+    const ingresosAdicionales = finanzas
+      .filter(f => f.tipo === 'Ingreso Adicional' || f.tipo === 'Inversión')
+      .reduce((acc, f) => acc + f.monto, 0);
+
+    // 3. Ganancia Pura de Productos Vendidos
+    const gananciaNetaVentas = ventas.reduce((acc, v) => acc + v.ganancia_total, 0);
+
+    // 4. Dinero Bruto Total de Ventas (El efectivo total que pagaron los clientes)
+    const ingresosVentasBruto = ventas.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
+    
+    // 5. CAJA FÍSICA ACTUAL = (Efectivo de Ventas + Dinero Extra) - (Gastos e Inversiones)
+    const cajaActual = ingresosVentasBruto + ingresosAdicionales - gastosEInversiones;
+
+    return { 
+      gastos: gastosEInversiones, 
+      ingresosAdicionales, 
+      gananciaNetaVentas, 
+      cajaActual 
+    };
   }, [finanzas, ventas]);
 
   const valorInventario = useMemo(() => {
@@ -249,8 +265,8 @@ export default function SistemaBJCMasterFinal() {
                   <span style={{ color: '#E11D48', fontWeight: '800', fontSize: '14px' }}>CAJA HOY</span>
                   <button onClick={exportarExcel} style={{ backgroundColor: '#FEE2E2', border: 'none', padding: '6px 12px', borderRadius: '8px', color: '#E11D48', cursor: 'pointer', fontWeight: 'bold' }}>EXCEL</button>
                 </div>
-                <h2 style={{ margin: 0, fontSize: '2.5rem' }}>S/ {totalesDia.caja}</h2>
-                <div style={{ color: '#16A34A', fontWeight: 'bold' }}>Ganancia: S/ {totalesDia.ganancia}</div>
+                <h2 style={{ margin: 0, fontSize: '2.5rem' }}>S/ {totalesDia.caja.toFixed(2)}</h2>
+                <div style={{ color: '#16A34A', fontWeight: 'bold' }}>Ganancia: S/ {totalesDia.ganancia.toFixed(2)}</div>
               </div>
 
               <div style={glassCard}>
@@ -272,7 +288,7 @@ export default function SistemaBJCMasterFinal() {
                 {rankingEstrellas[0] ? (
                   <div style={{ marginTop: '15px' }}>
                     <h3 style={{ margin: 0 }}>{rankingEstrellas[0].nombre}</h3>
-                    <p style={{ margin: 0, opacity: 0.8 }}>S/ {rankingEstrellas[0].gananciaTotal} ganancia</p>
+                    <p style={{ margin: 0, opacity: 0.8 }}>S/ {rankingEstrellas[0].gananciaTotal.toFixed(2)} ganancia</p>
                   </div>
                 ) : <p>Sin ventas...</p>}
               </div>
@@ -290,7 +306,6 @@ export default function SistemaBJCMasterFinal() {
                 {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(p => (
                   <div key={p.id} style={{ border: '2px solid #FFF1F2', padding: '20px', borderRadius: '18px', backgroundColor: '#fff', position: 'relative' }}>
                     
-                    {/* BOTÓN BORRAR PRODUCTO */}
                     <button onClick={() => eliminarProductoCatalogo(p)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#FEE2E2' }}>🗑️</button>
                     
                     <strong style={{ fontSize: '17px', display: 'block', marginBottom: '10px', paddingRight: '20px' }}>{p.nombre}</strong>
@@ -306,7 +321,7 @@ export default function SistemaBJCMasterFinal() {
                       </div>
                     </div>
                     <button onClick={() => registrarVenta(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#E5E7EB', color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      {p.stock > 0 ? `VENDER S/ ${p.precio_venta * (cantidades[p.id] || 1)}` : 'AGOTADO'}
+                      {p.stock > 0 ? `VENDER S/ ${(p.precio_venta * (cantidades[p.id] || 1)).toFixed(2)}` : 'AGOTADO'}
                     </button>
                     <small style={{ display: 'block', textAlign: 'center', marginTop: '10px', color: p.stock < 5 ? '#E11D48' : '#64748b' }}>Stock: {p.stock}</small>
                   </div>
@@ -337,10 +352,9 @@ export default function SistemaBJCMasterFinal() {
                           <small>{v.cantidad}x {productos.find(p => p.id === v.producto_id)?.nombre} | {v.color}</small>
                         </div>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                          <span style={{ fontWeight: '900' }}>S/ {v.precio_venta_unitario * v.cantidad}</span>
+                          <span style={{ fontWeight: '900' }}>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</span>
                           <button onClick={() => enviarWhatsApp(v)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', width: '38px', height: '38px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📱</button>
                           
-                          {/* BOTONES EDITAR Y BORRAR VENTA */}
                           <button onClick={() => prepararEdicionVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✏️</button>
                           <button onClick={() => borrarVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#E11D48', cursor: 'pointer' }}>🗑️</button>
                         </div>
@@ -356,25 +370,36 @@ export default function SistemaBJCMasterFinal() {
         {/* ================= VISTA: CONTABILIDAD Y GESTIÓN ================= */}
         {vista === 'contabilidad' && (
           <div>
+            {/* NUEVAS 4 TARJETAS DE BALANCE GENERAL */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              
               <div style={{ ...glassCard, borderLeft: '8px solid #E11D48' }}>
-                <small style={{ color: '#E11D48', fontWeight: 'bold' }}>GASTOS Y COMPRAS</small>
-                <h2 style={{ margin: 0 }}>S/ {resumenFinanciero.gastos}</h2>
+                <small style={{ color: '#E11D48', fontWeight: 'bold' }}>GASTOS E INVERSIONES</small>
+                <h2 style={{ margin: 0 }}>S/ {resumenFinanciero.gastos.toFixed(2)}</h2>
               </div>
+              
               <div style={{ ...glassCard, borderLeft: '8px solid #16A34A' }}>
                 <small style={{ color: '#16A34A', fontWeight: 'bold' }}>INGRESOS ADICIONALES</small>
-                <h2 style={{ margin: 0, color: '#16A34A' }}>S/ {resumenFinanciero.ingresosAdicionales}</h2>
+                <h2 style={{ margin: 0, color: '#16A34A' }}>S/ {resumenFinanciero.ingresosAdicionales.toFixed(2)}</h2>
               </div>
+              
+              <div style={{ ...glassCard, borderLeft: '8px solid #3B82F6' }}>
+                <small style={{ color: '#3B82F6', fontWeight: 'bold' }}>GANANCIA REAL NETA</small>
+                <h2 style={{ margin: 0, color: '#3B82F6' }}>S/ {resumenFinanciero.gananciaNetaVentas.toFixed(2)}</h2>
+              </div>
+
               <div style={{ ...glassCard, backgroundColor: '#E11D48', color: '#fff' }}>
-                <small style={{ fontWeight: 'bold' }}>GANANCIA REAL NETO</small>
-                <h2 style={{ margin: 0 }}>S/ {resumenFinanciero.neto}</h2>
+                <small style={{ fontWeight: 'bold' }}>DINERO EN CAJA ACTUAL</small>
+                <h2 style={{ margin: 0 }}>S/ {resumenFinanciero.cajaActual.toFixed(2)}</h2>
               </div>
+
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px' }}>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 
+                {/* GRÁFICO CON VALORES EN DECIMALES ABAJO */}
                 <div style={glassCard}>
                   <h4 style={{ marginTop: 0, color: '#E11D48' }}>Valor de Mercadería en Tienda</h4>
                   <div style={{ width: '100%', height: '200px', marginTop: '15px' }}>
@@ -382,7 +407,7 @@ export default function SistemaBJCMasterFinal() {
                       <BarChart data={valorInventario}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="nombre" fontSize={12} />
-                        <Tooltip formatter={(value) => `S/ ${value}`} />
+                        <Tooltip formatter={(value) => `S/ ${Number(value).toFixed(2)}`} />
                         <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
                           {valorInventario.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -390,6 +415,16 @@ export default function SistemaBJCMasterFinal() {
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px', borderTop: '2px solid #FFF1F2', paddingTop: '15px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <small style={{ color: '#64748b', fontWeight: 'bold' }}>Costo Invertido</small>
+                      <h3 style={{ margin: 0, color: '#1E1B1C', fontSize: '1.2rem' }}>S/ {valorInventario[0].valor.toFixed(2)}</h3>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <small style={{ color: '#64748b', fontWeight: 'bold' }}>Venta al Público</small>
+                      <h3 style={{ margin: 0, color: '#E11D48', fontSize: '1.2rem' }}>S/ {valorInventario[1].valor.toFixed(2)}</h3>
+                    </div>
                   </div>
                 </div>
 
@@ -404,7 +439,7 @@ export default function SistemaBJCMasterFinal() {
                       <option value="Retiro Ganancias">🏧 Retiro Personal</option>
                     </select>
                     <input placeholder="Descripción del movimiento" value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={bjInput} />
-                    <input type="number" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: Number(e.target.value)})} style={bjInput} />
+                    <input type="number" step="0.01" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: Number(e.target.value)})} style={bjInput} />
                     <button type="submit" style={{ backgroundColor: '#E11D48', color: '#fff', border: 'none', padding: '16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold' }}>GUARDAR REGISTRO</button>
                   </form>
                 </div>
@@ -415,8 +450,8 @@ export default function SistemaBJCMasterFinal() {
                     <input placeholder="Nombre" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={bjInput} />
                     <input placeholder="Colores (comas)" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={bjInput} />
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <input type="number" placeholder="Costo S/" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: e.target.value})} style={bjInput} />
-                      <input type="number" placeholder="Venta S/" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: e.target.value})} style={bjInput} />
+                      <input type="number" step="0.01" placeholder="Costo S/" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: e.target.value})} style={bjInput} />
+                      <input type="number" step="0.01" placeholder="Venta S/" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: e.target.value})} style={bjInput} />
                     </div>
                     <input type="number" placeholder="Stock" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={bjInput} />
                     <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold' }}>CREAR PRODUCTO</button>
@@ -479,7 +514,7 @@ export default function SistemaBJCMasterFinal() {
                               <div style={{ marginTop: '5px' }}>{f.descripcion}</div>
                             </td>
                             <td style={{ padding: '15px', fontWeight: 'bold', color: f.tipo.includes('Ingreso') || f.tipo.includes('Inversión') ? '#16A34A' : '#E11D48' }}>
-                              {f.tipo.includes('Ingreso') || f.tipo.includes('Inversión') ? '+' : '-'} S/ {f.monto}
+                              {f.tipo.includes('Ingreso') || f.tipo.includes('Inversión') ? '+' : '-'} S/ {f.monto.toFixed(2)}
                             </td>
                           </tr>
                         ))}
