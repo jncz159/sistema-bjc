@@ -7,49 +7,57 @@ import {
 } from 'recharts';
 
 export default function SistemaBJCMasterFinal() {
+  // --- UTILS: GARANTIZAR HORA PERÚ ---
+  const getFechaPeru = (dateInput = new Date()) => {
+    return new Date(dateInput).toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  };
+
+  // --- ESTADOS ---
   const [vista, setVista] = useState('ventas'); 
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [finanzas, setFinanzas] = useState([]);
-  
   const [busqueda, setBusqueda] = useState('');
-  const [fechaConsulta, setFechaConsulta] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaConsulta, setFechaConsulta] = useState(getFechaPeru());
+  
   const [cliente, setCliente] = useState('');
   const [localidad, setLocalidad] = useState(''); 
   const [telefono, setTelefono] = useState(''); 
   const [cantidades, setCantidades] = useState({});
   const [coloresElegidos, setColoresElegidos] = useState({});
-
+  
   const [carrito, setCarrito] = useState([]);
+  const [descuento, setDescuento] = useState(0); 
 
   const [idVentaEditando, setIdVentaEditando] = useState(null);
   const [formEditVenta, setFormEditVenta] = useState({});
+  const [idFinanzaEditando, setIdFinanzaEditando] = useState(null);
+  const [formEditFinanza, setFormEditFinanza] = useState({});
   
   const [formProd, setFormProd] = useState({ nombre: '', precio_compra: '', precio_venta: '', stock: '', colores: '' });
   const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '' });
   const [formEditStock, setFormEditStock] = useState({}); 
 
+  // --- COLORES BJ FUCSIA CLARITO ---
   const FUCSIA_PRINCIPAL = '#F786C1';
   const COLORS = ['#F786C1', '#FCA5D4', '#FCC2E2', '#ED64A6', '#C64F8C', '#A13C6D'];
 
+  // --- 📡 TIEMPO REAL ---
   useEffect(() => {
     document.title = "Tienda BJ";
     cargarTodo();
-
-    const canalRealtime = supabase
-      .channel('tienda-chiclayo-realtime')
+    const canal = supabase.channel('bj-realtime-v5')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas' }, () => cargarTodo())
       .subscribe();
-    return () => { supabase.removeChannel(canalRealtime); };
+    return () => { supabase.removeChannel(canal); };
   }, []);
 
   const cargarTodo = async () => {
     const { data: p } = await supabase.from('productos').select('*').order('nombre');
     const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
     const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
-    
     if (p) {
         setProductos(p);
         const cants = {}; const cols = {};
@@ -64,593 +72,327 @@ export default function SistemaBJCMasterFinal() {
     if (f) setFinanzas(f);
   };
 
-  const clientesUnicos = useMemo(() => {
-    const nombres = ventas.map(v => v.cliente_nombre);
-    return [...new Set(nombres)].filter(Boolean);
-  }, [ventas]);
+  // --- 🏆 LÓGICA DE MEMOS (CÁLCULOS) ---
+  const clientesUnicos = useMemo(() => [...new Set(ventas.map(v => v.cliente_nombre))].filter(Boolean), [ventas]);
 
   const handleClienteChange = (e) => {
-    const nombreIngresado = e.target.value;
-    setCliente(nombreIngresado);
-    const clienteEncontrado = ventas.find(v => v.cliente_nombre.toLowerCase() === nombreIngresado.toLowerCase());
-    if (clienteEncontrado) {
-      setLocalidad(clienteEncontrado.localidad || '');
-      setTelefono(clienteEncontrado.telefono || '');
-    }
+    const nom = e.target.value; setCliente(nom);
+    const c = ventas.find(v => v.cliente_nombre.toLowerCase() === nom.toLowerCase());
+    if (c) { setLocalidad(c.localidad || ''); setTelefono(c.telefono || ''); }
   };
 
-  // Traemos todas las ventas (no solo del día) para poder buscar items en almacén de días pasados
-  // Pero la vista principal mostrará los del día o los que estén en almacén
-  const ventasDelDiaOAlmacen = useMemo(() => {
-    return ventas.filter(v => 
-      new Date(v.created_at).toISOString().split('T')[0] === fechaConsulta || 
-      v.estado_pedido === 'En Almacén'
-    );
-  }, [ventas, fechaConsulta]);
+  const ventasDelDiaOAlmacen = useMemo(() => ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta || v.estado_pedido === 'En Almacén'), [ventas, fechaConsulta]);
   
   const ventasAgrupadas = useMemo(() => {
     const grupos = {};
     ventasDelDiaOAlmacen.forEach(v => {
       const key = `${v.cliente_nombre}-${v.localidad}`;
-      if (!grupos[key]) {
-        grupos[key] = {
-          id_principal: v.id,
-          cliente_nombre: v.cliente_nombre,
-          localidad: v.localidad,
-          telefono: v.telefono,
-          total: 0,
-          items: []
-        };
-      }
+      if (!grupos[key]) grupos[key] = { id_principal: v.id, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, total: 0, items: [] };
       grupos[key].items.push(v);
       grupos[key].total += (v.precio_venta_unitario * v.cantidad);
     });
     return Object.values(grupos).reverse();
   }, [ventasDelDiaOAlmacen]);
 
-  const ventasSoloHoy = useMemo(() => ventas.filter(v => new Date(v.created_at).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]), [ventas]);
-
-  const totalesDia = useMemo(() => ({
-    caja: ventasSoloHoy.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0),
-    ganancia: ventasSoloHoy.reduce((acc, v) => acc + v.ganancia_total, 0)
-  }), [ventasSoloHoy]);
-
-  const rankingEstrellas = useMemo(() => {
-    const resumen = {};
-    ventas.forEach(v => {
-      const p = productos.find(prod => prod.id === v.producto_id);
-      const nombre = p ? p.nombre : "???";
-      if (!resumen[nombre]) resumen[nombre] = { nombre, gananciaTotal: 0 };
-      resumen[nombre].gananciaTotal += v.ganancia_total;
-    });
-    return Object.values(resumen).sort((a, b) => b.gananciaTotal - a.gananciaTotal).slice(0, 5);
-  }, [ventas, productos]);
-
-  const datosPorZona = useMemo(() => {
-    const zonas = {};
-    ventas.forEach(v => {
-      const loc = v.localidad ? v.localidad.trim().toUpperCase() : 'OTROS';
-      if (!zonas[loc]) zonas[loc] = { name: loc, value: 0 };
-      zonas[loc].value += 1;
-    });
-    return Object.values(zonas).sort((a,b) => b.value - a.value).slice(0, 5);
+  const totalesDia = useMemo(() => {
+    const hoy = getFechaPeru();
+    const vHoy = ventas.filter(v => getFechaPeru(v.created_at) === hoy);
+    return { 
+      caja: vHoy.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0),
+      ganancia: vHoy.reduce((acc, v) => acc + v.ganancia_total, 0)
+    };
   }, [ventas]);
 
   const resumenFinanciero = useMemo(() => {
-    const gastosEInversiones = finanzas.filter(f => f.tipo === 'Gasto Local' || f.tipo === 'Compra Stock' || f.tipo === 'Retiro Ganancias').reduce((acc, f) => acc + f.monto, 0);
-    const ingresosAdicionales = finanzas.filter(f => f.tipo === 'Ingreso Adicional' || f.tipo === 'Inversión').reduce((acc, f) => acc + f.monto, 0);
-    const gananciaNetaVentas = ventas.reduce((acc, v) => acc + v.ganancia_total, 0);
-    const ingresosVentasBruto = ventas.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
-    const cajaActual = ingresosVentasBruto + ingresosAdicionales - gastosEInversiones;
-
-    return { gastos: gastosEInversiones, ingresosAdicionales, gananciaNetaVentas, cajaActual };
+    const g = finanzas.filter(f => f.tipo === 'Gasto Local' || f.tipo === 'Compra Stock' || f.tipo === 'Retiro Ganancias').reduce((acc, f) => acc + f.monto, 0);
+    const e = finanzas.filter(f => f.tipo === 'Ingreso Adicional' || f.tipo === 'Inversión').reduce((acc, f) => acc + f.monto, 0);
+    const gn = ventas.reduce((acc, v) => acc + v.ganancia_total, 0);
+    const br = ventas.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
+    return { gastos: g, extras: e, gananciaVentas: gn, cajaActual: br + e - g };
   }, [finanzas, ventas]);
 
   const valorInventario = useMemo(() => {
-    let costoTotal = 0;
-    let ventaTotal = 0;
-    productos.forEach(p => {
-      if (p.stock > 0) {
-        costoTotal += (p.precio_compra * p.stock);
-        ventaTotal += (p.precio_venta * p.stock);
-      }
-    });
-    return [
-      { nombre: 'Costo Invertido', valor: costoTotal, fill: '#1E1B1C' },
-      { nombre: 'Venta Público', valor: ventaTotal, fill: FUCSIA_PRINCIPAL }
-    ];
+    let c = 0; let v = 0;
+    productos.forEach(p => { if (p.stock > 0) { c += (p.precio_compra * p.stock); v += (p.precio_venta * p.stock); } });
+    return [ { nombre: 'Costo', valor: c, fill: '#1E1B1C' }, { nombre: 'Venta', valor: v, fill: FUCSIA_PRINCIPAL } ];
   }, [productos]);
 
+  // --- 🛠️ ACCIONES ---
   const agregarAlCarrito = (p) => {
     const cant = cantidades[p.id] || 1;
-    const color = coloresElegidos[p.id] || (p.colores?.split(',')[0].trim() || 'N/A');
-    
-    const cantEnCarrito = carrito.filter(item => item.producto_id === p.id).reduce((acc, item) => acc + item.cantidad, 0);
-    if (p.stock < cant + cantEnCarrito) return alert(`¡Stock insuficiente! Solo quedan ${p.stock - cantEnCarrito} disponibles.`);
-
-    setCarrito([...carrito, {
-      producto_id: p.id,
-      nombre: p.nombre,
-      cantidad: cant,
-      color: color,
-      precio_venta: p.precio_venta,
-      precio_compra: p.precio_compra
-    }]);
+    const color = coloresElegidos[p.id];
+    const enc = carrito.filter(i => i.producto_id === p.id).reduce((acc, i) => acc + i.cantidad, 0);
+    if (p.stock < cant + enc) return alert(`Stock insuficiente.`);
+    setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: cant, color: color, precio_venta: p.precio_venta, precio_compra: p.precio_compra }]);
   };
 
-  const quitarDelCarrito = (index) => {
-    const nuevo = [...carrito];
-    nuevo.splice(index, 1);
-    setCarrito(nuevo);
-  };
+  const finalizarVentaLote = async (estado = 'Entregado', conWA = false) => {
+    if (!cliente || !localidad) return alert("Faltan datos.");
+    const totalCarrito = carrito.reduce((acc, i) => acc + (i.precio_venta * i.cantidad), 0);
+    const ratioDesc = totalCarrito > 0 ? (descuento / totalCarrito) : 0;
 
-  // NUEVA FUNCIÓN CON ESTADO DE ALMACÉN
-  const finalizarVentaLote = async (estadoPedido = 'Entregado', conWhatsapp = false) => {
-    if (!cliente || !localidad) return alert("Por favor, ingresa el Cliente y el Pueblo/Zona.");
-    if (carrito.length === 0) return alert("El carrito está vacío.");
-
-    const inserts = carrito.map(item => ({
-      cliente_nombre: cliente,
-      localidad: localidad,
-      telefono: telefono || '',
-      producto_id: item.producto_id,
-      cantidad: item.cantidad,
-      color: item.color,
-      precio_venta_unitario: item.precio_venta,
-      precio_costo_unitario: item.precio_compra,
-      ganancia_total: (item.precio_venta - item.precio_compra) * item.cantidad,
-      estado_pedido: estadoPedido // Guardamos si es "Entregado" o "En Almacén"
-    }));
+    const inserts = carrito.map(i => {
+      const itemBruto = i.precio_venta * i.cantidad;
+      const descItem = itemBruto * ratioDesc;
+      return { 
+        cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: i.producto_id, 
+        cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
+        precio_costo_unitario: i.precio_compra, ganancia_total: ((i.precio_venta - i.precio_compra) * i.cantidad) - descItem, 
+        estado_pedido: estado 
+      };
+    });
 
     const { error } = await supabase.from('ventas').insert(inserts);
-
     if (!error) {
-      for (const item of carrito) {
-        const prod = productos.find(p => p.id === item.producto_id);
-        if (prod) {
-          await supabase.from('productos').update({ stock: prod.stock - item.cantidad }).eq('id', item.producto_id);
-        }
+      for (const i of carrito) {
+        const pr = productos.find(p => p.id === i.producto_id);
+        await supabase.from('productos').update({ stock: pr.stock - i.cantidad }).eq('id', i.producto_id);
       }
-
-      if (conWhatsapp && telefono) {
-        let msg = `¡Hola *${cliente}*! 👋 Aquí tienes el ticket de tu pedido en *B J Importaciones Chiclayo*.%0A%0A`;
-        if (estadoPedido === 'En Almacén') {
-          msg += `📦 *ESTADO:* Tus productos han sido guardados en nuestro almacén para cuando decidas retirarlos.%0A%0A`;
-        }
-        msg += `*Detalle de tu pedido:*%0A`;
-        let totalGeneral = 0;
-        carrito.forEach(item => {
-          msg += `- ${item.cantidad}x ${item.nombre} (${item.color}) : S/ ${(item.precio_venta * item.cantidad).toFixed(2)}%0A`;
-          totalGeneral += (item.precio_venta * item.cantidad);
-        });
-        msg += `%0A*TOTAL DEL PEDIDO: S/ ${totalGeneral.toFixed(2)}*%0A%0A¡Muchas gracias por tu preferencia! 😊`;
-        window.open(`https://wa.me/51${telefono.replace(/\D/g,'')}?text=${msg}`, '_blank');
+      if (conWA && telefono) {
+        let m = `¡Hola *${cliente}*! 👋 Ticket B J Importaciones Chiclayo.%0A%0A${estado==='En Almacén'?'📦 *ESTADO:* En Almacén%0A':''}`;
+        carrito.forEach(i => { m += `- ${i.cantidad}x ${i.nombre} (${i.color}): S/ ${(i.precio_venta * i.cantidad).toFixed(2)}%0A`; });
+        if(descuento>0) m += `%0A📉 Descuento: - S/ ${descuento.toFixed(2)}`;
+        m += `%0A%0A*TOTAL FINAL: S/ ${(totalCarrito - descuento).toFixed(2)}*%0A¡Gracias! 😊`;
+        window.open(`https://wa.me/51${telefono.replace(/\D/g,'')}?text=${m}`, '_blank');
       }
-
-      setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]);
-      if(estadoPedido === 'En Almacén') alert("Los productos se registraron y descontaron del stock, marcados como En Almacén.");
-    } else {
-      alert("Error al procesar la venta: Verifica que hayas creado la columna 'estado_pedido' en Supabase.");
+      setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0);
     }
   };
 
-  const marcarComoEntregado = async (idVenta) => {
-    if (!confirm("¿Confirmas que el cliente ya retiró este producto de la tienda?")) return;
-    const { error } = await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', idVenta);
-    if (error) alert("Error al actualizar: " + error.message);
-  };
-
-  const eliminarProductoCatalogo = async (p) => {
-    if (!confirm(`¿Estás seguro de eliminar "${p.nombre}" permanentemente del catálogo?`)) return;
-    const { error } = await supabase.from('productos').delete().eq('id', p.id);
-    if (error) alert("No se pudo eliminar: " + error.message);
-  };
-
-  const agregarProductoAlStock = async (e) => {
-    e.preventDefault();
-    await supabase.from('productos').insert([formProd]);
-    setFormProd({ nombre: '', precio_compra: '', precio_venta: '', stock: '', colores: '' });
+  const marcarComoEntregado = async (id) => {
+    if (confirm("¿Confirmas la entrega?")) await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id);
   };
 
   const guardarNuevoStock = async (p) => {
-    const nuevoStock = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
-    const { error } = await supabase.from('productos').update({ stock: nuevoStock }).eq('id', p.id);
-    if (error) alert("Error: " + error.message);
+    const ns = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
+    await supabase.from('productos').update({ stock: ns }).eq('id', p.id);
+    alert("Stock Sincronizado");
   };
 
   const borrarVenta = async (v) => {
-    if (!confirm("¿Deseas anular este ítem del pedido? El stock se devolverá al inventario.")) return;
-    const prod = productos.find(p => p.id === v.producto_id);
-    if (prod) await supabase.from('productos').update({ stock: prod.stock + v.cantidad }).eq('id', prod.id);
-    await supabase.from('ventas').delete().eq('id', v.id);
+    if (confirm("¿Anular esta venta? El stock regresará.")) {
+      const p = productos.find(pr => pr.id === v.producto_id);
+      if (p) await supabase.from('productos').update({ stock: p.stock + v.cantidad }).eq('id', p.id);
+      await supabase.from('ventas').delete().eq('id', v.id);
+    }
   };
 
   const prepararEdicionVenta = (v) => { setIdVentaEditando(v.id); setFormEditVenta({ ...v }); };
 
   const guardarCambiosVenta = async () => {
-    const vOriginal = ventas.find(v => v.id === idVentaEditando);
-    const prod = productos.find(p => p.id === formEditVenta.producto_id);
-    const diferenciaStock = formEditVenta.cantidad - vOriginal.cantidad;
-    if (prod.stock < diferenciaStock) return alert("No hay stock suficiente.");
-
-    const nuevaGanancia = (formEditVenta.precio_venta_unitario - formEditVenta.precio_costo_unitario) * formEditVenta.cantidad;
-
-    const { error } = await supabase.from('ventas').update({
-      cliente_nombre: formEditVenta.cliente_nombre,
-      localidad: formEditVenta.localidad,
-      telefono: formEditVenta.telefono,
-      cantidad: formEditVenta.cantidad,
-      color: formEditVenta.color,
-      ganancia_total: nuevaGanancia
-    }).eq('id', idVentaEditando);
-
+    const vOrig = ventas.find(v => v.id === idVentaEditando);
+    const pr = productos.find(p => p.id === formEditVenta.producto_id);
+    const dif = formEditVenta.cantidad - vOrig.cantidad;
+    if (pr.stock < dif) return alert("Sin stock suficiente");
+    const ng = (formEditVenta.precio_venta_unitario - formEditVenta.precio_costo_unitario) * formEditVenta.cantidad;
+    const { error } = await supabase.from('ventas').update({ cliente_nombre: formEditVenta.cliente_nombre, localidad: formEditVenta.localidad, telefono: formEditVenta.telefono, cantidad: formEditVenta.cantidad, color: formEditVenta.color, ganancia_total: ng }).eq('id', idVentaEditando);
     if (!error) {
-      await supabase.from('productos').update({ stock: prod.stock - diferenciaStock }).eq('id', prod.id);
+      await supabase.from('productos').update({ stock: pr.stock - dif }).eq('id', pr.id);
       setIdVentaEditando(null);
     }
   };
 
-  const registrarMovimientoFinanciero = async (e) => {
-    e.preventDefault();
-    await supabase.from('finanzas').insert([formFinanzas]);
-    setFormFinanzas({ tipo: 'Gasto Local', descripcion: '', monto: '' });
+  const guardarCambiosFinanza = async () => {
+    await supabase.from('finanzas').update({ tipo: formEditFinanza.tipo, descripcion: formEditFinanza.descripcion, monto: formEditFinanza.monto }).eq('id', idFinanzaEditando);
+    setIdFinanzaEditando(null);
   };
 
-  const enviarWhatsAppGrupo = (grupo) => {
-    if (!grupo.telefono) return alert("Este cliente no tiene número de WhatsApp registrado.");
-    let msg = `¡Hola *${grupo.cliente_nombre}*! 👋 Aquí tienes el resumen de tu cuenta en *B J Importaciones Chiclayo*.%0A%0A*Detalle de tus productos:*%0A`;
-    grupo.items.forEach(v => {
-      const prod = productos.find(p => p.id === v.producto_id)?.nombre || "Producto";
-      const estado = v.estado_pedido === 'En Almacén' ? '(En Almacén)' : '';
-      msg += `- ${v.cantidad}x ${prod} (${v.color}) ${estado} : S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
-    });
-    msg += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A%0A¡Muchas gracias por tu preferencia! 😊`;
-    window.open(`https://wa.me/51${grupo.telefono.replace(/\D/g,'')}?text=${msg}`, '_blank');
-  };
-
-  const exportarExcel = () => {
-    let csv = "data:text/csv;charset=utf-8,Fecha,Cliente,Pueblo,Estado,Producto,Cantidad,Total S/\n";
-    ventasDelDiaOAlmacen.forEach(v => {
-      const pn = productos.find(p => p.id === v.producto_id)?.nombre;
-      const est = v.estado_pedido || 'Entregado';
-      csv += `${new Date(v.created_at).toLocaleDateString()},${v.cliente_nombre},${v.localidad},${est},${pn},${v.cantidad},${(v.precio_venta_unitario * v.cantidad).toFixed(2)}\n`;
-    });
-    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", `Cierre_BJC_${fechaConsulta}.csv`); link.click();
-  };
-
-  const glassCard = { backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', boxShadow: `0 10px 15px -3px ${FUCSIA_PRINCIPAL}10`, border: '1px solid #FFF1F2' };
-  const bjInput = { padding: '14px', borderRadius: '12px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px' };
+  // --- ESTILOS ADAPTATIVOS ---
+  const glassCard = { backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', boxShadow: `0 10px 15px -3px ${FUCSIA_PRINCIPAL}10`, border: '1px solid #FFF1F2' };
+  const bjInput = { padding: '14px', borderRadius: '12px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box' };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: '#1E1B1C', fontFamily: 'system-ui, sans-serif' }}>
       
-      <header style={{ backgroundColor: '#ffffff', padding: '15px 25px', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 6px -1px ${FUCSIA_PRINCIPAL}20` }}>
+      {/* HEADER FLEXIBLE */}
+      <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 6px -1px ${FUCSIA_PRINCIPAL}20`, flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>BJ</div>
-          <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>IMPORTACIONES</h2>
+          <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '35px', height: '35px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>BJ</div>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>IMPORTACIONES</h2>
         </div>
-        <div style={{ display: 'flex', gap: '10px', backgroundColor: `#FCA5D430`, padding: '5px', borderRadius: '14px' }}>
-          <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>VENTAS</button>
-          <button onClick={() => setVista('contabilidad')} style={{ backgroundColor: vista === 'contabilidad' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'contabilidad' ? '#fff' : FUCSIA_PRINCIPAL, padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>GESTIÓN</button>
+        <div style={{ display: 'flex', gap: '5px', backgroundColor: `#FCA5D430`, padding: '4px', borderRadius: '12px' }}>
+          <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '8px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>VENTAS</button>
+          <button onClick={() => setVista('contabilidad')} style={{ backgroundColor: vista === 'contabilidad' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'contabilidad' ? '#fff' : FUCSIA_PRINCIPAL, padding: '8px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>GESTIÓN</button>
         </div>
       </header>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 15px' }}>
         
         {vista === 'ventas' && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '35px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
               <div style={glassCard}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                  <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '800', fontSize: '14px' }}>CAJA HOY</span>
-                  <button onClick={exportarExcel} style={{ backgroundColor: `#FCA5D420`, border: 'none', padding: '6px 12px', borderRadius: '8px', color: FUCSIA_PRINCIPAL, cursor: 'pointer', fontWeight: 'bold' }}>EXCEL</button>
-                </div>
-                <h2 style={{ margin: 0, fontSize: '2.5rem' }}>S/ {totalesDia.caja.toFixed(2)}</h2>
-                <div style={{ color: '#16A34A', fontWeight: 'bold' }}>Ganancia Hoy: S/ {totalesDia.ganancia.toFixed(2)}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '800', fontSize: '12px' }}>CAJA HOY</span><button onClick={() => {
+                  let csv = "data:text/csv;charset=utf-8,Fecha,Cliente,Pueblo,Estado,Item,Cant,Total\n";
+                  ventasDelDiaOAlmacen.forEach(v => { csv += `${getFechaPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${v.estado_pedido},${productos.find(p=>p.id===v.producto_id)?.nombre},${v.cantidad},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`; });
+                  const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `Respaldo_BJ_${fechaConsulta}.csv`; link.click();
+                }} style={{ backgroundColor: `#FCA5D420`, border: 'none', padding: '4px 8px', borderRadius: '6px', color: FUCSIA_PRINCIPAL, cursor: 'pointer', fontWeight: 'bold', fontSize: '10px' }}>EXCEL</button></div>
+                <h2 style={{ margin: '5px 0', fontSize: '2.5rem' }}>S/ {totalesDia.caja.toFixed(2)}</h2>
+                <div style={{ color: '#16A34A', fontWeight: 'bold', fontSize: '14px' }}>Ganancia Hoy: S/ {totalesDia.ganancia.toFixed(2)}</div>
               </div>
-
-              <div style={glassCard}>
-                <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '800', fontSize: '14px', display: 'block', marginBottom: '15px' }}>MAPA CHICLAYO</span>
-                <div style={{ width: '100%', height: '120px' }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie data={datosPorZona} cx="50%" cy="50%" innerRadius={35} outerRadius={50} dataKey="value">
-                        {datosPorZona.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div style={{ ...glassCard, backgroundColor: FUCSIA_PRINCIPAL, color: '#fff' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '14px' }}>🏆 PRODUCTO ESTRELLA</span>
-                {rankingEstrellas[0] ? (
-                  <div style={{ marginTop: '15px' }}>
-                    <h3 style={{ margin: 0 }}>{rankingEstrellas[0].nombre}</h3>
-                    <p style={{ margin: 0, opacity: 0.8 }}>S/ {rankingEstrellas[0].gananciaTotal.toFixed(2)} ganancia</p>
-                  </div>
-                ) : <p>Sin ventas...</p>}
+              <div style={{ ...glassCard, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ width: '40%' }}><span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '800', fontSize: '12px' }}>ZONAS</span><div style={{ height: '80px' }}><ResponsiveContainer><PieChart><Pie data={datosPorZona} innerRadius={20} outerRadius={35} dataKey="value">{datosPorZona.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie></PieChart></ResponsiveContainer></div></div>
+                <div style={{ width: '55%', textAlign: 'right' }}><span style={{ fontWeight: 'bold', fontSize: '12px', color: FUCSIA_PRINCIPAL }}>ESTRELLA 🏆</span><div style={{ fontSize: '1rem', fontWeight: 'bold', marginTop: '5px' }}>{ventas.length > 0 ? (productos.find(p=>p.id === (ventas.reduce((a,b)=>((ventas.filter(v=>v.producto_id===a.producto_id).length > ventas.filter(v=>v.producto_id===b.producto_id).length)?a:b))).producto_id)?.nombre) : '---'}</div></div>
               </div>
             </div>
 
-            <div style={{ ...glassCard, marginBottom: '35px', border: `2px solid #FCA5D4` }}>
-              <h4 style={{ marginTop: 0, marginBottom: '20px', color: FUCSIA_PRINCIPAL }}>Datos del Cliente</h4>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-                <input 
-                  list="lista-clientes"
-                  placeholder="👤 Nombre del Cliente" 
-                  value={cliente} 
-                  onChange={handleClienteChange} 
-                  style={bjInput} 
-                />
-                <datalist id="lista-clientes">
-                  {clientesUnicos.map((c, i) => <option key={i} value={c} />)}
-                </datalist>
-
+            <div style={{ ...glassCard, border: `2px solid #FCA5D4` }}>
+              <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Registrar Pedido</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                <input list="c-list" placeholder="👤 Nombre Cliente" value={cliente} onChange={handleClienteChange} style={bjInput} />
+                <datalist id="c-list">{clientesUnicos.map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={bjInput} />
                 <input placeholder="📍 Pueblo / Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={bjInput} />
               </div>
 
               {carrito.length > 0 && (
-                <div style={{ backgroundColor: '#FFF5F7', border: `2px solid ${FUCSIA_PRINCIPAL}`, borderRadius: '16px', padding: '20px', marginBottom: '25px' }}>
-                  <h4 style={{ margin: '0 0 15px 0', color: FUCSIA_PRINCIPAL, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>🛒 Carrito de {cliente || 'Cliente'}</span>
-                    <span>{carrito.length} ítems</span>
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px' }}>
-                    {carrito.map((item, index) => (
-                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid #FCC2E2' }}>
-                        <div>
-                          <strong style={{ color: '#1E1B1C' }}>{item.cantidad}x {item.nombre}</strong> <small>({item.color})</small>
-                        </div>
-                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                          <strong style={{ color: '#1E1B1C' }}>S/ {(item.precio_venta * item.cantidad).toFixed(2)}</strong>
-                          <button onClick={() => quitarDelCarrito(index)} style={{ background: 'none', border: 'none', color: '#E11D48', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>X</button>
-                        </div>
+                <div style={{ backgroundColor: '#FFF5F7', border: `2px solid ${FUCSIA_PRINCIPAL}`, borderRadius: '16px', padding: '15px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {carrito.map((i, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', borderBottom: '1px solid #FCC2E2', paddingBottom: '8px' }}>
+                        <span>{i.cantidad}x {i.nombre} <small>({i.color})</small></span>
+                        <div style={{ display: 'flex', gap: '15px' }}><strong>S/ {(i.precio_venta * i.cantidad).toFixed(2)}</strong><button onClick={() => quitarDelCarrito(idx)} style={{ color: FUCSIA_PRINCIPAL, border: 'none', background: 'none', fontWeight: 'bold' }}>X</button></div>
                       </div>
                     ))}
                   </div>
-                  <h3 style={{ margin: '0 0 15px 0', color: '#1E1B1C', textAlign: 'right', fontSize: '1.5rem' }}>
-                    Total Pedido: S/ {carrito.reduce((acc, i) => acc + (i.precio_venta * i.cantidad), 0).toFixed(2)}
-                  </h3>
-                  
-                  {/* NUEVA BOTONERA CON OPCIÓN DE ALMACÉN */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                    <button onClick={() => finalizarVentaLote('Entregado', false)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      ✅ PAGAR Y ENTREGAR
-                    </button>
-                    <button onClick={() => finalizarVentaLote('En Almacén', false)} style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      📦 GUARDAR EN ALMACÉN
-                    </button>
-                    <button onClick={() => finalizarVentaLote('Entregado', true)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', gridColumn: '1 / -1' }}>
-                      📱 ENTREGAR Y ENVIAR WHATSAPP
-                    </button>
+                  <div style={{ marginTop: '15px', borderTop: `1px dashed ${FUCSIA_PRINCIPAL}`, paddingTop: '10px', textAlign: 'right' }}>
+                    <div style={{ marginBottom: '10px' }}><span style={{ fontSize: '12px', fontWeight: 'bold', color: FUCSIA_PRINCIPAL }}>DESCUENTO S/ </span><input type="number" value={descuento} onChange={e=>setDescuento(Number(e.target.value))} style={{ width: '80px', padding: '8px', borderRadius: '8px', border: `2px solid ${FUCSIA_PRINCIPAL}` }} /></div>
+                    <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Total: S/ {(carrito.reduce((acc, i) => acc + (i.precio_venta * i.cantidad), 0) - descuento).toFixed(2)}</h3>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
+                    <button onClick={() => finalizarVentaLote('Entregado', false)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>✅ PAGAR</button>
+                    <button onClick={() => finalizarVentaLote('En Almacén', false)} style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>📦 ALMACÉN</button>
+                    <button onClick={() => finalizarVentaLote('Entregado', true)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', gridColumn: '1/3' }}>📱 ENVIAR TICKET WHATSAPP</button>
                   </div>
                 </div>
               )}
 
-              <input placeholder="🔍 Buscar producto para agregar al carrito..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...bjInput, border: `2px solid #FCC2E2` }} />
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '25px', maxHeight: '500px', overflowY: 'auto' }}>
+              <input placeholder="🔍 Buscar producto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...bjInput, border: `2px solid #FCC2E2`, marginBottom: '20px' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '15px', maxHeight: '450px', overflowY: 'auto', padding: '5px' }}>
                 {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(p => (
-                  <div key={p.id} style={{ border: '2px solid #FFF1F2', padding: '20px', borderRadius: '18px', backgroundColor: '#fff', position: 'relative' }}>
-                    
-                    <button onClick={() => eliminarProductoCatalogo(p)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: `#FCA5D450` }}>🗑️</button>
-                    
-                    <strong style={{ fontSize: '17px', display: 'block', marginBottom: '10px', paddingRight: '20px' }}>{p.nombre}</strong>
-                    
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                      <select onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInput, padding: '8px', flex: 1 }}>
-                        {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
-                      </select>
-                      <div style={{ display: 'flex', border: `2px solid #FCC2E2`, borderRadius: '10px' }}>
-                        <button onClick={() => setCantidades({...cantidades, [p.id]: Math.max(1, (cantidades[p.id] || 1) - 1)})} style={{ padding: '8px', border: 'none', background: 'none' }}>-</button>
-                        <span style={{ alignSelf: 'center', fontWeight: 'bold', width: '25px', textAlign: 'center' }}>{cantidades[p.id] || 1}</span>
-                        <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ padding: '8px', border: 'none', background: 'none' }}>+</button>
-                      </div>
+                  <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '15px', borderRadius: '18px', backgroundColor: '#fff', position: 'relative' }}>
+                    <button onClick={() => { if(confirm("¿Eliminar del catálogo?")) supabase.from('productos').delete().eq('id', p.id); }} style={{ position: 'absolute', top: '8px', right: '8px', border: 'none', background: 'none', color: '#eee' }}>🗑️</button>
+                    <strong style={{ display: 'block', height: '35px', overflow: 'hidden', fontSize: '13px' }}>{p.nombre}</strong>
+                    <select onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInput, padding: '5px', fontSize: '11px', marginBottom: '8px', marginTop: '5px' }}>
+                      {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
+                    </select>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '10px' }}>
+                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.max(1, (cantidades[p.id] || 1) - 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '5px', width: '25px' }}>-</button>
+                      <span style={{ fontWeight: 'bold' }}>{cantidades[p.id] || 1}</span>
+                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '5px', width: '25px' }}>+</button>
                     </div>
-                    <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#E5E7EB', color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      {p.stock > 0 ? `AGREGAR S/ ${(p.precio_venta * (cantidades[p.id] || 1)).toFixed(2)} 🛒` : 'AGOTADO'}
+                    <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#eee', color: '#fff', border: 'none', padding: '10px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                      {p.stock > 0 ? `AGREGAR S/ ${p.precio_venta}` : 'AGOTADO'}
                     </button>
-                    <small style={{ display: 'block', textAlign: 'center', marginTop: '10px', color: p.stock < 5 ? FUCSIA_PRINCIPAL : '#64748b' }}>Stock: {p.stock}</small>
+                    <small style={{ display: 'block', textAlign: 'center', marginTop: '8px', color: p.stock < 5 ? FUCSIA_PRINCIPAL : '#64748b' }}>Stock: {p.stock}</small>
                   </div>
                 ))}
               </div>
             </div>
 
             <div style={glassCard}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-                <div>
-                  <h4 style={{ margin: 0, color: '#1E1B1C' }}>Historial y Almacén</h4>
-                  <small style={{ color: '#64748b' }}>Muestra compras de la fecha y TODO lo que está en almacén</small>
-                </div>
-                <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ padding: '8px', borderRadius: '10px', border: `2px solid #FCA5D4` }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                <h4 style={{ margin: 0 }}>Historial y Almacén</h4>
+                <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ padding: '8px', borderRadius: '10px', border: `2px solid #FCA5D4`, fontSize: '13px' }} />
               </div>
-              
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {ventasAgrupadas.map(grupo => {
-                  const itemsEnAlmacen = grupo.items.filter(i => i.estado_pedido === 'En Almacén').length;
-                  return (
-                  <div key={grupo.id_principal} style={{ padding: '20px', backgroundColor: '#FFF5F7', borderRadius: '16px', border: `1px solid ${itemsEnAlmacen > 0 ? FUCSIA_PRINCIPAL : '#FCC2E2'}` }}>
-                    
-                    {/* CABECERA DEL PEDIDO */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #FFF1F2', paddingBottom: '15px', marginBottom: '15px', gap: '10px' }}>
-                      <div>
-                        <strong style={{ color: FUCSIA_PRINCIPAL, fontSize: '18px' }}>{grupo.cliente_nombre}</strong> <span style={{color: '#64748b'}}>({grupo.localidad})</span>
-                        {itemsEnAlmacen > 0 && <span style={{ marginLeft: '10px', backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}>📦 {itemsEnAlmacen} En Almacén</span>}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <strong style={{ fontSize: '18px', color: '#1E1B1C' }}>S/ {grupo.total.toFixed(2)}</strong>
-                        <button onClick={() => enviarWhatsAppGrupo(grupo)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          📱 Ticket
-                        </button>
-                      </div>
+                {ventasAgrupadas.map(g => (
+                  <div key={g.id_principal} style={{ padding: '18px', backgroundColor: '#FFF5F7', borderRadius: '18px', border: `1px solid ${g.items.some(i=>i.estado_pedido==='En Almacén') ? FUCSIA_PRINCIPAL : '#FCC2E2'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div><strong style={{ color: FUCSIA_PRINCIPAL, fontSize: '16px' }}>{g.cliente_nombre}</strong> <small>({g.localidad})</small></div>
+                      <button onClick={() => {
+                        let m = `¡Hola *${g.cliente_nombre}*! 👋 Ticket B J Importaciones.%0A%0A`;
+                        g.items.forEach(v => { m += `- ${v.cantidad}x ${productos.find(p=>p.id===v.producto_id)?.nombre} (${v.color}): S/ ${(v.precio_venta_unitario*v.cantidad).toFixed(2)}%0A`; });
+                        m += `%0A*TOTAL: S/ ${g.total.toFixed(2)}*%0A¡Gracias! 😊`;
+                        window.open(`https://wa.me/51${g.telefono.replace(/\D/g,'')}?text=${m}`, '_blank');
+                      }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer' }}>📱 Ticket</button>
                     </div>
-
-                    {/* ITEMS DENTRO DEL PEDIDO */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {grupo.items.map(v => (
-                        <div key={v.id}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {g.items.map(v => (
+                        <div key={v.id} style={{ backgroundColor: '#fff', padding: '12px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           {idVentaEditando === v.id ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', backgroundColor: `#FCA5D430`, padding: '15px', borderRadius: '12px' }}>
-                              <input style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '8px' }} value={formEditVenta.cliente_nombre} onChange={e => setFormEditVenta({...formEditVenta, cliente_nombre: e.target.value})} />
-                              <input style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '8px' }} value={formEditVenta.localidad} onChange={e => setFormEditVenta({...formEditVenta, localidad: e.target.value})} />
-                              <input type="number" style={{ width: '80px', padding: '10px', border: 'none', borderRadius: '8px' }} value={formEditVenta.cantidad} onChange={e => setFormEditVenta({...formEditVenta, cantidad: Number(e.target.value)})} />
-                              <button onClick={guardarCambiosVenta} style={{ backgroundColor: '#16A34A', color: 'white', padding: '10px 15px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>OK</button>
-                              <button onClick={() => setIdVentaEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: FUCSIA_PRINCIPAL }}>X</button>
+                            <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                              <input style={{ flex: 1, padding: '5px' }} type="number" value={formEditVenta.cantidad} onChange={e=>setFormEditVenta({...formEditVenta, cantidad: Number(e.target.value)})} />
+                              <button onClick={guardarCambiosVenta} style={{ backgroundColor: '#16A34A', color: '#fff', border: 'none', borderRadius: '5px', padding: '5px 10px' }}>OK</button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '10px', borderLeft: v.estado_pedido === 'En Almacén' ? `4px solid ${FUCSIA_PRINCIPAL}` : 'none' }}>
-                              <div>
-                                <strong style={{ color: '#1E1B1C' }}>{v.cantidad}x {productos.find(p => p.id === v.producto_id)?.nombre}</strong> | <small>Color: {v.color}</small>
-                                {v.estado_pedido === 'En Almacén' && <small style={{ color: FUCSIA_PRINCIPAL, fontWeight: 'bold', display: 'block' }}>📦 Esperando retiro</small>}
-                              </div>
+                            <>
+                              <div style={{ fontSize: '13px' }}><strong>{v.cantidad}x {productos.find(p => p.id === v.producto_id)?.nombre}</strong> <br/> <small>{v.color} {v.estado_pedido==='En Almacén' && <span style={{color:FUCSIA_PRINCIPAL, fontWeight:'bold'}}>📦 ALMACÉN</span>}</small></div>
                               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <span style={{ fontWeight: '900', color: '#16A34A' }}>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</span>
-                                
-                                {v.estado_pedido === 'En Almacén' && (
-                                  <button onClick={() => marcarComoEntregado(v.id)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>ENTREGAR</button>
-                                )}
-
-                                <button onClick={() => prepararEdicionVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✏️</button>
-                                <button onClick={() => borrarVenta(v)} style={{ background: 'none', border: 'none', fontSize: '18px', color: '#E11D48', cursor: 'pointer' }}>🗑️</button>
+                                <span style={{ fontWeight: 'bold', color: '#16A34A' }}>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</span>
+                                {v.estado_pedido === 'En Almacén' && <button onClick={() => marcarComoEntregado(v.id)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>ENTREGAR</button>}
+                                <button onClick={() => prepararEdicionVenta(v)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✏️</button>
+                                <button onClick={() => borrarVenta(v)} style={{ border: 'none', background: 'none', color: FUCSIA_PRINCIPAL, fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
                               </div>
-                            </div>
+                            </>
                           )}
                         </div>
                       ))}
                     </div>
-
+                    <div style={{ textAlign: 'right', fontWeight: '900', fontSize: '15px', marginTop: '10px', color: '#1E1B1C' }}>Total Pedido: S/ {g.total.toFixed(2)}</div>
                   </div>
-                )})}
-                {ventasAgrupadas.length === 0 && <p style={{textAlign: 'center', color: '#64748b'}}>No hay operaciones en esta fecha ni productos en almacén.</p>}
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {/* ================= VISTA: CONTABILIDAD Y GESTIÓN ================= */}
+        {/* ================= GESTIÓN ================= */}
         {vista === 'contabilidad' && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-              
-              <div style={{ ...glassCard, borderLeft: `8px solid ${FUCSIA_PRINCIPAL}` }}>
-                <small style={{ color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>GASTOS E INVERSIONES</small>
-                <h2 style={{ margin: 0 }}>S/ {resumenFinanciero.gastos.toFixed(2)}</h2>
-              </div>
-              
-              <div style={{ ...glassCard, borderLeft: '8px solid #16A34A' }}>
-                <small style={{ color: '#16A34A', fontWeight: 'bold' }}>INGRESOS ADICIONALES</small>
-                <h2 style={{ margin: 0, color: '#16A34A' }}>S/ {resumenFinanciero.ingresosAdicionales.toFixed(2)}</h2>
-              </div>
-              
-              <div style={{ ...glassCard, borderLeft: '8px solid #3B82F6' }}>
-                <small style={{ color: '#3B82F6', fontWeight: 'bold' }}>GANANCIA REAL NETA</small>
-                <h2 style={{ margin: 0, color: '#3B82F6' }}>S/ {resumenFinanciero.gananciaNetaVentas.toFixed(2)}</h2>
-              </div>
-
-              <div style={{ ...glassCard, backgroundColor: FUCSIA_PRINCIPAL, color: '#fff' }}>
-                <small style={{ fontWeight: 'bold' }}>DINERO EN CAJA ACTUAL</small>
-                <h2 style={{ margin: 0 }}>S/ {resumenFinanciero.cajaActual.toFixed(2)}</h2>
-              </div>
-
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
+              <div style={{ ...glassCard, borderLeft: `6px solid ${FUCSIA_PRINCIPAL}` }}><small style={{fontSize:'10px', fontWeight:'bold'}}>GASTOS / COMPRAS</small><h4 style={{ margin: 0 }}>S/ {resumenFinanciero.gastos.toFixed(2)}</h4></div>
+              <div style={{ ...glassCard, borderLeft: '6px solid #16A34A' }}><small style={{fontSize:'10px', fontWeight:'bold'}}>INGRESOS EXTRAS</small><h4 style={{ margin: 0 }}>S/ {resumenFinanciero.extras.toFixed(2)}</h4></div>
+              <div style={{ ...glassCard, borderLeft: '8px solid #3B82F6' }}><small style={{fontSize:'10px', fontWeight:'bold'}}>GANANCIA NETA</small><h4 style={{ margin: 0 }}>S/ {resumenFinanciero.gananciaVentas.toFixed(2)}</h4></div>
+              <div style={{ ...glassCard, backgroundColor: FUCSIA_PRINCIPAL, color: '#fff' }}><small style={{fontSize:'10px', fontWeight:'bold'}}>CAJA ACTUAL</small><h4 style={{ margin: 0 }}>S/ {resumenFinanciero.cajaActual.toFixed(2)}</h4></div>
             </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px' }}>
-              
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Valor de Mercadería en Tienda</h4>
-                  <div style={{ width: '100%', height: '200px', marginTop: '15px' }}>
-                    <ResponsiveContainer>
-                      <BarChart data={valorInventario}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="nombre" fontSize={12} />
-                        <Tooltip formatter={(value) => `S/ ${Number(value).toFixed(2)}`} />
-                        <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
-                          {valorInventario.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px', borderTop: '2px solid #FFF1F2', paddingTop: '15px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <small style={{ color: '#64748b', fontWeight: 'bold' }}>Costo Invertido</small>
-                      <h3 style={{ margin: 0, color: '#1E1B1C', fontSize: '1.2rem' }}>S/ {valorInventario[0].valor.toFixed(2)}</h3>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <small style={{ color: '#64748b', fontWeight: 'bold' }}>Venta al Público</small>
-                      <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontSize: '1.2rem' }}>S/ {valorInventario[1].valor.toFixed(2)}</h3>
-                    </div>
+                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Valor de Mercadería</h4>
+                  <div style={{ height: '200px' }}><ResponsiveContainer><BarChart data={valorInventario}><XAxis dataKey="nombre" /><Tooltip formatter={(v)=>`S/ ${Number(v).toFixed(2)}`} /><Bar dataKey="valor" radius={[8,8,0,0]} /></BarChart></ResponsiveContainer></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                    <div style={{ textAlign: 'center' }}><small>Invertido</small><br/><strong>S/ {valorInventario[0].valor.toFixed(2)}</strong></div>
+                    <div style={{ textAlign: 'center' }}><small>Venta Público</small><br/><strong style={{ color: FUCSIA_PRINCIPAL }}>S/ {valorInventario[1].valor.toFixed(2)}</strong></div>
                   </div>
                 </div>
 
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Registrar Movimiento Financiero</h4>
-                  <form style={{ display: 'flex', flexDirection: 'column', gap: '15px' }} onSubmit={registrarMovimientoFinanciero}>
-                    <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInput}>
-                      <option value="Gasto Local">🏪 Gasto Operativo (Luz, alquiler)</option>
-                      <option value="Compra Stock">📦 Compra de Mercadería</option>
-                      <option value="Ingreso Adicional">💰 Ingreso Adicional</option>
-                      <option value="Inversión">💵 Inversión Inicial</option>
-                      <option value="Retiro Ganancias">🏧 Retiro Personal</option>
-                    </select>
-                    <input placeholder="Descripción del movimiento" value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={bjInput} />
+                  <h4 style={{ marginTop: 0 }}>Nuevo Gasto / Ingreso</h4>
+                  <form onSubmit={registrarFinanzas} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInput}><option value="Gasto Local">Gasto Local</option><option value="Compra Stock">Compra Stock</option><option value="Ingreso Adicional">Ingreso Adicional</option><option value="Inversión">Inversión Inicial</option><option value="Retiro Ganancias">Retiro Ganancias</option></select>
+                    <input placeholder="Descripción" value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={bjInput} />
                     <input type="number" step="0.01" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: Number(e.target.value)})} style={bjInput} />
-                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold' }}>GUARDAR REGISTRO</button>
+                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer' }}>GUARDAR REGISTRO</button>
                   </form>
                 </div>
 
-                <div style={{ ...glassCard, border: `2px solid #F786C1` }}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Cargar Nuevo Producto</h4>
-                  <form style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onSubmit={agregarProductoAlStock}>
+                <div style={{ ...glassCard, border: `2px solid ${FUCSIA_PRINCIPAL}` }}>
+                  <h4 style={{ marginTop: 0 }}>Cargar Nuevo Producto</h4>
+                  <form onSubmit={agregarProductoAlStock} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input placeholder="Nombre" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={bjInput} />
                     <input placeholder="Colores (comas)" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={bjInput} />
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <input type="number" step="0.01" placeholder="Costo S/" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: e.target.value})} style={bjInput} />
-                      <input type="number" step="0.01" placeholder="Venta S/" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: e.target.value})} style={bjInput} />
-                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}><input type="number" step="0.01" placeholder="Costo" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: e.target.value})} style={bjInput} /><input type="number" step="0.01" placeholder="Venta" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: e.target.value})} style={bjInput} /></div>
                     <input type="number" placeholder="Stock" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={bjInput} />
-                    <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '16px', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold' }}>CREAR PRODUCTO</button>
+                    <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer' }}>CREAR PRODUCTO</button>
                   </form>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Ajuste de Stock Rápido</h4>
+                  <h4 style={{ marginTop: 0 }}>Ajuste de Stock Rápido</h4>
                   <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                      <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 10 }}>
-                        <tr style={{ textAlign: 'left', color: FUCSIA_PRINCIPAL, borderBottom: '2px solid #FFF1F2' }}>
-                          <th style={{ padding: '12px' }}>Producto</th>
-                          <th style={{ padding: '12px' }}>Stock</th>
-                          <th style={{ padding: '12px' }}>Acción</th>
-                        </tr>
-                      </thead>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}><tr><th style={{ textAlign: 'left', padding: '12px' }}>Producto</th><th>Stock</th><th></th></tr></thead>
                       <tbody>
                         {productos.map(p => (
-                          <tr key={`stock-${p.id}`} style={{ borderBottom: '1px solid #FFF1F2' }}>
+                          <tr key={p.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
                             <td style={{ padding: '12px' }}>{p.nombre}</td>
-                            <td style={{ padding: '12px', fontWeight: 'bold' }}>
-                              <input 
-                                type="number" 
-                                value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} 
-                                onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})}
-                                style={{ width: '70px', padding: '8px', borderRadius: '8px', border: `1px solid #FCC2E2`, textAlign: 'center' }}
-                              />
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <button onClick={() => guardarNuevoStock(p)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
-                                ACTUALIZAR
-                              </button>
-                            </td>
+                            <td style={{ textAlign: 'center' }}><input type="number" value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})} style={{ width: '55px', padding: '6px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }} /></td>
+                            <td style={{ textAlign: 'right' }}><button onClick={() => guardarNuevoStock(p)} style={{ background: '#1E1B1C', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>OK</button></td>
                           </tr>
                         ))}
                       </tbody>
@@ -659,32 +401,38 @@ export default function SistemaBJCMasterFinal() {
                 </div>
 
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Libro Diario</h4>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                      <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 10 }}>
-                        <tr style={{ textAlign: 'left', color: FUCSIA_PRINCIPAL, borderBottom: '2px solid #FFF1F2' }}>
-                          <th style={{ padding: '15px' }}>Concepto</th>
-                          <th style={{ padding: '15px' }}>Monto</th>
-                        </tr>
-                      </thead>
+                  <h4 style={{ marginTop: 0 }}>Libro Diario (Egresos/Ingresos)</h4>
+                  <div style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                    <table style={{ width: '100%', fontSize: '13px' }}>
+                      <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}><tr><th style={{ textAlign: 'left', padding: '10px' }}>Concepto</th><th style={{ textAlign: 'right', padding: '10px' }}>Monto</th><th style={{ padding: '10px' }}></th></tr></thead>
                       <tbody>
                         {finanzas.map(f => (
-                          <tr key={`fin-${f.id}`} style={{ borderBottom: '1px solid #FFF1F2' }}>
-                            <td style={{ padding: '15px' }}>
-                              <span style={{ fontSize: '11px', backgroundColor: `#FCA5D430`, color: FUCSIA_PRINCIPAL, padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{f.tipo}</span><br/>
-                              <div style={{ marginTop: '5px' }}>{f.descripcion}</div>
-                            </td>
-                            <td style={{ padding: '15px', fontWeight: 'bold', color: f.tipo.includes('Ingreso') || f.tipo.includes('Inversión') ? '#16A34A' : FUCSIA_PRINCIPAL }}>
-                              {f.tipo.includes('Ingreso') || f.tipo.includes('Inversión') ? '+' : '-'} S/ {f.monto.toFixed(2)}
-                            </td>
+                          <tr key={f.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                            {idFinanzaEditando === f.id ? (
+                               <td colSpan="3" style={{ padding: '15px', backgroundColor: '#FFF5F7', borderRadius: '12px' }}>
+                                  <input value={formEditFinanza.descripcion} onChange={e=>setFormEditFinanza({...formEditFinanza, descripcion:e.target.value})} style={{...bjInput, padding:'8px'}} />
+                                  <input type="number" value={formEditFinanza.monto} onChange={e=>setFormEditFinanza({...formEditFinanza, monto:Number(e.target.value)})} style={{...bjInput, marginTop:'8px', padding:'8px'}} />
+                                  <div style={{marginTop: '10px', display:'flex', gap:'10px'}}>
+                                    <button onClick={guardarCambiosFinanza} style={{backgroundColor:'#16A34A', color:'#fff', padding:'8px 15px', borderRadius:'10px', border:'none', cursor:'pointer', fontWeight:'bold'}}>GUARDAR</button>
+                                    <button onClick={()=>setIdFinanzaEditando(null)} style={{background:'none', border:'none', cursor:'pointer', fontWeight:'bold'}}>CANCELAR</button>
+                                  </div>
+                               </td>
+                            ) : (
+                              <>
+                                <td style={{ padding: '12px' }}><small style={{fontWeight:'bold', color:FUCSIA_PRINCIPAL}}>{f.tipo}</small><br/>{f.descripcion}</td>
+                                <td style={{ textAlign: 'right', padding: '12px', fontWeight: 'bold', color: f.tipo.includes('Ingreso') || f.tipo.includes('Inversión') ? '#16A34A' : FUCSIA_PRINCIPAL }}>S/ {f.monto.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '12px' }}>
+                                  <button onClick={()=> { setIdFinanzaEditando(f.id); setFormEditFinanza({...f}); }} style={{background:'none', border:'none', cursor:'pointer', fontSize: '16px'}}>✏️</button>
+                                  <button onClick={()=> { if(confirm("¿Borrar registro?")) supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '16px'}}>🗑️</button>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
