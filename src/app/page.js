@@ -17,7 +17,7 @@ export default function SistemaBJCMasterFinal() {
     return `${anio}-${mes}-${dia}`;
   };
 
-  // --- NUEVA LÓGICA DE ETIQUETAS POR ANTIGÜEDAD ---
+  // --- LÓGICA DE ETIQUETAS POR ANTIGÜEDAD ---
   const getEtiquetaProducto = (createdAt) => {
     const fechaCreacion = new Date(createdAt);
     const hoy = new Date();
@@ -25,7 +25,7 @@ export default function SistemaBJCMasterFinal() {
 
     if (diferenciaDias <= 3) return { tipo: 'NUEVO', icono: '✨', color: '#F786C1' };
     if (diferenciaDias > 3 && diferenciaDias <= 8) return { tipo: 'RECIENTE', icono: '📦', color: '#A13C6D' };
-    return null; // Más de 8 días sin etiqueta
+    return null;
   };
 
   // --- ESTADOS ---
@@ -61,7 +61,7 @@ export default function SistemaBJCMasterFinal() {
   useEffect(() => {
     document.title = "B J Importaciones | Gestión";
     cargarTodo();
-    const canal = supabase.channel('bj-full-v15')
+    const canal = supabase.channel('bj-full-v16')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas' }, () => cargarTodo())
@@ -70,9 +70,11 @@ export default function SistemaBJCMasterFinal() {
   }, []);
 
   const cargarTodo = async () => {
+    // SIEMPRE ORDENADO CRONOLÓGICAMENTE (Más nuevos arriba)
     const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
     const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
     const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
+    
     if (p) {
         setProductos(p);
         const cants = {}; const cols = {};
@@ -87,7 +89,7 @@ export default function SistemaBJCMasterFinal() {
     if (f) setFinanzas(f);
   };
 
-  // --- LÓGICA CRM ---
+  // --- LÓGICA CRM Y CALCULOS ---
   const clientesUnicos = useMemo(() => [...new Set(ventas.map(v => v.cliente_nombre))].filter(Boolean), [ventas]);
 
   const handleClienteChange = (e) => {
@@ -171,11 +173,6 @@ export default function SistemaBJCMasterFinal() {
     const ns = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
     await supabase.from('productos').update({ stock: ns }).eq('id', p.id);
     alert("Stock Actualizado");
-  };
-
-  const guardarCambiosFinanza = async () => {
-    await supabase.from('finanzas').update({ tipo: formEditFinanza.tipo, descripcion: formEditFinanza.descripcion, monto: formEditFinanza.monto }).eq('id', idFinanzaEditando);
-    setIdFinanzaEditando(null);
   };
 
   const exportarExcel = () => {
@@ -262,7 +259,6 @@ export default function SistemaBJCMasterFinal() {
                   const etiqueta = getEtiquetaProducto(p.created_at);
                   return (
                     <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '16px', borderRadius: '22px', backgroundColor: '#fff', position: 'relative', boxShadow: '0 4px 6px -1px rgba(247, 134, 193, 0.1)' }}>
-                      {/* ETIQUETAS DINÁMICAS (NUEVO O RECIENTE) */}
                       {etiqueta && (
                         <span style={{ position:'absolute', top: '-8px', left: '10px', backgroundColor: etiqueta.color, color: '#fff', fontSize: '10px', padding: '3px 8px', borderRadius: '10px', fontWeight: '900', zIndex: 10 }}>
                           {etiqueta.tipo} {etiqueta.icono}
@@ -295,14 +291,14 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={glassCard}>
-              <h4 style={{ margin: 0, marginBottom: '20px' }}>Historial de Pedidos Agrupados</h4>
+              <h4 style={{ margin: 0, marginBottom: '20px' }}>Historial de Pedidos</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {ventasAgrupadas.map(g => (
                   <div key={g.id_principal} style={{ padding: '15px', backgroundColor: '#FFF5F7', borderRadius: '18px', border: `1px solid ${g.items.some(i=>i.estado_pedido==='En Almacén') ? FUCSIA_PRINCIPAL : '#FCC2E2'}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                       <div><strong style={{ color: FUCSIA_PRINCIPAL, fontSize: '16px' }}>{g.cliente_nombre}</strong> <small>({g.localidad})</small></div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                         <div style={{ backgroundColor: '#16A34A', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px' }}>Total: S/ {g.total.toFixed(2)}</div>
+                         <div style={{ backgroundColor: '#16A34A', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px' }}>Total: S/ {g.total.toFixed(2)}</div>
                          <button onClick={() => {
                            let m = `¡Hola *${g.cliente_nombre}*! 👋 Ticket B J Importaciones.%0A%0A`;
                            g.items.forEach(v => { m += `- ${v.cantidad}x ${productos.find(p=>p.id===v.producto_id)?.nombre} (${v.color}): S/ ${(v.precio_venta_unitario*v.cantidad).toFixed(2)}%0A`; });
@@ -316,8 +312,8 @@ export default function SistemaBJCMasterFinal() {
                         <div style={{ fontSize: '12px' }}>{v.cantidad}x {productos.find(p => p.id === v.producto_id)?.nombre} <br/> <small>{v.color} {v.estado_pedido==='En Almacén' ? '📦 ALMACÉN' : ''}</small></div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <strong>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</strong>
-                          {v.estado_pedido === 'En Almacén' && <button onClick={async () => { if(confirm("¿Entregado?")) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', v.id); }} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' }}>ENTREGAR</button>}
-                          <button onClick={() => { setIdVentaEditando(v.id); setFormEditVenta({...v}); }} style={{ border: 'none', background: 'none' }}>✏️</button>
+                          {v.estado_pedido === 'En Almacén' && <button onClick={async () => { if(confirm("¿Entregado?")) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', v.id); }} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor:'pointer' }}>ENTREGAR</button>}
+                          <button onClick={() => { setIdVentaEditando(v.id); setFormEditVenta({...v}); }} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✏️</button>
                           <button onClick={async () => { if(confirm("Anular?")) { const pr = productos.find(p=>p.id===v.producto_id); if(pr) await supabase.from('productos').update({stock: pr.stock+v.cantidad}).eq('id', pr.id); await supabase.from('ventas').delete().eq('id', v.id); } }} style={{ border: 'none', background: 'none', color: FUCSIA_PRINCIPAL }}>🗑️</button>
                         </div>
                       </div>
@@ -329,7 +325,6 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ===================== VISTA GESTIÓN ===================== */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
@@ -342,7 +337,7 @@ export default function SistemaBJCMasterFinal() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0 }}>Registrar Movimiento Financiero</h4>
+                  <h4 style={{ marginTop: 0 }}>Registrar Movimiento</h4>
                   <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('finanzas').insert([formFinanzas]); setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:''}); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInput}>
                       <option value="Gasto Local">🏪 Gasto Local</option>
@@ -353,7 +348,7 @@ export default function SistemaBJCMasterFinal() {
                     </select>
                     <input placeholder="Descripción" value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={bjInput} />
                     <input type="number" step="0.01" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: Number(e.target.value)})} style={bjInput} />
-                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold' }}>GUARDAR</button>
+                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor:'pointer' }}>GUARDAR</button>
                   </form>
                 </div>
                 <div style={{ ...glassCard, border: `2px solid ${FUCSIA_PRINCIPAL}` }}>
@@ -363,46 +358,60 @@ export default function SistemaBJCMasterFinal() {
                     <input placeholder="Colores (comas)" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={bjInput} />
                     <div style={{ display: 'flex', gap: '10px' }}><input type="number" step="0.01" placeholder="Costo" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: Number(e.target.value)})} style={bjInput} /><input type="number" step="0.01" placeholder="Venta" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: Number(e.target.value)})} style={bjInput} /></div>
                     <input type="number" placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: Number(e.target.value)})} style={bjInput} />
-                    <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold' }}>CREAR PRODUCTO</button>
+                    <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor:'pointer' }}>CREAR PRODUCTO</button>
                   </form>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+                {/* DISEÑO ULTRA MODERNO: AJUSTE DE STOCK */}
                 <div style={glassCard}>
                   <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '15px' }}>Ajuste de Stock y Catálogo</h4>
                   <input placeholder="🔍 Buscar para editar o eliminar..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...bjInput, padding: '10px', marginBottom: '15px', border: `2px solid ${FUCSIA_PRINCIPAL}` }} />
-                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {productos.filter(p => p.nombre.toLowerCase().includes(busquedaStock.toLowerCase())).map(p => {
                         const etiqueta = getEtiquetaProducto(p.created_at);
+                        const isStockLow = p.stock < 5;
                         return (
                           <div key={p.id} style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between', 
-                            padding: '12px', 
-                            border: '1px solid #f1f1f1', 
-                            borderRadius: '15px', 
+                            padding: '15px', 
+                            border: etiqueta && etiqueta.tipo === 'NUEVO' ? `2px solid ${FUCSIA_PRINCIPAL}40` : '1px solid #f1f1f1', 
+                            borderRadius: '18px', 
                             backgroundColor: '#fff', 
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                            display: 'flex',
+                            flexDirection: 'column',
                             gap: '10px'
                           }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth:0 }}>
-                              {etiqueta && <span style={{ color: etiqueta.color, fontSize: '1.1rem', flexShrink: 0 }}>{etiqueta.icono}</span>}
-                              <span style={{ fontSize: '13px', fontWeight: '500', color: '#1E1B1C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                  {etiqueta && (
+                                    <span style={{ backgroundColor: etiqueta.color, color: '#fff', fontSize: '9px', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
+                                      {etiqueta.tipo} {etiqueta.icono}
+                                    </span>
+                                  )}
+                                  <strong style={{ fontSize: '14px', color: '#1E1B1C' }}>{p.nombre}</strong>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <span style={{ fontSize: '11px', color: isStockLow ? '#E11D48' : '#16A34A', fontWeight: 'bold', backgroundColor: isStockLow ? '#FFF1F2' : '#F0FDF4', padding: '2px 8px', borderRadius: '6px' }}>
+                                    {p.stock <= 0 ? 'AGOTADO' : `DISPONIBLE: ${p.stock}`}
+                                  </span>
+                                </div>
+                              </div>
+                              <button onClick={async ()=> { if(confirm(`¿Eliminar ${p.nombre}?`)) await supabase.from('productos').delete().eq('id', p.id); }} style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor:'pointer', fontSize: '18px' }}>🗑️</button>
                             </div>
                             
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#F8FAFC', padding: '8px', borderRadius: '12px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748B', flex: 1 }}>EDITAR STOCK:</span>
                               <input 
                                 type="number" 
                                 value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} 
                                 onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})} 
-                                style={{ width: '55px', padding: '8px', borderRadius: '10px', border: '1px solid #ddd', textAlign: 'center', fontSize: '13px' }} 
+                                style={{ width: '60px', padding: '6px', borderRadius: '8px', border: '1px solid #CBD5E1', textAlign: 'center', fontSize: '13px', fontWeight: 'bold' }} 
                               />
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button onClick={() => guardarNuevoStock(p)} style={{ background: '#1E1B1C', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold', cursor:'pointer' }}>OK</button>
-                                <button onClick={async ()=> { if(confirm(`¿Eliminar ${p.nombre}?`)) await supabase.from('productos').delete().eq('id', p.id); }} style={{ background: 'none', border: 'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '18px' }}>🗑️</button>
-                              </div>
+                              <button onClick={() => guardarNuevoStock(p)} style={{ background: '#1E1B1C', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor:'pointer' }}>GUARDAR</button>
                             </div>
                           </div>
                         );
