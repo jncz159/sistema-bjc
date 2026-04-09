@@ -17,12 +17,15 @@ export default function SistemaBJCMasterFinal() {
     return `${anio}-${mes}-${dia}`;
   };
 
-  // --- FUNCIÓN PARA DETECTAR PRODUCTOS NUEVOS (Menos de 7 días) ---
-  const esProductoNuevo = (createdAt) => {
+  // --- NUEVA LÓGICA DE ETIQUETAS POR ANTIGÜEDAD ---
+  const getEtiquetaProducto = (createdAt) => {
     const fechaCreacion = new Date(createdAt);
     const hoy = new Date();
-    const diferenciaDias = (hoy - fechaCreacion) / (1000 * 60 * 60 * 24);
-    return diferenciaDias <= 7; // Se considera nuevo por 7 días
+    const diferenciaDias = Math.floor((hoy - fechaCreacion) / (1000 * 60 * 60 * 24));
+
+    if (diferenciaDias <= 3) return { tipo: 'NUEVO', icono: '✨', color: '#F786C1' };
+    if (diferenciaDias > 3 && diferenciaDias <= 8) return { tipo: 'RECIENTE', icono: '📦', color: '#A13C6D' };
+    return null; // Más de 8 días sin etiqueta
   };
 
   // --- ESTADOS ---
@@ -58,7 +61,7 @@ export default function SistemaBJCMasterFinal() {
   useEffect(() => {
     document.title = "B J Importaciones | Gestión";
     cargarTodo();
-    const canal = supabase.channel('bj-realtime-v13')
+    const canal = supabase.channel('bj-full-v15')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas' }, () => cargarTodo())
@@ -70,7 +73,6 @@ export default function SistemaBJCMasterFinal() {
     const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
     const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
     const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
-    
     if (p) {
         setProductos(p);
         const cants = {}; const cols = {};
@@ -85,7 +87,7 @@ export default function SistemaBJCMasterFinal() {
     if (f) setFinanzas(f);
   };
 
-  // --- LÓGICA ---
+  // --- LÓGICA CRM ---
   const clientesUnicos = useMemo(() => [...new Set(ventas.map(v => v.cliente_nombre))].filter(Boolean), [ventas]);
 
   const handleClienteChange = (e) => {
@@ -222,10 +224,10 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={{ ...glassCard, border: `2px solid #FCA5D4` }}>
-              <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Datos del Cliente</h4>
+              <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Nuevo Pedido</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                <input list="cl" placeholder="👤 Cliente" value={cliente} onChange={handleClienteChange} style={bjInput} />
-                <datalist id="cl">{clientesUnicos.map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="clist" placeholder="👤 Cliente" value={cliente} onChange={handleClienteChange} style={bjInput} />
+                <datalist id="clist">{clientesUnicos.map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={bjInput} />
                 <input placeholder="📍 Pueblo / Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={bjInput} />
               </div>
@@ -256,37 +258,44 @@ export default function SistemaBJCMasterFinal() {
 
               <input placeholder="🔍 Buscar producto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...bjInput, border: `2px solid #FCC2E2`, marginBottom: '20px' }} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '20px', maxHeight: '500px', overflowY: 'auto', padding: '5px' }}>
-                {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map((p) => (
-                  <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '16px', borderRadius: '22px', backgroundColor: '#fff', position: 'relative', boxShadow: '0 4px 6px -1px rgba(247, 134, 193, 0.1)' }}>
-                    {/* ETIQUETA NUEVO BASADA EN TIEMPO (7 DÍAS) */}
-                    {esProductoNuevo(p.created_at) && <span style={{ position:'absolute', top: '-8px', left: '10px', backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', fontSize: '10px', padding: '3px 8px', borderRadius: '10px', fontWeight: '900', zIndex: 10 }}>NUEVO ✨</span>}
-                    
-                    <strong style={{ display: 'block', height: '38px', overflow: 'hidden', fontSize: '14px', color: '#1E1B1C' }}>{p.nombre}</strong>
-                    
-                    <div style={{ margin: '10px 0', padding: '6px', backgroundColor: p.stock < 5 ? '#FFF1F2' : '#F0FDF4', borderRadius: '10px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: p.stock < 5 ? '#E11D48' : '#16A34A' }}>STOCK: {p.stock}</span>
-                    </div>
+                {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map((p) => {
+                  const etiqueta = getEtiquetaProducto(p.created_at);
+                  return (
+                    <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '16px', borderRadius: '22px', backgroundColor: '#fff', position: 'relative', boxShadow: '0 4px 6px -1px rgba(247, 134, 193, 0.1)' }}>
+                      {/* ETIQUETAS DINÁMICAS (NUEVO O RECIENTE) */}
+                      {etiqueta && (
+                        <span style={{ position:'absolute', top: '-8px', left: '10px', backgroundColor: etiqueta.color, color: '#fff', fontSize: '10px', padding: '3px 8px', borderRadius: '10px', fontWeight: '900', zIndex: 10 }}>
+                          {etiqueta.tipo} {etiqueta.icono}
+                        </span>
+                      )}
+                      
+                      <strong style={{ display: 'block', height: '38px', overflow: 'hidden', fontSize: '14px', color: '#1E1B1C' }}>{p.nombre}</strong>
+                      
+                      <div style={{ margin: '10px 0', padding: '6px', backgroundColor: p.stock < 5 ? '#FFF1F2' : '#F0FDF4', borderRadius: '10px', textAlign: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: p.stock < 5 ? '#E11D48' : '#16A34A' }}>STOCK: {p.stock}</span>
+                      </div>
 
-                    <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInput, padding: '6px', fontSize: '12px', marginBottom: '10px' }}>
-                      {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
-                    </select>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginBottom: '14px', alignItems: 'center' }}>
-                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.max(1, (cantidades[p.id] || 1) - 1)})} style={{ border: '1px solid #FCC2E2', background: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>-</button>
-                      <span style={{ fontWeight: 'bold' }}>{cantidades[p.id] || 1}</span>
-                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: '1px solid #FCC2E2', background: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>+</button>
-                    </div>
+                      <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInput, padding: '6px', fontSize: '12px', marginBottom: '10px' }}>
+                        {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
+                      </select>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginBottom: '14px', alignItems: 'center' }}>
+                        <button onClick={() => setCantidades({...cantidades, [p.id]: Math.max(1, (cantidades[p.id] || 1) - 1)})} style={{ border: '1px solid #FCC2E2', background: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>-</button>
+                        <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{cantidades[p.id] || 1}</span>
+                        <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: '1px solid #FCC2E2', background: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>+</button>
+                      </div>
 
-                    <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#eee', color: '#fff', border: 'none', padding: '12px', borderRadius: '14px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                      {p.stock > 0 ? `AGREGAR S/ ${p.precio_venta}` : 'AGOTADO'}
-                    </button>
-                  </div>
-                ))}
+                      <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#eee', color: '#fff', border: 'none', padding: '10px', borderRadius: '14px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                        {p.stock > 0 ? `AGREGAR S/ ${p.precio_venta}` : 'AGOTADO'}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             <div style={glassCard}>
-              <h4 style={{ margin: 0, marginBottom: '20px' }}>Pedidos Agrupados</h4>
+              <h4 style={{ margin: 0, marginBottom: '20px' }}>Historial de Pedidos Agrupados</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {ventasAgrupadas.map(g => (
                   <div key={g.id_principal} style={{ padding: '15px', backgroundColor: '#FFF5F7', borderRadius: '18px', border: `1px solid ${g.items.some(i=>i.estado_pedido==='En Almacén') ? FUCSIA_PRINCIPAL : '#FCC2E2'}` }}>
@@ -299,7 +308,7 @@ export default function SistemaBJCMasterFinal() {
                            g.items.forEach(v => { m += `- ${v.cantidad}x ${productos.find(p=>p.id===v.producto_id)?.nombre} (${v.color}): S/ ${(v.precio_venta_unitario*v.cantidad).toFixed(2)}%0A`; });
                            m += `%0A*TOTAL PAGADO: S/ ${g.total.toFixed(2)}*%0A¡Gracias! 😊`;
                            window.open(`https://wa.me/51${g.telefono.replace(/\D/g,'')}?text=${m}`, '_blank');
-                         }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', cursor:'pointer' }}>📱 Ticket</button>
+                         }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', cursor:'pointer' }}>📱</button>
                       </div>
                     </div>
                     {g.items.map(v => (
@@ -320,7 +329,7 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ================= VISTA GESTIÓN ================= */}
+        {/* ===================== VISTA GESTIÓN ===================== */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
@@ -333,7 +342,7 @@ export default function SistemaBJCMasterFinal() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0 }}>Registrar Movimiento</h4>
+                  <h4 style={{ marginTop: 0 }}>Registrar Movimiento Financiero</h4>
                   <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('finanzas').insert([formFinanzas]); setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:''}); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInput}>
                       <option value="Gasto Local">🏪 Gasto Local</option>
@@ -361,31 +370,44 @@ export default function SistemaBJCMasterFinal() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Ajuste de Stock y Catálogo</h4>
+                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '15px' }}>Ajuste de Stock y Catálogo</h4>
                   <input placeholder="🔍 Buscar para editar o eliminar..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...bjInput, padding: '10px', marginBottom: '15px', border: `2px solid ${FUCSIA_PRINCIPAL}` }} />
-                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
-                      <tbody>
-                        {productos.filter(p => p.nombre.toLowerCase().includes(busquedaStock.toLowerCase())).map(p => (
-                          <tr key={p.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                            <td style={{ padding: '8px 0', position: 'relative' }}>
-                              {/* DESTAQUE DE NUEVO EN GESTIÓN */}
-                              {esProductoNuevo(p.created_at) && <span title="Producto Nuevo" style={{ marginRight: '5px', color: FUCSIA_PRINCIPAL }}>⚡</span>}
-                              <strong>{p.nombre}</strong>
-                            </td>
-                            <td style={{ width: '70px' }}>
-                              <input type="number" value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})} style={{ width: '55px', padding: '6px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }} />
-                            </td>
-                            <td style={{ width: '90px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '5px', justifyContent: 'flex-end' }}>
-                                <button onClick={() => guardarNuevoStock(p)} style={{ background: '#1E1B1C', color: '#fff', border: 'none', padding: '6px', borderRadius: '8px', fontSize: '10px', cursor:'pointer' }}>OK</button>
-                                <button onClick={async () => { if(confirm("¿Eliminar?")) await supabase.from('productos').delete().eq('id', p.id); }} style={{ background: 'none', border: 'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '16px' }}>🗑️</button>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {productos.filter(p => p.nombre.toLowerCase().includes(busquedaStock.toLowerCase())).map(p => {
+                        const etiqueta = getEtiquetaProducto(p.created_at);
+                        return (
+                          <div key={p.id} style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between', 
+                            padding: '12px', 
+                            border: '1px solid #f1f1f1', 
+                            borderRadius: '15px', 
+                            backgroundColor: '#fff', 
+                            gap: '10px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth:0 }}>
+                              {etiqueta && <span style={{ color: etiqueta.color, fontSize: '1.1rem', flexShrink: 0 }}>{etiqueta.icono}</span>}
+                              <span style={{ fontSize: '13px', fontWeight: '500', color: '#1E1B1C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</span>
+                            </div>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                              <input 
+                                type="number" 
+                                value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} 
+                                onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})} 
+                                style={{ width: '55px', padding: '8px', borderRadius: '10px', border: '1px solid #ddd', textAlign: 'center', fontSize: '13px' }} 
+                              />
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => guardarNuevoStock(p)} style={{ background: '#1E1B1C', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold', cursor:'pointer' }}>OK</button>
+                                <button onClick={async ()=> { if(confirm(`¿Eliminar ${p.nombre}?`)) await supabase.from('productos').delete().eq('id', p.id); }} style={{ background: 'none', border: 'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '18px' }}>🗑️</button>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
