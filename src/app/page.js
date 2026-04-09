@@ -17,16 +17,23 @@ export default function SistemaBJCMasterFinal() {
     return `${anio}-${mes}-${dia}`;
   };
 
+  // --- FUNCIÓN PARA DETECTAR PRODUCTOS NUEVOS (Menos de 7 días) ---
+  const esProductoNuevo = (createdAt) => {
+    const fechaCreacion = new Date(createdAt);
+    const hoy = new Date();
+    const diferenciaDias = (hoy - fechaCreacion) / (1000 * 60 * 60 * 24);
+    return diferenciaDias <= 7; // Se considera nuevo por 7 días
+  };
+
   // --- ESTADOS ---
   const [vista, setVista] = useState('ventas'); 
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [finanzas, setFinanzas] = useState([]);
-  
-  const [busqueda, setBusqueda] = useState(''); // Buscador catálogo
-  const [busquedaStock, setBusquedaStock] = useState(''); // Buscador ajuste stock
-  
+  const [busqueda, setBusqueda] = useState(''); 
+  const [busquedaStock, setBusquedaStock] = useState(''); 
   const [fechaConsulta, setFechaConsulta] = useState(getFechaPeru());
+  
   const [cliente, setCliente] = useState('');
   const [localidad, setLocalidad] = useState(''); 
   const [telefono, setTelefono] = useState(''); 
@@ -51,7 +58,7 @@ export default function SistemaBJCMasterFinal() {
   useEffect(() => {
     document.title = "B J Importaciones | Gestión";
     cargarTodo();
-    const canal = supabase.channel('bj-realtime-master-final')
+    const canal = supabase.channel('bj-realtime-v13')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas' }, () => cargarTodo())
@@ -60,9 +67,10 @@ export default function SistemaBJCMasterFinal() {
   }, []);
 
   const cargarTodo = async () => {
-    const { data: p } = await supabase.from('productos').select('*').order('nombre');
+    const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
     const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
     const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
+    
     if (p) {
         setProductos(p);
         const cants = {}; const cols = {};
@@ -77,7 +85,7 @@ export default function SistemaBJCMasterFinal() {
     if (f) setFinanzas(f);
   };
 
-  // --- CRM Y LÓGICA ---
+  // --- LÓGICA ---
   const clientesUnicos = useMemo(() => [...new Set(ventas.map(v => v.cliente_nombre))].filter(Boolean), [ventas]);
 
   const handleClienteChange = (e) => {
@@ -183,7 +191,6 @@ export default function SistemaBJCMasterFinal() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: '#1E1B1C', fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* HEADER */}
       <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 6px -1px ${FUCSIA_PRINCIPAL}20`, flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '35px', height: '35px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>BJ</div>
@@ -215,10 +222,10 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={{ ...glassCard, border: `2px solid #FCA5D4` }}>
-              <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Nuevo Pedido</h4>
+              <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL }}>Datos del Cliente</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                <input list="clist" placeholder="👤 Cliente" value={cliente} onChange={handleClienteChange} style={bjInput} />
-                <datalist id="clist">{clientesUnicos.map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="cl" placeholder="👤 Cliente" value={cliente} onChange={handleClienteChange} style={bjInput} />
+                <datalist id="cl">{clientesUnicos.map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={bjInput} />
                 <input placeholder="📍 Pueblo / Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={bjInput} />
               </div>
@@ -248,27 +255,29 @@ export default function SistemaBJCMasterFinal() {
               )}
 
               <input placeholder="🔍 Buscar producto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...bjInput, border: `2px solid #FCC2E2`, marginBottom: '20px' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '15px', maxHeight: '450px', overflowY: 'auto' }}>
-                {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(p => (
-                  <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '15px', borderRadius: '18px', backgroundColor: '#fff', position:'relative' }}>
-                    <strong style={{ display: 'block', height: '35px', overflow: 'hidden', fontSize: '13px' }}>{p.nombre}</strong>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '20px', maxHeight: '500px', overflowY: 'auto', padding: '5px' }}>
+                {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map((p) => (
+                  <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '16px', borderRadius: '22px', backgroundColor: '#fff', position: 'relative', boxShadow: '0 4px 6px -1px rgba(247, 134, 193, 0.1)' }}>
+                    {/* ETIQUETA NUEVO BASADA EN TIEMPO (7 DÍAS) */}
+                    {esProductoNuevo(p.created_at) && <span style={{ position:'absolute', top: '-8px', left: '10px', backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', fontSize: '10px', padding: '3px 8px', borderRadius: '10px', fontWeight: '900', zIndex: 10 }}>NUEVO ✨</span>}
                     
-                    {/* INDICADOR DE STOCK MUCHO MÁS VISIBLE */}
-                    <div style={{ margin: '8px 0', padding: '4px', backgroundColor: p.stock < 5 ? '#FFF1F2' : '#F0FDF4', borderRadius: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 'bold', color: p.stock < 5 ? FUCSIA_PRINCIPAL : '#16A34A' }}>STOCK: {p.stock}</span>
+                    <strong style={{ display: 'block', height: '38px', overflow: 'hidden', fontSize: '14px', color: '#1E1B1C' }}>{p.nombre}</strong>
+                    
+                    <div style={{ margin: '10px 0', padding: '6px', backgroundColor: p.stock < 5 ? '#FFF1F2' : '#F0FDF4', borderRadius: '10px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: p.stock < 5 ? '#E11D48' : '#16A34A' }}>STOCK: {p.stock}</span>
                     </div>
 
-                    <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInput, padding: '5px', fontSize: '11px', marginBottom: '10px' }}>
+                    <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInput, padding: '6px', fontSize: '12px', marginBottom: '10px' }}>
                       {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
                     </select>
                     
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
-                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.max(1, (cantidades[p.id] || 1) - 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '8px', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold' }}>-</button>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginBottom: '14px', alignItems: 'center' }}>
+                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.max(1, (cantidades[p.id] || 1) - 1)})} style={{ border: '1px solid #FCC2E2', background: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>-</button>
                       <span style={{ fontWeight: 'bold' }}>{cantidades[p.id] || 1}</span>
-                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '8px', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold' }}>+</button>
+                      <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: '1px solid #FCC2E2', background: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', color: FUCSIA_PRINCIPAL, fontWeight: 'bold' }}>+</button>
                     </div>
 
-                    <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#eee', color: '#fff', border: 'none', padding: '10px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: p.stock > 0 ? '#1E1B1C' : '#eee', color: '#fff', border: 'none', padding: '12px', borderRadius: '14px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                       {p.stock > 0 ? `AGREGAR S/ ${p.precio_venta}` : 'AGOTADO'}
                     </button>
                   </div>
@@ -277,20 +286,20 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={glassCard}>
-              <h4 style={{ margin: 0, marginBottom: '20px' }}>Historial de Pedidos Agrupados</h4>
+              <h4 style={{ margin: 0, marginBottom: '20px' }}>Pedidos Agrupados</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {ventasAgrupadas.map(g => (
                   <div key={g.id_principal} style={{ padding: '15px', backgroundColor: '#FFF5F7', borderRadius: '18px', border: `1px solid ${g.items.some(i=>i.estado_pedido==='En Almacén') ? FUCSIA_PRINCIPAL : '#FCC2E2'}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                       <div><strong style={{ color: FUCSIA_PRINCIPAL, fontSize: '16px' }}>{g.cliente_nombre}</strong> <small>({g.localidad})</small></div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                         <div style={{ backgroundColor: '#16A34A', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px' }}>S/ {g.total.toFixed(2)}</div>
+                         <div style={{ backgroundColor: '#16A34A', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px' }}>Total: S/ {g.total.toFixed(2)}</div>
                          <button onClick={() => {
                            let m = `¡Hola *${g.cliente_nombre}*! 👋 Ticket B J Importaciones.%0A%0A`;
                            g.items.forEach(v => { m += `- ${v.cantidad}x ${productos.find(p=>p.id===v.producto_id)?.nombre} (${v.color}): S/ ${(v.precio_venta_unitario*v.cantidad).toFixed(2)}%0A`; });
                            m += `%0A*TOTAL PAGADO: S/ ${g.total.toFixed(2)}*%0A¡Gracias! 😊`;
                            window.open(`https://wa.me/51${g.telefono.replace(/\D/g,'')}?text=${m}`, '_blank');
-                         }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', cursor:'pointer' }}>📱</button>
+                         }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', cursor:'pointer' }}>📱 Ticket</button>
                       </div>
                     </div>
                     {g.items.map(v => (
@@ -298,9 +307,9 @@ export default function SistemaBJCMasterFinal() {
                         <div style={{ fontSize: '12px' }}>{v.cantidad}x {productos.find(p => p.id === v.producto_id)?.nombre} <br/> <small>{v.color} {v.estado_pedido==='En Almacén' ? '📦 ALMACÉN' : ''}</small></div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <strong>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</strong>
-                          {v.estado_pedido === 'En Almacén' && <button onClick={async () => { if(confirm("¿Entregado?")) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', v.id); }} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor:'pointer' }}>ENTREGAR</button>}
-                          <button onClick={() => { setIdVentaEditando(v.id); setFormEditVenta({...v}); }} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✏️</button>
-                          <button onClick={async () => { if(confirm("Anular?")) { const pr = productos.find(p=>p.id===v.producto_id); if(pr) await supabase.from('productos').update({stock: pr.stock+v.cantidad}).eq('id', pr.id); await supabase.from('ventas').delete().eq('id', v.id); } }} style={{ border: 'none', background: 'none', color: FUCSIA_PRINCIPAL, cursor: 'pointer' }}>🗑️</button>
+                          {v.estado_pedido === 'En Almacén' && <button onClick={async () => { if(confirm("¿Entregado?")) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', v.id); }} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' }}>ENTREGAR</button>}
+                          <button onClick={() => { setIdVentaEditando(v.id); setFormEditVenta({...v}); }} style={{ border: 'none', background: 'none' }}>✏️</button>
+                          <button onClick={async () => { if(confirm("Anular?")) { const pr = productos.find(p=>p.id===v.producto_id); if(pr) await supabase.from('productos').update({stock: pr.stock+v.cantidad}).eq('id', pr.id); await supabase.from('ventas').delete().eq('id', v.id); } }} style={{ border: 'none', background: 'none', color: FUCSIA_PRINCIPAL }}>🗑️</button>
                         </div>
                       </div>
                     ))}
@@ -311,6 +320,7 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
+        {/* ================= VISTA GESTIÓN ================= */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
@@ -323,7 +333,7 @@ export default function SistemaBJCMasterFinal() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0 }}>Registrar Movimiento Financiero</h4>
+                  <h4 style={{ marginTop: 0 }}>Registrar Movimiento</h4>
                   <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('finanzas').insert([formFinanzas]); setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:''}); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInput}>
                       <option value="Gasto Local">🏪 Gasto Local</option>
@@ -358,7 +368,11 @@ export default function SistemaBJCMasterFinal() {
                       <tbody>
                         {productos.filter(p => p.nombre.toLowerCase().includes(busquedaStock.toLowerCase())).map(p => (
                           <tr key={p.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                            <td style={{ padding: '8px 0', fontWeight: 'bold' }}>{p.nombre}</td>
+                            <td style={{ padding: '8px 0', position: 'relative' }}>
+                              {/* DESTAQUE DE NUEVO EN GESTIÓN */}
+                              {esProductoNuevo(p.created_at) && <span title="Producto Nuevo" style={{ marginRight: '5px', color: FUCSIA_PRINCIPAL }}>⚡</span>}
+                              <strong>{p.nombre}</strong>
+                            </td>
                             <td style={{ width: '70px' }}>
                               <input type="number" value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})} style={{ width: '55px', padding: '6px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }} />
                             </td>
