@@ -17,6 +17,12 @@ export default function SistemaBJCMasterFinal() {
     return `${anio}-${mes}-${dia}`;
   };
 
+  // --- FUNCIÓN LIMPIADORA DE DECIMALES (SOLUCIÓN A LA COMA) ---
+  const handleInputMonto = (valor) => {
+    // Reemplaza coma por punto y permite solo números y un punto decimal
+    return valor.replace(',', '.').replace(/[^0-9.]/g, '');
+  };
+
   // --- LÓGICA DE ETIQUETAS POR ANTIGÜEDAD ---
   const getEtiquetaProducto = (createdAt) => {
     const fechaCreacion = new Date(createdAt);
@@ -40,7 +46,7 @@ export default function SistemaBJCMasterFinal() {
   const [cliente, setCliente] = useState('');
   const [localidad, setLocalidad] = useState(''); 
   const [telefono, setTelefono] = useState(''); 
-  const [tipoVenta, setTipoVenta] = useState('Mayor'); // 'Mayor' o 'Menor'
+  const [tipoVenta, setTipoVenta] = useState('Mayor'); 
   const [cantidades, setCantidades] = useState({});
   const [coloresElegidos, setColoresElegidos] = useState({});
   const [carrito, setCarrito] = useState([]);
@@ -64,7 +70,7 @@ export default function SistemaBJCMasterFinal() {
   useEffect(() => {
     document.title = "B J Importaciones | Gestión";
     cargarTodo();
-    const canal = supabase.channel('bj-full-v17')
+    const canal = supabase.channel('bj-full-v18')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => cargarTodo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas' }, () => cargarTodo())
@@ -148,29 +154,31 @@ export default function SistemaBJCMasterFinal() {
         nombre: p.nombre, 
         cantidad: cant, 
         color: color, 
-        precio_venta: precioBase, // Este es el que se podrá editar en el carrito
+        precio_venta: precioBase, 
         precio_compra: p.precio_compra 
     }]);
   };
 
-  const actualizarPrecioManual = (idx, nuevoPrecio) => {
+  const actualizarPrecioManual = (idx, valorBruto) => {
+    const valorLimpio = handleInputMonto(valorBruto);
     const nuevoCarrito = [...carrito];
-    nuevoCarrito[idx].precio_venta = Number(nuevoPrecio);
+    nuevoCarrito[idx].precio_venta = valorLimpio;
     setCarrito(nuevoCarrito);
   };
 
   const finalizarVentaLote = async (estado = 'Entregado', conWA = false) => {
     if (!cliente || !localidad) return alert("Faltan datos.");
-    const totalBruto = carrito.reduce((acc, i) => acc + (i.precio_venta * i.cantidad), 0);
+    const totalBruto = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0);
     const ratioDesc = totalBruto > 0 ? (descuento / totalBruto) : 0;
 
     const inserts = carrito.map(i => {
-      const subItem = i.precio_venta * i.cantidad;
+      const pVenta = Number(i.precio_venta);
+      const subItem = pVenta * i.cantidad;
       const descItem = subItem * ratioDesc;
       return { 
         cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: i.producto_id, 
-        cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
-        precio_costo_unitario: i.precio_compra, ganancia_total: ((i.precio_venta - i.precio_compra) * i.cantidad) - descItem, 
+        cantidad: i.cantidad, color: i.color, precio_venta_unitario: pVenta, 
+        precio_costo_unitario: i.precio_compra, ganancia_total: ((pVenta - i.precio_compra) * i.cantidad) - descItem, 
         estado_pedido: estado 
       };
     });
@@ -182,8 +190,8 @@ export default function SistemaBJCMasterFinal() {
         await supabase.from('productos').update({ stock: pr.stock - i.cantidad }).eq('id', i.producto_id);
       }
       if (conWA && telefono) {
-        let m = `¡Hola *${cliente}*! 👋 Ticket B J Importaciones Chiclayo.%0A%0A*MODO:* Venta al por ${tipoVenta.toLowerCase()}%0A${estado==='En Almacén'?'📦 *ESTADO:* En Almacén%0A':''}`;
-        carrito.forEach(i => { m += `- ${i.cantidad}x ${i.nombre} (${i.color}): S/ ${(i.precio_venta * i.cantidad).toFixed(2)}%0A`; });
+        let m = `¡Hola *${cliente}*! 👋 Ticket B J Importaciones Chiclayo.%0A%0A*MODO:* Venta por ${tipoVenta.toLowerCase()}%0A`;
+        carrito.forEach(i => { m += `- ${i.cantidad}x ${i.nombre} (${i.color}): S/ ${(Number(i.precio_venta) * i.cantidad).toFixed(2)}%0A`; });
         if(descuento>0) m += `%0A📉 Descuento Adicional: - S/ ${descuento.toFixed(2)}`;
         m += `%0A%0A*TOTAL FINAL: S/ ${(totalBruto - descuento).toFixed(2)}*%0A¡Gracias! 😊`;
         window.open(`https://wa.me/51${telefono.replace(/\D/g,'')}?text=${m}`, '_blank');
@@ -192,13 +200,18 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
+  const guardarCambiosFinanza = async () => {
+    await supabase.from('finanzas').update({ tipo: formEditFinanza.tipo, descripcion: formEditFinanza.descripcion, monto: Number(formEditFinanza.monto) }).eq('id', idFinanzaEditando);
+    setIdFinanzaEditando(null);
+  };
+
   const exportarExcel = () => {
     let csv = "data:text/csv;charset=utf-8,Fecha,Cliente,Localidad,Estado,Item,Cant,Total\n";
     ventasFiltradas.forEach(v => {
       const pn = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
       csv += `${getFechaPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${v.estado_pedido},${pn},${v.cantidad},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`;
     });
-    const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `Cierre_BJ_${fechaConsulta}.csv`; link.click();
+    const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `Respaldo_BJ_${fechaConsulta}.csv`; link.click();
   };
 
   const bjInput = { padding: '14px', borderRadius: '12px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box' };
@@ -240,7 +253,6 @@ export default function SistemaBJCMasterFinal() {
             <div style={{ ...glassCard, border: `2px solid #FCA5D4` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h4 style={{ margin: 0, color: FUCSIA_PRINCIPAL }}>Nuevo Pedido</h4>
-                {/* SELECTOR DE TIPO DE VENTA */}
                 <div style={{ display: 'flex', backgroundColor: '#F3F4F6', borderRadius: '10px', padding: '4px' }}>
                   <button onClick={() => setTipoVenta('Mayor')} style={{ border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', backgroundColor: tipoVenta === 'Mayor' ? FUCSIA_PRINCIPAL : 'transparent', color: tipoVenta === 'Mayor' ? '#fff' : '#666' }}>MAYOR</button>
                   <button onClick={() => setTipoVenta('Menor')} style={{ border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', backgroundColor: tipoVenta === 'Menor' ? '#1E1B1C' : 'transparent', color: tipoVenta === 'Menor' ? '#fff' : '#666' }}>MENOR</button>
@@ -261,11 +273,10 @@ export default function SistemaBJCMasterFinal() {
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderBottom: '1px solid #FCC2E2', paddingBottom: '8px', marginBottom: '8px', alignItems:'center' }}>
                         <div style={{ flex: 1 }}>{i.cantidad}x {i.nombre} <br/><small>({i.color})</small></div>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                          {/* PRECIO EDITABLE EN CARRITO */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                              <span style={{ fontSize: '10px', fontWeight: 'bold' }}>S/</span>
                              <input 
-                                type="number" 
+                                type="text" 
                                 value={i.precio_venta} 
                                 onChange={(e) => actualizarPrecioManual(idx, e.target.value)} 
                                 style={{ width: '60px', padding: '4px', borderRadius: '6px', border: '1px solid #FCA5D4', textAlign: 'center', fontSize: '12px', fontWeight: 'bold' }}
@@ -278,8 +289,8 @@ export default function SistemaBJCMasterFinal() {
                   </div>
                   <div style={{ textAlign: 'right', marginTop: '15px', borderTop: '1px dashed #FCA5D4', paddingTop: '10px' }}>
                     <span style={{ fontSize: '11px', fontWeight: 'bold', color: FUCSIA_PRINCIPAL }}>DESCUENTO ADICIONAL S/ </span>
-                    <input type="number" value={descuento} onChange={e=>setDescuento(Number(e.target.value))} style={{ width: '80px', padding: '5px', borderRadius: '8px', border: `1px solid ${FUCSIA_PRINCIPAL}`, textAlign: 'center' }} />
-                    <h3 style={{ margin: '10px 0' }}>Total Final: S/ {(carrito.reduce((acc, i) => acc + (i.precio_venta * i.cantidad), 0) - descuento).toFixed(2)}</h3>
+                    <input type="text" value={descuento} onChange={e=>setDescuento(handleInputMonto(e.target.value))} style={{ width: '80px', padding: '5px', borderRadius: '8px', border: `1px solid ${FUCSIA_PRINCIPAL}`, textAlign: 'center' }} />
+                    <h3 style={{ margin: '10px 0' }}>Total Final: S/ {(carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0) - Number(descuento)).toFixed(2)}</h3>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <button onClick={() => finalizarVentaLote('Entregado', false)} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>✅ PAGAR</button>
@@ -314,7 +325,7 @@ export default function SistemaBJCMasterFinal() {
                         <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '8px', width: '30px', height: '30px', cursor: 'pointer' }}>+</button>
                       </div>
                       <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: tipoVenta === 'Mayor' ? '#1E1B1C' : '#A13C6D', color: '#fff', border: 'none', padding: '10px', borderRadius: '14px', fontSize: '11px', fontWeight: 'bold', cursor:'pointer' }}>
-                        {p.stock > 0 ? `AÑADIR S/ ${activePrice.toFixed(2)}` : 'AGOTADO'}
+                        {p.stock > 0 ? `AÑADIR S/ ${Number(activePrice).toFixed(2)}` : 'AGOTADO'}
                       </button>
                     </div>
                   );
@@ -370,7 +381,7 @@ export default function SistemaBJCMasterFinal() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div style={glassCard}>
                   <h4 style={{ marginTop: 0 }}>Registrar Movimiento</h4>
-                  <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('finanzas').insert([formFinanzas]); setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:''}); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('finanzas').insert([{...formFinanzas, monto: Number(formFinanzas.monto)}]); setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:''}); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInput}>
                       <option value="Gasto Local">🏪 Gasto Local</option>
                       <option value="Inversión (Mercadería)">📦 Inversión (Mercadería)</option>
@@ -379,23 +390,22 @@ export default function SistemaBJCMasterFinal() {
                       <option value="Inversión Inicial">💵 Inversión Inicial</option>
                     </select>
                     <input placeholder="Descripción" value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={bjInput} />
-                    <input type="number" step="0.01" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: Number(e.target.value)})} style={bjInput} />
+                    <input type="text" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={bjInput} />
                     <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor:'pointer' }}>GUARDAR</button>
                   </form>
                 </div>
-                {/* CARGA PRODUCTO CON DOBLE PRECIO */}
                 <div style={{ ...glassCard, border: `2px solid ${FUCSIA_PRINCIPAL}` }}>
                   <h4 style={{ marginTop: 0 }}>Cargar Nuevo Producto</h4>
-                  <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('productos').insert([formProd]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); alert("Añadido."); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('productos').insert([{...formProd, precio_compra: Number(formProd.precio_compra), precio_venta: Number(formProd.precio_venta), precio_menor: Number(formProd.precio_menor), stock: Number(formProd.stock)}]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); alert("Añadido."); }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={bjInput} />
                     <input placeholder="Colores (comas)" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={bjInput} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        <input type="number" step="0.01" placeholder="Costo S/" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: Number(e.target.value)})} style={bjInput} />
-                        <input type="number" step="0.01" placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: Number(e.target.value)})} style={bjInput} />
+                        <input type="text" placeholder="Costo S/" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: handleInputMonto(e.target.value)})} style={bjInput} />
+                        <input type="number" placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={bjInput} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        <input type="number" step="0.01" placeholder="Precio MAYOR" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: Number(e.target.value)})} style={{...bjInput, border:'2px solid #F786C1'}} />
-                        <input type="number" step="0.01" placeholder="Precio MENOR" value={formProd.precio_menor} onChange={e => setFormProd({...formProd, precio_menor: Number(e.target.value)})} style={{...bjInput, border:'2px solid #1E1B1C'}} />
+                        <input type="text" placeholder="Precio MAYOR" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: handleInputMonto(e.target.value)})} style={{...bjInput, border:'2px solid #F786C1'}} />
+                        <input type="text" placeholder="Precio MENOR" value={formProd.precio_menor} onChange={e => setFormProd({...formProd, precio_menor: handleInputMonto(e.target.value)})} style={{...bjInput, border:'2px solid #1E1B1C'}} />
                     </div>
                     <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor:'pointer' }}>CREAR PRODUCTO</button>
                   </form>
@@ -404,7 +414,7 @@ export default function SistemaBJCMasterFinal() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div style={glassCard}>
-                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '15px' }}>Inventario Moderno</h4>
+                  <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '15px' }}>Ajuste de Stock y Catálogo</h4>
                   <input placeholder="🔍 Buscar para editar stock..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...bjInput, padding: '10px', marginBottom: '15px', border: `2px solid ${FUCSIA_PRINCIPAL}` }} />
                   <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -417,7 +427,7 @@ export default function SistemaBJCMasterFinal() {
                                  {etiqueta && <span style={{ color: etiqueta.color, fontWeight: 'bold', fontSize: '10px' }}>{etiqueta.icono} {etiqueta.tipo}</span>}
                                  <strong style={{ fontSize: '13px' }}>{p.nombre}</strong>
                               </div>
-                              <button onClick={async ()=> { if(confirm("¿Eliminar?")) await supabase.from('productos').delete().eq('id', p.id); }} style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor:'pointer' }}>🗑️</button>
+                              <button onClick={async ()=> { if(confirm(`¿Eliminar?`)) await supabase.from('productos').delete().eq('id', p.id); }} style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor:'pointer' }}>🗑️</button>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', backgroundColor: '#F8FAFC', padding: '8px', borderRadius: '12px' }}>
                               <input type="number" value={formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock} onChange={e => setFormEditStock({...formEditStock, [p.id]: Number(e.target.value)})} style={{ width: '60px', padding: '6px', borderRadius: '8px', border: '1px solid #CBD5E1', textAlign: 'center', fontSize: '13px' }} />
@@ -440,7 +450,7 @@ export default function SistemaBJCMasterFinal() {
                             {idFinanzaEditando === f.id ? (
                                <td colSpan="3" style={{ padding: '15px', backgroundColor: '#FFF5F7', borderRadius: '12px' }}>
                                   <input value={formEditFinanza.descripcion} onChange={e=>setFormEditFinanza({...formEditFinanza, descripcion:e.target.value})} style={{...bjInput, padding:'8px'}} />
-                                  <input type="number" value={formEditFinanza.monto} onChange={e=>setFormEditFinanza({...formEditFinanza, monto:Number(e.target.value)})} style={{...bjInput, marginTop:'8px', padding:'8px'}} />
+                                  <input type="text" value={formEditFinanza.monto} onChange={e=>setFormEditFinanza({...formEditFinanza, monto:handleInputMonto(e.target.value)})} style={{...bjInput, marginTop:'8px', padding:'8px'}} />
                                   <div style={{marginTop: '10px', display:'flex', gap:'10px'}}><button onClick={guardarCambiosFinanza} style={{backgroundColor:'#16A34A', color:'#fff', padding:'8px 15px', borderRadius:'10px', border:'none', cursor:'pointer'}}>GUARDAR</button><button onClick={()=>setIdFinanzaEditando(null)} style={{background:'none', border:'none', cursor:'pointer'}}>X</button></div>
                                </td>
                             ) : (
