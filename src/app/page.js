@@ -8,10 +8,10 @@ import {
 export default function SistemaBJCMasterFinal() {
   
   // ============================================================
-  // [BLOQUE 1] HELPERS (UTILIDADES DE TIEMPO, FORMATO Y SEGURIDAD)
+  // [BLOQUE 1] SEGURIDAD Y HELPERS (ESCUDOS ANTI-ERROR)
   // ============================================================
 
-  // Obtiene fecha actual en Chiclayo (GMT-5) con formato seguro para filtros
+  // Validador de fechas ultra-seguro para evitar el crash al cargar
   const getFechaPeru = (dateInput) => {
     try {
         const d = dateInput ? new Date(dateInput) : new Date();
@@ -22,10 +22,13 @@ export default function SistemaBJCMasterFinal() {
         const mes = partes.find(p => p.type === 'month')?.value || "01";
         const dia = partes.find(p => p.type === 'day')?.value || "01";
         return `${anio}-${mes}-${dia}`;
-    } catch (e) { return new Date().toISOString().split('T')[0]; }
+    } catch (e) { 
+        console.error("Error en helper fecha:", e);
+        return new Date().toISOString().split('T')[0]; 
+    }
   };
 
-  // Obtiene la hora en formato 12H (AM/PM) para el control operativo
+  // Validador de horas para el historial de ventas
   const getHoraPeru = (dateInput) => {
     if (!dateInput) return "--:--";
     try {
@@ -37,14 +40,15 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { return "--:--"; }
   };
 
-  // Limpia el texto de moneda para evitar errores NaN en cálculos
+  // Limpiador de montos para evitar errores con comas o textos
   const handleInputMonto = (valor) => {
-    if (typeof valor !== 'string') return String(valor || '');
-    let limpio = valor.replace(',', '.');
+    if (valor === undefined || valor === null) return "";
+    const str = String(valor);
+    let limpio = str.replace(',', '.');
     return limpio.replace(/[^0-9.]/g, '');
   };
 
-  // Clasifica productos por antigüedad para marketing interno
+  // Etiquetas de novedad para el catálogo
   const getEtiquetaProducto = (createdAt) => {
     if (!createdAt) return null;
     try {
@@ -67,12 +71,12 @@ export default function SistemaBJCMasterFinal() {
   const [finanzas, setFinanzas] = useState([]);
   const [cargando, setCargando] = useState(true);
   
-  // Filtros y Buscadores Dinámicos
+  // Controles de navegación y búsqueda
   const [busqueda, setBusqueda] = useState(''); 
   const [busquedaStock, setBusquedaStock] = useState(''); 
   const [fechaConsulta, setFechaConsulta] = useState(getFechaPeru());
   
-  // Datos de la Venta Activa
+  // Datos de la operación activa
   const [cliente, setCliente] = useState('');
   const [localidad, setLocalidad] = useState(''); 
   const [telefono, setTelefono] = useState(''); 
@@ -82,7 +86,7 @@ export default function SistemaBJCMasterFinal() {
   const [carrito, setCarrito] = useState([]);
   const [descuento, setDescuento] = useState(0); 
 
-  // Estados para Corrección de Historial (Ediciones)
+  // Estados para corrección (Historial)
   const [editandoGrupoId, setEditandoGrupoId] = useState(null); 
   const [formEditCliente, setFormEditCliente] = useState({ nombre: '', localidad: '', telefono: '' });
   const [idItemVentaEditando, setIdItemVentaEditando] = useState(null); 
@@ -101,293 +105,250 @@ export default function SistemaBJCMasterFinal() {
   const AMARILLO_BJ = '#CA8A04';
 
   // ============================================================
-  // [BLOQUE 3] DB & REALTIME (NÚCLEO DE DATOS)
+  // [BLOQUE 3] DB & REALTIME (CONEXIÓN SEGURA)
   // ============================================================
 
   useEffect(() => {
     const bootstrap = async () => {
-        await cargarTodoDesdeNube();
+        await cargarTodo();
         setCargando(false);
     };
     bootstrap();
 
-    const canalV = supabase.channel('v-full').on('postgres_changes',{event:'*',schema:'public',table:'ventas'},()=>cargarTodoDesdeNube()).subscribe();
-    const canalP = supabase.channel('p-full').on('postgres_changes',{event:'*',schema:'public',table:'productos'},()=>cargarTodoDesdeNube()).subscribe();
-    const canalF = supabase.channel('f-full').on('postgres_changes',{event:'*',schema:'public',table:'finanzas'},()=>cargarTodoDesdeNube()).subscribe();
+    const cV = supabase.channel('v44-v').on('postgres_changes',{event:'*',schema:'public',table:'ventas'},()=>cargarTodo()).subscribe();
+    const cP = supabase.channel('v44-p').on('postgres_changes',{event:'*',schema:'public',table:'productos'},()=>cargarTodo()).subscribe();
+    const cF = supabase.channel('v44-f').on('postgres_changes',{event:'*',schema:'public',table:'finanzas'},()=>cargarTodo()).subscribe();
 
     return () => {
-      supabase.removeChannel(canalV); supabase.removeChannel(canalP); supabase.removeChannel(canalF);
+      supabase.removeChannel(cV); supabase.removeChannel(cP); supabase.removeChannel(cF);
     };
   }, []);
 
-  const cargarTodoDesdeNube = async () => {
+  const cargarTodo = async () => {
     try {
-        const { data: pD } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
-        const { data: vD } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
-        const { data: fD } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
-        if (pD) setProductos(pD); if (vD) setVentas(vD); if (fD) setFinanzas(fD);
-    } catch (err) { console.error("BJ Sync Error:", err); }
+        const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
+        const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
+        const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
+        if (p) setProductos(p); if (v) setVentas(v); if (f) setFinanzas(f);
+    } catch (err) { console.error("Error cargando Supabase:", err); }
   };
 
   // ============================================================
-  // [BLOQUE 4] LÓGICA ESTRATÉGICA (MEMOS ANALÍTICOS)
+  // [BLOQUE 4] LÓGICA DE NEGOCIO (MEMOS ANALÍTICOS)
   // ============================================================
 
-  // 1. LOGÍSTICA INTELIGENTE: Clasificación Operativa
+  // 1. LOGÍSTICA: Clasificación por cobro y entrega (Blindado)
   const logisticaDividida = useMemo(() => {
     if (!ventas || ventas.length === 0) return { almacen: [], cuentasPorCobrar: [] };
     const gAlmacen = {}; const gCuentas = {};
-
     ventas.forEach(v => {
-        const key = `${v.cliente_nombre}-${v.localidad}`;
+        if (!v) return;
+        const llave = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}`;
         if (v.estado_pedido === 'En Almacén') {
-            if (!gAlmacen[key]) gAlmacen[key] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
-            gAlmacen[key].items.push(v);
-            gAlmacen[key].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            if (!gAlmacen[llave]) gAlmacen[llave] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
+            gAlmacen[llave].items.push(v);
+            gAlmacen[llave].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
         }
         if (v.estado_pedido === 'Pendiente de Pago') {
-            if (!gCuentas[key]) gCuentas[key] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
-            gCuentas[key].items.push(v);
-            gCuentas[key].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            if (!gCuentas[llave]) gCuentas[llave] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
+            gCuentas[llave].items.push(v);
+            gCuentas[llave].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
         }
     });
     return { almacen: Object.values(gAlmacen), cuentasPorCobrar: Object.values(gCuentas) };
   }, [ventas]);
 
-  // 2. HISTORIAL COMPLETO: Agrupa y formatea por fecha de consulta
+  // 2. HISTORIAL: Ventas del día con protección de nulos
   const historialVentasDia = useMemo(() => {
     if (!ventas || ventas.length === 0) return [];
     try {
-        const filtradas = ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta);
-        const agrupadas = {};
+        const filtradas = ventas.filter(v => v && getFechaPeru(v.created_at) === fechaConsulta);
+        const grupos = {};
         filtradas.forEach(v => {
-            const hKey = (v.created_at || "").substring(0,16);
-            const keyUnica = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}-${hKey}`; 
-            if (!agrupadas[keyUnica]) {
-                agrupadas[keyUnica] = { id_grupo: keyUnica, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
+            const hKey = v.created_at ? v.created_at.substring(0,16) : "0000";
+            const llave = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}-${hKey}`; 
+            if (!grupos[llave]) {
+                grupos[llave] = { id_grupo: llave, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
             }
-            agrupadas[keyUnica].items.push(v);
-            agrupadas[keyUnica].total += (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0));
+            grupos[llave].items.push(v);
+            grupos[llave].total += (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0));
         });
-        return Object.values(agrupadas).reverse();
+        return Object.values(grupos).reverse();
     } catch (e) { return []; }
   }, [ventas, fechaConsulta]);
 
-  // 3. BALANCE CAJA DOBLE: Bóveda de Ganancia vs Caja Global
+  // 3. BALANCE FINANCIERO BUNKER: Diferenciación de fondos
   const balanceFinancieroBunker = useMemo(() => {
     try {
         const fList = finanzas || [];
         const vList = ventas || [];
         const hoy = getFechaPeru();
         
-        // Dinero Real de Ventas Pagadas Hoy
-        const vHoyPagadas = vList.filter(v => getFechaPeru(v.created_at) === hoy && v.estado_pedido !== 'Pendiente de Pago');
+        const vHoyPagadas = vList.filter(v => v && getFechaPeru(v.created_at) === hoy && v.estado_pedido !== 'Pendiente de Pago');
         
-        // BÓVEDA: Total de Ganancias Netas Históricas
-        const totalGananciaBrutaSales = vList.reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
-        // Descontamos lo que salió específicamente de la bolsa de "Ganancias"
-        const gastosDesdeGanancias = fList.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // BÓVEDA: Utilidad Real acumulada
+        const gananciaBrutaTotal = vList.reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
+        const retirosDeGanancia = fList.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        // CAJA GLOBAL: Dinero físico real disponible (Ventas pagadas + Extras - Egresos)
-        const entradasGlobales = vList.filter(v => v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0) + 
-                                  fList.filter(f => ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const salidasGlobales = fList.filter(f => ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // CAJA GLOBAL: Dinero físico total (Entradas - Salidas)
+        const in_Ventas = vList.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
+        const in_Capital = fList.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const out_Total = fList.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        // PUNTO DE EQUILIBRIO: Ganancia Real Ventas vs Gastos Ops Mes
+        // PUNTO DE EQUILIBRIO MENSUAL
         const mesAct = hoy.substring(0,7);
-        const egOperativosMes = fList.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesAct && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const ganRealVentasMes = vList.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesAct && v.estado_pedido !== 'Pendiente de Pago').reduce((a,b) => a + (Number(b.ganancia_total) || 0), 0);
+        const egOperativosMes = fList.filter(f => f && getFechaPeru(f.created_at).substring(0,7) === mesAct && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const ganRealVentasMes = vList.filter(v => v && getFechaPeru(v.created_at).substring(0,7) === mesAct && v.estado_pedido !== 'Pendiente de Pago').reduce((a,b) => a + (Number(b.ganancia_total) || 0), 0);
 
         return { 
             cajaHoy: vHoyPagadas.reduce((acc, v) => acc + (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0)), 0),
             ganHoy: vHoyPagadas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-            cajaGlobal: (entradasGlobales - salidasGlobales),
-            disponibleRetiro: (totalGananciaBrutaSales - gastosDesdeGanancias),
+            cajaGlobal: (in_Ventas + in_Capital - out_Total),
+            disponibleRetiro: (gananciaBrutaTotal - retirosDeGanancia),
             pe_progreso: egOperativosMes > 0 ? (ganRealVentasMes / egOperativosMes) * 100 : 0,
             pe_ganActual: ganRealVentasMes,
             pe_egMeta: egOperativosMes
         };
-    } catch (e) { return { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, disponibleRetiro: 0, pe_progreso:0, pe_ganActual:0, pe_egMeta:0 }; }
+    } catch (e) { 
+        console.error("Error en balance:", e);
+        return { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, disponibleRetiro: 0, pe_progreso:0, pe_ganActual:0, pe_egMeta:0 }; 
+    }
   }, [finanzas, ventas]);
 
-  // 4. ANALÍTICA DE PRODUCTOS: Ranking y Capital Dormido
-  const analyticsBJMaster = useMemo(() => {
-    // Top 5 Ganancia Real
-    const pDict = {};
-    (ventas || []).forEach(v => {
-        const prod = productos.find(p => p.id === v.producto_id);
-        const nom = prod ? prod.nombre : "Modelo Borrado";
-        pDict[nom] = (pDict[nom] || 0) + Number(v.ganancia_total || 0);
-    });
-    const ranking = Object.entries(pDict).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  // 4. ANALÍTICA AVANZADA
+  const analyticsMaster = useMemo(() => {
+    try {
+        const pDict = {};
+        (ventas || []).forEach(v => {
+            if (!v) return;
+            const pMatch = productos.find(p => p.id === v.producto_id);
+            const nom = pMatch ? pMatch.nombre : "Item Borrado";
+            pDict[nom] = (pDict[nom] || 0) + Number(v.ganancia_total || 0);
+        });
+        const ranking = Object.entries(pDict).sort((a,b) => b[1] - a[1]).slice(0, 5);
 
-    // Dinero Dormido (+20 días)
-    const hoy = new Date();
-    const dormido = (productos || []).filter(p => {
-        const lastSale = (ventas || []).filter(v => v.producto_id === p.id).pop();
-        if (!lastSale) return true;
-        const diff = Math.floor((hoy - new Date(lastSale.created_at)) / (1000 * 60 * 60 * 24));
-        return diff > 20 && p.stock > 0;
-    }).slice(0, 5);
+        const hoy = new Date();
+        const dormido = (productos || []).filter(p => {
+            if (!p) return false;
+            const uVenta = (ventas || []).filter(v => v && v.producto_id === p.id).pop();
+            if (!uVenta) return true;
+            const diff = Math.floor((hoy - new Date(uVenta.created_at)) / (1000 * 60 * 60 * 24));
+            return diff > 20 && p.stock > 0;
+        }).slice(0, 5);
 
-    return { ranking, dormido };
+        return { ranking, dormido };
+    } catch (e) { return { ranking: [], dormido: [] }; }
   }, [ventas, productos]);
 
   const auditoriaInvTotal = useMemo(() => {
     let cost = 0; let vent = 0;
     (productos || []).forEach(p => { 
+        if (!p) return;
         const s = Number(p.stock || 0);
         if (s > 0) { cost += (Number(p.precio_compra || 0) * s); vent += (Number(p.precio_venta || 0) * s); } 
     });
     return { cost, vent, util: vent - cost };
   }, [productos]);
 
-  const chartROIConfig = [
-    { n: 'Capital Invertido', v: auditoriaInvTotal.cost || 0, fill: '#1E1B1C' },
-    { n: 'Retorno Potencial', v: auditoriaInvTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
+  const chartROI = [
+    { n: 'Inversión', v: auditoriaInvTotal.cost || 0, fill: '#1E1B1C' },
+    { n: 'Venta', v: auditoriaInvTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
   ];
 
   // ============================================================
-  // [BLOQUE 5] FUNCIONES DE ACCIÓN (HANDLERS DE LOGICA)
+  // [BLOQUE 5] FUNCIONES DE ACCIÓN (HANDLERS)
   // ============================================================
 
-  const handleAutocompleteCliente = (e) => {
+  const handleAutocompleteCli = (e) => {
     const val = e.target.value; setCliente(val);
-    const coincidencia = (ventas || []).find(v => v.cliente_nombre?.toLowerCase() === val.toLowerCase());
-    if (coincidencia) { setLocalidad(coincidencia.localidad || ''); setTelefono(coincidencia.telefono || ''); }
+    const m = (ventas || []).find(v => v && v.cliente_nombre?.toLowerCase() === val.toLowerCase());
+    if (m) { setLocalidad(m.localidad || ''); setTelefono(m.telefono || ''); }
   };
 
-  const handleAddAlCarritoMaster = (p) => {
+  const addCarritoMaster = (p) => {
     const c = Number(cantidades[p.id] || 1);
-    const pBase = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
-    const yaEnCarrito = carrito.filter(i => i.producto_id === p.id).reduce((acc, i) => acc + i.cantidad, 0);
-    if ((Number(p.stock) || 0) < c + yaEnCarrito) return alert("¡Atención! No hay stock suficiente para esta cantidad.");
-    setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: c, color: (coloresElegidos[p.id] || "Único"), precio_venta: pBase, precio_compra: p.precio_compra }]);
+    const pb = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
+    const ya = carrito.filter(i => i.producto_id === p.id).reduce((acc, i) => acc + i.cantidad, 0);
+    if ((Number(p.stock) || 0) < c + ya) return alert("¡Sin stock físico!");
+    setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: c, color: (coloresElegidos[p.id] || "Único"), precio_venta: pb, precio_compra: p.precio_compra }]);
   };
 
-  const handleEjecutarVentaFinal = async (estado) => {
-    if (!cliente || !localidad) return alert("Error: Faltan datos del cliente (Nombre/Zona).");
-    if (carrito.length === 0) return alert("Error: El carrito está vacío.");
-    
-    const tV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0);
-    const factorD = tV > 0 ? (Number(descuento) / tV) : 0;
-
-    const listaInserts = carrito.map(i => {
+  const processVentaFinal = async (estado) => {
+    if (!cliente || !localidad) return alert("Faltan datos del cliente.");
+    const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0);
+    const ratioD = totalV > 0 ? (Number(descuento) / totalV) : 0;
+    const items = carrito.map(i => {
         const pv = Number(i.precio_venta);
-        return { 
-            cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: i.producto_id, 
-            cantidad: i.cantidad, color: i.color, precio_venta_unitario: pv, 
-            precio_costo_unitario: Number(i.precio_compra ?? 0), 
-            ganancia_total: ((pv - Number(i.precio_compra ?? 0)) * i.cantidad) - ((pv * i.cantidad) * factorD), 
-            estado_pedido: estado 
-        };
+        return { cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: i.producto_id, cantidad: i.cantidad, color: i.color, precio_venta_unitario: pv, precio_costo_unitario: Number(i.precio_compra ?? 0), ganancia_total: ((pv - Number(i.precio_compra ?? 0)) * i.cantidad) - ((pv * i.cantidad) * ratioD), estado_pedido: estado };
     });
-
-    const { error } = await supabase.from('ventas').insert(listaInserts);
+    const { error } = await supabase.from('ventas').insert(items);
     if (!error) {
       for (const item of carrito) {
-        const prod = productos.find(p => p.id === item.producto_id);
-        if (prod) await supabase.from('productos').update({ stock: prod.stock - item.cantidad }).eq('id', item.producto_id);
+        const pO = productos.find(p => p.id === item.producto_id);
+        if (pO) await supabase.from('productos').update({ stock: pO.stock - item.cantidad }).eq('id', item.producto_id);
       }
-      setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0); alert("✅ Operación registrada.");
+      setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0); alert("✅ Guardado.");
     }
   };
 
-  const handleCobrarVentaPendiente = async (grupo) => {
-    if(confirm(`¿Registrar pago total de S/ ${grupo.total.toFixed(2)} del cliente ${grupo.cliente}?`)) {
+  const handleCobrarVenta = async (grupo) => {
+    if(confirm(`¿Registrar pago de S/ ${grupo.total.toFixed(2)}?`)) {
         for(let item of grupo.items) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', item.id); }
-        alert("💰 Pago recibido. Dinero sumado a caja.");
+        alert("💰 Dinero sumado a caja.");
     }
   };
 
-  const handleWhatsAppDirecto = (grupo) => {
-    let text = `¡Hola *${grupo.cliente_nombre}*! 👋 Ticket de compra BJ Importaciones.%0A%0A`;
+  const handleWhatsAppTicket = (grupo) => {
+    let t = `¡Hola *${grupo.cliente_nombre}*! 👋 Recibo BJ Importaciones.%0A%0A`;
     grupo.items.forEach(v => {
-        const pMatch = productos.find(p => p.id === v.producto_id);
-        text += `- *${v.cantidad}x* ${pMatch?.nombre || 'Producto'} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
+        const pM = productos.find(p => p.id === v.producto_id);
+        t += `- *${v.cantidad}x* ${pM?.nombre || 'Item'} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
     });
-    text += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A¡Muchas gracias! 😊`;
-    window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${text}`, '_blank');
+    t += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A¡Gracias! 😊`;
+    window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${t}`, '_blank');
   };
 
-  const handleRegistrarGastoManual = async (e) => {
+  const registrarGastoManual = async (e) => {
     e.preventDefault();
     const cleanM = handleInputMonto(formFinanzas.monto);
     await supabase.from('finanzas').insert([{
-        tipo: formFinanzas.tipo, 
-        descripcion: formFinanzas.descripcion, 
-        monto: Number(cleanM),
-        origen: formFinanzas.origen 
+        tipo: formFinanzas.tipo, descripcion: formFinanzas.descripcion, monto: Number(cleanM), origen: formFinanzas.origen 
     }]);
-    setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen: 'Caja Global'}); alert("✅ Registro guardado.");
+    setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen: 'Caja Global'}); alert("✅ Guardado.");
   };
 
-  const handleCorregirCantidadHistorial = async (v) => {
-    const d = nuevaCantVenta - v.cantidad;
-    const pR = productos.find(p => p.id === v.producto_id);
-    if (pR && pR.stock < d) return alert("Sin stock suficiente.");
-    const { error } = await supabase.from('ventas').update({ cantidad: nuevaCantVenta, ganancia_total: (v.precio_venta_unitario - v.precio_costo_unitario) * nuevaCantVenta }).eq('id', v.id);
-    if (!error) {
-        if (pR) await supabase.from('productos').update({ stock: (pR.stock - d) }).eq('id', pR.id);
-        setIdItemVentaEditando(null); alert("✅ Cantidad corregida.");
-    }
-  };
-
-  const handleAnularFilaHistorial = async (v) => {
-    if (confirm("¿Anular este ítem? Stock se devolverá.")) {
-      const pc = productos.find(pr => pr.id === v.producto_id);
-      if (pc) await supabase.from('productos').update({ stock: pc.stock + v.cantidad }).eq('id', pc.id);
-      await supabase.from('ventas').delete().eq('id', v.id);
-    }
-  };
-
-  const handleAddProductoCatalogo = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.from('productos').insert([{
-        nombre: formProd.nombre,
-        precio_compra: Number(handleInputMonto(formProd.precio_compra)),
-        precio_venta: Number(handleInputMonto(formProd.precio_venta)),
-        precio_menor: Number(handleInputMonto(formProd.precio_menor)),
-        stock: Number(formProd.stock),
-        colores: formProd.colores
-    }]);
-    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo creado."); }
-  };
-
-  const handleSyncStockDB = async (p) => {
+  const editStockMaster = async (p) => {
     const val = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
-    await supabase.from('productos').update({ stock: val }).eq('id', p.id); alert("✅ Stock sincronizado.");
+    await supabase.from('productos').update({ stock: val }).eq('id', p.id); alert("✅ Sincronizado.");
   };
 
-  const handleExportExcelCajaFull = () => {
+  const handleExportarExcel = () => {
     let csv = "data:text/csv;charset=utf-8,Fecha,Hora,Cliente,Zona,Producto,Cant,Precio,Total\n";
     ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta).forEach(v => {
-      const nomP = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
-      csv += `${getFechaPeru(v.created_at)},${getHoraPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${nomP},${v.cantidad},${v.precio_venta_unitario},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`;
+      const np = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
+      csv += `${getFechaPeru(v.created_at)},${getHoraPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${np},${v.cantidad},${v.precio_venta_unitario},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`;
     });
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csv));
-    link.setAttribute("download", `BJ_CAJA_${fechaConsulta}.csv`);
-    document.body.appendChild(link); link.click();
+    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv));
+    link.setAttribute("download", `Cierre_BJ_${fechaConsulta}.csv`); document.body.appendChild(link); link.click();
   };
 
   // ============================================================
   // [BLOQUE 6] INTERFAZ DE USUARIO (VISUAL UI)
   // ============================================================
 
-  const bjInputStyle = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff', transition: '0.3s' };
-  const bjCardStyle = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
+  const sInput = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff', transition: '0.3s' };
+  const sCard = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
 
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>CARGANDO BUNKER BJ v43... 💎🚀</div>;
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BJ BUNKER v44... 🚀💎</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: '#1E1B1C', fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* 🚀 BARRA DE NAVEGACIÓN PRINCIPAL */}
+      {/* 🚀 NAVBAR PRINCIPAL */}
       <header style={{ backgroundColor: '#ffffff', padding: '20px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)`, flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.4rem' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '10px' }}>CHICLAYO • v43 MÁSTER PLATINUM</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '10px' }}>CHICLAYO • v44 MAESTRO INMORTAL</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '10px', backgroundColor: `#FCA5D415`, padding: '6px', borderRadius: '18px' }}>
           <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '12px 22px', borderRadius: '12px', cursor: 'pointer', fontWeight: '900' }}>VENTAS</button>
@@ -398,25 +359,25 @@ export default function SistemaBJCMasterFinal() {
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
         
-        {/* ===================== PANEL DE VENTAS ===================== */}
+        {/* ===================== TAB VENTAS ===================== */}
         {vista === 'ventas' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px' }}>
-              <div style={bjCardStyle}>
+              <div style={sCard}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>💰 CAJA EFECTIVO HOY</span>
-                    <button onClick={handleExportExcelCajaFull} style={{ background:`${FUCSIA_PRINCIPAL}20`, border:'none', padding:'8px 15px', borderRadius:'10px', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'10px' }}>EXCEL</button>
+                    <button onClick={handleExportarExcel} style={{ background:`${FUCSIA_PRINCIPAL}20`, border:'none', padding:'8px 15px', borderRadius:'10px', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'10px' }}>EXCEL</button>
                 </div>
-                <h2 style={{ margin: '15px 0', fontSize: '3.5rem', fontWeight: '900' }}>S/ {balanceGeneral.cajaHoy.toFixed(2)}</h2>
-                <div style={{ color: VERDE_BJ, fontWeight: '900', fontSize: '15px' }}>Ganancia Día: S/ {balanceGeneral.ganHoy.toFixed(2)}</div>
+                <h2 style={{ margin: '15px 0', fontSize: '3.5rem', fontWeight: '900' }}>S/ {balanceFinancieroBunker.cajaHoy.toFixed(2)}</h2>
+                <div style={{ color: VERDE_BJ, fontWeight: '900', fontSize: '15px' }}>Ganancia Día: S/ {balanceFinancieroBunker.ganHoy.toFixed(2)}</div>
               </div>
-              <div style={bjCardStyle}>
+              <div style={sCard}>
                 <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>📅 BUSCAR HISTORIAL</span>
-                <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ ...bjInputStyle, marginTop: '15px' }} />
+                <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ ...sInput, marginTop: '15px' }} />
               </div>
             </div>
 
-            <div style={{ ...bjCardStyle, border: `3px solid #FCA5D4` }}>
+            <div style={{ ...sCard, border: `3px solid #FCA5D4` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'25px' }}>
                 <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🛒 Nueva Operación</h3>
                 <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '18px', padding: '6px' }}>
@@ -425,10 +386,10 @@ export default function SistemaBJCMasterFinal() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="cli_aut" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={bjInputStyle} />
+                <input list="cli_aut" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCli} style={sInput} />
                 <datalist id="cli_aut">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
-                <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={bjInputStyle} />
-                <input placeholder="📍 Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={bjInputStyle} />
+                <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={sInput} />
+                <input placeholder="📍 Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={sInput} />
               </div>
 
               {carrito.length > 0 && (
@@ -447,27 +408,27 @@ export default function SistemaBJCMasterFinal() {
                     <input type="text" value={descuento} onChange={e=>setDescuento(handleInputMonto(e.target.value))} style={{ width: '130px', padding: '12px', borderRadius: '15px', border: `2px solid ${FUCSIA_PRINCIPAL}`, textAlign: 'center', fontWeight: '900', fontSize:'20px' }} />
                     <h3 style={{ margin: '10px 0', fontSize: '2.8rem', fontWeight: '900' }}>Total: S/ {(carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0) - Number(descuento)).toFixed(2)}</h3>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginTop: '20px' }}>
-                    <button onClick={() => handleEjecutarVentaFinal('Entregado')} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', cursor: 'pointer' }}>✅ PAGADO/ENTREGA</button>
-                    <button onClick={() => handleEjecutarVentaFinal('En Almacén')} style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '20px', borderRadius: '22px', fontWeight: '900', cursor: 'pointer' }}>📦 PAGADO/ALMACÉN</button>
-                    <button onClick={() => handleEjecutarVentaFinal('Pendiente de Pago')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', cursor: 'pointer' }}>💸 DAR A PAGAR (CRÉDITO)</button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginTop: '20px' }}>
+                    <button onClick={() => processVentaFinal('Entregado')} style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '20px', borderRadius: '22px', fontWeight: '900', cursor: 'pointer', fontSize: '14px' }}>✅ PAGADO/ENTREGA</button>
+                    <button onClick={() => processVentaFinal('En Almacén')} style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '20px', borderRadius: '22px', fontWeight: '900', cursor: 'pointer', fontSize: '14px' }}>📦 PAGADO/ALMACÉN</button>
+                    <button onClick={() => processVentaFinal('Pendiente de Pago')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '22px', fontWeight: '900', cursor: 'pointer', fontSize: '14px' }}>💸 DAR A PAGAR (CRÉDITO)</button>
                   </div>
                 </div>
               )}
 
-              <input placeholder="🔍 Buscar para vender..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...bjInputStyle, marginBottom: '25px', height: '65px' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '25px', maxHeight: '700px', overflowY: 'auto' }}>
+              <input placeholder="🔍 Buscar para vender..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...sInput, marginBottom: '25px', height: '65px' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '25px', maxHeight: '750px', overflowY: 'auto' }}>
                 {productos.filter(p => p.nombre?.toLowerCase().includes(busqueda.toLowerCase())).map((p) => {
-                  const t = getEtiquetaProducto(p.created_at);
+                  const tag = getEtiquetaProducto(p.created_at);
                   const pShow = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
                   return (
                     <div key={p.id} style={{ border: '1px solid #FFF1F2', padding: '25px', borderRadius: '35px', backgroundColor: '#fff', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
-                      {t && <span style={{ position:'absolute', top: '-15px', left: '20px', backgroundColor: t.color, color: '#fff', fontSize: '10px', padding: '6px 15px', borderRadius: '15px', fontWeight: '900' }}>{t.tipo}</span>}
+                      {tag && <span style={{ position:'absolute', top: '-15px', left: '20px', backgroundColor: tag.color, color: '#fff', fontSize: '10px', padding: '6px 15px', borderRadius: '15px', fontWeight: '900' }}>{tag.tipo}</span>}
                       <strong style={{ display: 'block', height: '45px', overflow: 'hidden', fontSize: '16px' }}>{p.nombre}</strong>
                       <div style={{ margin: '10px 0', padding: '10px', backgroundColor: p.stock < 5 ? '#FFF1F2' : '#F0FDF4', borderRadius: '18px', textAlign: 'center' }}>
                         <span style={{ fontSize: '13px', fontWeight: '900', color: p.stock < 5 ? ROJO_BJ : VERDE_BJ }}>STOCK: {p.stock}</span>
                       </div>
-                      <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...bjInputStyle, padding: '10px', fontSize: '14px', marginBottom: '18px', height: '50px' }}>
+                      <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...sInput, padding: '10px', fontSize: '14px', marginBottom: '18px', height: '50px' }}>
                         {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
                       </select>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '18px', marginBottom: '22px' }}>
@@ -475,8 +436,8 @@ export default function SistemaBJCMasterFinal() {
                         <span style={{ fontWeight: '900', fontSize: '22px', paddingTop:'10px' }}>{cantidades[p.id] || 1}</span>
                         <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '12px', width: '48px', height: '48px' }}>+</button>
                       </div>
-                      <button onClick={() => handleAddAlCarritoMaster(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: tipoVenta === 'Mayor' ? '#1E1B1C' : '#A13C6D', color: '#fff', border: 'none', padding: '18px', borderRadius: '22px', fontSize: '14px', fontWeight: '900', cursor:'pointer' }}>
-                        {p.stock > 0 ? `AÑADIR S/ ${Number(pShow).toFixed(2)}` : 'SIN STOCK'}
+                      <button onClick={() => addCarritoMaster(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: tipoVenta === 'Mayor' ? '#1E1B1C' : '#A13C6D', color: '#fff', border: 'none', padding: '18px', borderRadius: '22px', fontSize: '14px', fontWeight: '900', cursor:'pointer' }}>
+                        {p.stock > 0 ? `VENDER S/ ${Number(pShow).toFixed(2)}` : 'AGOTADO'}
                       </button>
                     </div>
                   );
@@ -484,8 +445,8 @@ export default function SistemaBJCMasterFinal() {
               </div>
             </div>
 
-            <div style={bjCardStyle}>
-                <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Ventas Realizadas</h4>
+            <div style={sCard}>
+                <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Historial del Día Seleccionado</h4>
                 {historialVentasDia.map(grupo => (
                     <div key={grupo.id_grupo} style={{ padding: '25px', backgroundColor: '#FFF5F7', borderRadius: '25px', border: `1px solid #FCC2E2`, marginBottom:'20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
@@ -497,19 +458,19 @@ export default function SistemaBJCMasterFinal() {
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <div style={{ backgroundColor: VERDE_BJ, color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: '900' }}>S/ {grupo.total.toFixed(2)}</div>
                                 <button onClick={() => handleWhatsAppTicket(grupo)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '12px', fontWeight:'900' }}>TICKET 📱</button>
-                                <button onClick={() => prepararEdicionCliente(grupo)} style={{ border:'none', background:'#fff', padding:'10px', borderRadius:'12px', cursor:'pointer', border:'2px solid #FCC2E2' }}>✏️</button>
+                                <button onClick={() => {setEditandoGrupoId(grupo.id_grupo); setFormEditCliente({nombre: grupo.cliente_nombre, localidad: grupo.localidad, telefono: grupo.telefono});}} style={{ border:'none', background:'#fff', padding:'10px', borderRadius:'12px', cursor:'pointer', border:'2px solid #FCC2E2' }}>✏️</button>
                             </div>
                         </div>
                         <div style={{marginTop:'15px'}}>{grupo.items.map(v => (
-                            <div key={v.id} style={{background:'#fff', padding:'15px 20px', borderRadius:'15px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                            <div key={v.id} style={{background:'#fff', padding:'10px 20px', borderRadius:'15px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                                 <div>
                                     {idItemVentaEditando === v.id ? (
                                         <div style={{display:'flex', gap:'10px'}}>
                                             <input type="number" value={nuevaCantVenta} onChange={(e)=>setNuevaCantVenta(Number(e.target.value))} style={{width:'60px', padding:'5px', borderRadius:'8px', border:'1px solid #ccc'}} />
-                                            <button onClick={()=>handleCorregirCantVenta(v)} style={{background:VERDE_BJ, color:'#fff', border:'none', borderRadius:'8px', padding:'5px 10px'}}>OK</button>
+                                            <button onClick={()=>handleCorregirCantidadHistorial(v)} style={{background:VERDE_BJ, color:'#fff', border:'none', borderRadius:'8px', padding:'5px 10px'}}>OK</button>
                                         </div>
                                     ) : (
-                                        <small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre} ({v.color}) | <span style={{color: v.estado_pedido==='Pendiente de Pago' ? AMARILLO_BJ : '#64748B'}}>{v.estado_pedido}</span></small>
+                                        <small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre || 'Item'} ({v.color}) | <span style={{color: v.estado_pedido==='Pendiente de Pago' ? AMARILLO_BJ : '#64748B'}}>{v.estado_pedido}</span></small>
                                     )}
                                 </div>
                                 <div style={{display:'flex', gap:'15px', alignItems:'center'}}>
@@ -528,33 +489,38 @@ export default function SistemaBJCMasterFinal() {
         {/* ===================== TAB LOGÍSTICA ===================== */}
         {vista === 'logistica' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
-            <div style={{ ...bjCardStyle, backgroundColor: '#1E1B1C', color: '#fff', padding: '40px', textAlign: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900' }}>📦 Gestión Operativa y Cobranzas</h2>
+            <div style={{ ...sCard, backgroundColor: '#1E1B1C', color: '#fff', padding: '40px', textAlign: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900' }}>📦 Centro Operativo BJ</h2>
+                <p style={{opacity:0.7}}>Gestión de entregas físicas y cobranzas pendientes.</p>
             </div>
             
-            <div style={bjCardStyle}>
+            <div style={sCard}>
                 <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: FUCSIA_PRINCIPAL, marginBottom:'25px' }}>📦 Entregas Pendientes (Pagado)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaDividida.almacen.map((grupo, idx) => (
                         <div key={idx} style={{ padding: '25px', border: '1px solid #f1f1f1', borderRadius: '25px' }}>
                             <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                                 <div><strong>{grupo.cliente}</strong><br/><small>{grupo.localidad}</small></div>
-                                <button onClick={() => { let m = `¡Hola *${grupo.cliente}*! 👋 Tu pedido en BJ Importaciones ya está listo. ✨📦`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900' }}>AVISAR 📱</button>
+                                <button onClick={() => { let m = `¡Hola *${grupo.cliente}*! 👋 Tu pedido en BJ Importaciones ya está listo. ✨📦`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>AVISAR 📱</button>
                             </div>
-                            <button onClick={async () => { if(confirm("¿Entregaste el pedido?")) { for(let i of grupo.items) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', i.id); } }} style={{ width: '100%', backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900' }}>CONFIRMAR ENTREGA ✅</button>
+                            <div style={{marginBottom:'15px'}}>{grupo.items.map((it,i) => <div key={i}><small>{it.cantidad}x {it.color}</small></div>)}</div>
+                            <button onClick={async () => { if(confirm("¿Entregaste el pedido?")) { for(let i of grupo.items) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', i.id); } }} style={{ width: '100%', backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>MARCAR ENTREGADO ✅</button>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div style={{ ...bjCardStyle, borderLeft: `15px solid ${AMARILLO_BJ}` }}>
-                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas por Cobrar (Saldos Deudores)</h3>
+            <div style={{ ...sCard, borderLeft: `15px solid ${AMARILLO_BJ}` }}>
+                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas por Cobrar (Ventas a Crédito)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaDividida.cuentasPorCobrar.map((grupo, idx) => (
-                        <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px', border:`1px solid ${AMARILLO_BJ}40` }}>
-                            <strong>{grupo.cliente}</strong><br/><small>{grupo.localidad}</small>
-                            <h4 style={{color:AMARILLO_AVISO, margin:'10px 0'}}>SALDO PENDIENTE: S/ {grupo.total.toFixed(2)}</h4>
-                            <button onClick={() => handleCobrarVentaPendiente(grupo)} style={{ width: '100%', backgroundColor: VERDE_EXITO, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900' }}>💰 REGISTRAR PAGO (COBRAR)</button>
+                        <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px', border:`2px solid ${AMARILLO_BJ}40` }}>
+                            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
+                                <div><strong>{grupo.cliente}</strong><br/><small>{grupo.localidad}</small></div>
+                                <button onClick={() => { let m = `Hola *${grupo.cliente}* 👋 BJ Importaciones te recuerda tu saldo de S/ ${grupo.total.toFixed(2)}. ✨`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:AMARILLO_BJ, color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>RECORDAR 📱</button>
+                            </div>
+                            <h4 style={{color:AMARILLO_BJ, margin:'10px 0'}}>SALDO DEUDOR: S/ {grupo.total.toFixed(2)}</h4>
+                            <button onClick={() => handleCobrarVentaPendiente(grupo)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 REGISTRAR PAGO (COBRAR)</button>
                         </div>
                     ))}
                 </div>
@@ -567,83 +533,91 @@ export default function SistemaBJCMasterFinal() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
-                {/* 1. PUNTO DE EQUILIBRIO */}
-                <div style={bjCardStyle}>
-                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 META PUNTO DE EQUILIBRIO (UTILIDAD REAL)</h4>
+                {/* META PUNTO EQUILIBRIO */}
+                <div style={sCard}>
+                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 PUNTO DE EQUILIBRIO (UTILIDAD REAL VENTAS)</h4>
                     <div style={{height:'20px', width:'100%', backgroundColor:'#F1F5F9', borderRadius:'10px', overflow:'hidden', marginBottom:'15px'}}>
-                        <div style={{height:'100%', width:`${balanceGeneral.pe_progreso}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
+                        <div style={{height:'100%', width:`${balanceFinancieroBunker.pe_progreso}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
-                        <span>Ganancia: S/ {balanceGeneral.pe_ganActual.toFixed(2)}</span>
-                        <strong>Meta: S/ {balanceGeneral.pe_egMeta.toFixed(2)}</strong>
+                        <span>Utilidad: S/ {balanceFinancieroBunker.pe_ganActual.toFixed(2)}</span>
+                        <strong>Gastos Meta: S/ {balanceFinancieroBunker.pe_egMeta.toFixed(2)}</strong>
                     </div>
-                    {balanceGeneral.pe_progreso < 100 ? <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceGeneral.pe_egMeta - balanceGeneral.pe_ganActual).toFixed(2)} de utilidad neta para cubrir gastos.</small> : <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>}
+                    {balanceFinancieroBunker.pe_progreso < 100 ? <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceFinancieroBunker.pe_egMeta - balanceFinancieroBunker.pe_ganActual).toFixed(2)} para cubrir gastos operativos.</small> : <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>}
                 </div>
 
-                {/* 2. BOVEDA DISPONIBLE */}
-                <div style={{ ...bjCardStyle, backgroundColor: '#1E1B1C', color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
+                {/* BÓVEDA DISPONIBLE */}
+                <div style={{ ...sCard, backgroundColor: '#1E1B1C', color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 DISPONIBLE PARA RETIRO (GANANCIA NETA)</h4>
-                    <h3 style={{fontSize:'3rem', margin:0, color:'#fff'}}>S/ {balanceGeneral.disponibleRetiro.toFixed(2)}</h3>
-                    <small style={{opacity:0.6}}>Ganancia acumulada total menos tus retiros personales registrados.</small>
+                    <h3 style={{fontSize:'3.2rem', margin:0}}>S/ {balanceFinancieroBunker.disponibleRetiro.toFixed(2)}</h3>
+                    <small style={{opacity:0.6}}>Ganancia total histórica restando retiros desde "Ganancias".</small>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                <div style={{ ...bjCardStyle, borderLeft:`10px solid #64748B` }}>
+                <div style={{ ...sCard, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN ALMACÉN (COSTO)</small>
                     <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {auditoriaInvTotal.cost.toLocaleString('es-PE')}</h4>
                 </div>
-                <div style={{ ...bjCardStyle, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
+                <div style={{ ...sCard, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO EN MANO)</small>
-                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {balanceGeneral.cajaGlobal.toFixed(2)}</h4>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {balanceFinancieroBunker.cajaGlobal.toFixed(2)}</h4>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '40px' }}>
+            {/* FORMULARIOS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '45px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
-                <div style={bjCardStyle}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>💸 Movimiento de Caja Pro</h4>
-                  <form onSubmit={handleRegistrarGastoManual} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={sCard}>
+                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>💸 Registrar Movimiento de Caja</h4>
+                  <form onSubmit={registrarGastoManual} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
-                        <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={bjInputStyle}>
+                        <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={sInput}>
                             <option value="Gasto Local">🏪 Gasto Local</option>
                             <option value="Inversión (Mercadería)">📦 Inversión (Mercadería)</option>
                             <option value="Retiro Personal">🏧 Retiro Personal</option>
-                            <option value="Ingreso Adicional">💰 Inyección de Capital (No Ganancia)</option>
+                            <option value="Ingreso Adicional">💰 Inyección Capital (No PE)</option>
                         </select>
-                        <select value={formFinanzas.origen} onChange={e => setFormFinanzas({...formFinanzas, origen: e.target.value})} style={{...bjInputStyle, border:`2px solid ${AMARILLO_BJ}`}}>
+                        <select value={formFinanzas.origen} onChange={e => setFormFinanzas({...formFinanzas, origen: e.target.value})} style={{...sInput, border:`2px solid ${AMARILLO_BJ}`}}>
                             <option value="Caja Global">De: Caja Global (Capital)</option>
-                            <option value="Ganancias">De: Ganancias Acumuladas</option>
+                            <option value="Ganancias">De: Ganancias del Negocio</option>
                         </select>
                     </div>
-                    <input placeholder="Descripción del movimiento..." value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={bjInputStyle} />
-                    <input type="text" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={bjInputStyle} />
-                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900' }}>GUARDAR MOVIMIENTO</button>
+                    <input placeholder="Descripción..." value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={sInput} />
+                    <input type="text" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={sInput} />
+                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR MOVIMIENTO</button>
                   </form>
                 </div>
-                <div style={{ ...bjCardStyle, border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>🆕 Subir Nuevo Producto</h4>
+                <div style={{ ...sCard, border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
+                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>🆕 Nuevo Producto al Catálogo</h4>
                   <form onSubmit={handleAddProductoCatalogo} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={bjInputStyle} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}><input type="text" placeholder="Costo" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: handleInputMonto(e.target.value)})} style={bjInputStyle} /><input type="number" placeholder="Stock" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={bjInputStyle} /></div>
-                    <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900' }}>CREAR EN CATÁLOGO</button>
+                    <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={sInput} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                        <input type="text" placeholder="Costo" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: handleInputMonto(e.target.value)})} style={sInput} />
+                        <input type="number" placeholder="Stock" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={sInput} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                        <input type="text" placeholder="P. MAYOR" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: handleInputMonto(e.target.value)})} style={{...sInput, border:`2px solid ${FUCSIA_PRINCIPAL}`}} />
+                        <input type="text" placeholder="P. MINOR" value={formProd.precio_menor} onChange={e => setFormProd({...formProd, precio_menor: handleInputMonto(e.target.value)})} style={sInput} />
+                    </div>
+                    <button type="submit" style={{ backgroundColor: '#1E1B1C', color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>CREAR PRODUCTO</button>
                   </form>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-                <div style={bjCardStyle}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>🏆 RANKING DE RENTABILIDAD (GANANCIA)</h4>
-                  {analyticsBJMaster.ranking.map((p, i) => (
+                <div style={sCard}>
+                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>🏆 RANKING DE PRODUCTOS RENTABLES</h4>
+                  {analyticsMaster.ranking.map((p, i) => (
                     <div key={i} style={{display:'flex', justifyContent:'space-between', padding:'12px 0', borderBottom:'1px solid #f1f1f1'}}>
                         <span>{i+1}. {p[0]}</span>
                         <strong style={{color:VERDE_BJ}}>+ S/ {p[1].toFixed(2)}</strong>
                     </div>
                   ))}
                 </div>
-                <div style={{...bjCardStyle, borderLeft:`12px solid ${ROJO_BJ}`}}>
-                    <h4 style={{margin:0, color:ROJO_BJ, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💤 DINERO DORMIDO (+20 DÍAS)</h4>
-                    {analyticsBJMaster.dormido.map((p, i) => (
+                <div style={{...sCard, borderLeft:`12px solid ${ROJO_BJ}`}}>
+                    <h4 style={{margin:0, color:ROJO_BJ, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💤 DINERO DORMIDO (+20 DÍAS SIN VENTA)</h4>
+                    {analyticsMaster.dormido.map((p, i) => (
                         <div key={i} style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
                             <span>{p.nombre}</span>
                             <strong style={{color:ROJO_BJ}}>{p.stock} Und.</strong>
@@ -653,7 +627,7 @@ export default function SistemaBJCMasterFinal() {
               </div>
             </div>
 
-            <div style={bjCardStyle}>
+            <div style={sCard}>
                 <h4 style={{ marginTop: 0, marginBottom: '30px', fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro Diario Detallado</h4>
                 <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
                     <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse' }}>
@@ -664,11 +638,11 @@ export default function SistemaBJCMasterFinal() {
                                 <small style={{fontWeight:'900', color:'#64748B', display:'block'}}>{getFechaPeru(f.created_at)} | {getHoraPeru(f.created_at)}</small>
                                 <small style={{fontWeight:'900', color:FUCSIA_PRINCIPAL, textTransform:'uppercase'}}>{f.tipo}</small>
                                 <br/><span style={{ fontWeight: '600' }}>{f.descripcion}</span>
-                                <br/><small style={{color: AMARILLO_BJ, fontWeight:'900'}}>Origen: {f.origen || 'Caja Global'}</small>
+                                <br/><small style={{color: AMARILLO_BJ, fontWeight:'900'}}>Fondo: {f.origen || 'Caja Global'}</small>
                             </td>
                             <td style={{ textAlign: 'right', padding: '20px 10px', fontWeight: '900', fontSize: '17px', color: (f.tipo.includes('Ingreso')) ? VERDE_BJ : '#1E1B1C' }}>S/ {(Number(f.monto) || 0).toFixed(2)}</td>
                             <td style={{ textAlign: 'right', padding: '20px 10px' }}>
-                                <button onClick={async ()=> { if(confirm("¿Borrar?")) await supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '1.4rem'}}>🗑️</button>
+                                <button onClick={async ()=> { if(confirm("¿Borrar definitivamente?")) await supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '1.4rem'}}>🗑️</button>
                             </td>
                             </tr>
                         ))}
@@ -677,17 +651,18 @@ export default function SistemaBJCMasterFinal() {
                 </div>
             </div>
 
-            <div style={bjCardStyle}>
-                <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '35px', fontWeight: '900', fontSize: '1.4rem' }}>📈 ROI / Retorno de Inversión</h4>
+            {/* GRÁFICO ROI BLINDADO */}
+            <div style={sCard}>
+                <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '35px', fontWeight: '900', fontSize: '1.4rem' }}>📈 ROI / Rendimiento de Inversión</h4>
                 <div style={{ height: '350px', width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartROIConfig} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
+                        <BarChart data={chartROI} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                             <XAxis dataKey="n" fontSize={13} fontWeight="900" axisLine={false} tickLine={false} dy={15} />
                             <YAxis fontSize={13} axisLine={false} tickLine={false} />
                             <Tooltip formatter={(v)=> `S/ ${v.toLocaleString()}`} contentStyle={{ borderRadius: '25px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', fontWeight: '900' }} />
                             <Bar dataKey="v" radius={[20, 20, 0, 0]} barSize={80}>
-                                {chartROIConfig.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
+                                {chartROI.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
