@@ -261,41 +261,39 @@ export default function SistemaBJCMasterFinal() {
     } catch (errorMemoHistorial) { return []; }
   }, [ventas, fechaConsulta]);
 
-  // 4.3 BALANCE FINANCIERO: Doble Caja y Punto de Equilibrio (EL MÁS BLINDADO)
+ // 4.3 BALANCE FINANCIERO CRÍTICO: Bóveda vs Caja Global (CORREGIDO v53)
   const balanceBunkerElite = useMemo(() => {
-    const objetoVacio = { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, bovedaRetiro: 0, pe_progreso: 0, pe_gan: 0, pe_meta: 0 };
-    if (!ventas || !finanzas) return objetoVacio;
-
     try {
-        const hoyStr = getFechaPeru();
-        const mesID = hoyStr.substring(0,7);
+        const fL = finanzas || [];
+        const vL = ventas || [];
+        const hoy = getFechaPeru();
+        const mesID = hoy.substring(0,7);
         
         // --- DINERO FÍSICO DE HOY ---
-        const ventasCashHoy = ventas.filter(v => v && getFechaPeru(v.created_at) === hoyStr && v.estado_pedido !== 'Pendiente de Pago');
+        const ventasCashHoy = vL.filter(v => v && getFechaPeru(v.created_at) === hoy && v.estado_pedido !== 'Pendiente de Pago');
         
         // --- BÓVEDA (UTILIDAD REAL ACUMULADA) ---
-        const utilidadBrutaAcumulada = ventas.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
-        const retirosEjecutadosBoveda = finanzas.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const utilidadBrutaAcumulada = vL.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
+        const retirosEjecutadosBoveda = fL.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
         // --- CAJA GLOBAL (DINERO TOTAL EN MANO) ---
-        const totalIngresosVentas = ventas.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
-        const totalInyeccionesCapital = finanzas.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const totalEgresosEfectuados = finanzas.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // Sumamos ventas pagadas y capital inyectado, restamos TODOS los egresos
+        const totalIngresosVentas = vL.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
+        const totalInyeccionesCapital = fL.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const totalEgresosEfectuados = fL.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
         // --- PUNTO DE EQUILIBRIO MENSUAL ---
-        const gastosMetaMensual = finanzas.filter(f => {
+        const gastosMetaMensual = fL.filter(f => {
             if (!f || !f.created_at) return false;
-            const fechaF = getFechaPeru(f.created_at);
-            return fechaF.substring(0,7) === mesID && ['Gasto Local','Retiro Personal'].includes(f.tipo);
+            return getFechaPeru(f.created_at).substring(0,7) === mesID && ['Gasto Local','Retiro Personal'].includes(f.tipo);
         }).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        const gananciaRealMes = ventas.filter(v => {
+        const gananciaRealMes = vL.filter(v => {
             if (!v || !v.created_at) return false;
-            const fechaV = getFechaPeru(v.created_at);
-            return fechaV.substring(0,7) === mesID && v.estado_pedido !== 'Pendiente de Pago';
+            return getFechaPeru(v.created_at).substring(0,7) === mesID && v.estado_pedido !== 'Pendiente de Pago';
         }).reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
 
-        // Calculamos el progreso evitando divisiones por cero
+        // Escudo contra división por cero
         let progresoMeta = 0;
         if (gastosMetaMensual > 0) {
             progresoMeta = (gananciaRealMes / gastosMetaMensual) * 100;
@@ -307,14 +305,14 @@ export default function SistemaBJCMasterFinal() {
             cajaHoy: ventasCashHoy.reduce((acc, v) => acc + (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0)), 0),
             ganHoy: ventasCashHoy.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
             cajaGlobal: (totalIngresosVentas + totalInyeccionesCapital - totalEgresosEfectuados),
-            bovedaRetiro: (utilidadBrutaAcumulada - retirosEjecutadosBoveda),
+            disponibleBoveda: (utilidadBrutaAcumulada - retirosEjecutadosBoveda),
             pe_progreso: progresoMeta,
             pe_gan: gananciaRealMes,
             pe_meta: gastosMetaMensual
         };
-    } catch (errorCrashPreventivo) { 
-        console.error("Falla en Cálculos de Gestión:", errorCrashPreventivo);
-        return objetoVacio;
+    } catch (errorCrash) { 
+        console.error("Falla en Cálculos de Gestión:", errorCrash);
+        return { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, disponibleBoveda: 0, pe_progreso: 0, pe_gan: 0, pe_meta: 0 };
     }
   }, [finanzas, ventas]);
 
@@ -683,12 +681,12 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ===================== TAB GESTIÓN (BUNKER) ===================== */}
+       {/* ===================== TAB GESTIÓN (RESTAURADA v53) ===================== */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
-                {/* 🏁 PUNTO DE EQUILIBRIO MENSUAL */}
+                {/* 🏁 PUNTO DE EQUILIBRIO */}
                 <div style={sCrd}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 PUNTO DE EQUILIBRIO (UTILIDAD REAL VENTAS)</h4>
                     <div style={{height:'20px', width:'100%', backgroundColor:'#F1F5F9', borderRadius:'10px', overflow:'hidden', marginBottom:'15px', border:'1px solid #eee'}}>
@@ -696,16 +694,20 @@ export default function SistemaBJCMasterFinal() {
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
                         <span>Utilidad Mes: S/ {balanceBunkerElite.pe_gan.toFixed(2)}</span>
-                        <strong>Meta Gasto: S/ {balanceBunkerElite.pe_egMeta.toFixed(2)}</strong>
+                        <strong>Meta Gasto: S/ {balanceBunkerElite.pe_meta.toFixed(2)}</strong>
                     </div>
-                    {balanceBunkerElite.pe_progreso < 100 ? <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceBunkerElite.pe_egMeta - balanceBunkerElite.pe_gan).toFixed(2)} de utilidad para cubrir gastos.</small> : <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>}
+                    {balanceBunkerElite.pe_progreso < 100 ? (
+                        <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceBunkerElite.pe_meta - balanceBunkerElite.pe_gan).toFixed(2)} de utilidad para cubrir gastos operativos.</small>
+                    ) : (
+                        <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>
+                    )}
                 </div>
 
                 {/* 💰 BÓVEDA DE GANANCIAS */}
                 <div style={{ ...sCrd, backgroundColor: OSCURO_BJ, color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA: DISPONIBLE PARA RETIRO (GANANCIA NETA)</h4>
+                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA: DISPONIBLE PARA RETIRO (UTILIDAD NETA)</h4>
                     <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceBunkerElite.disponibleBoveda.toFixed(2)}</h3>
-                    <small style={{opacity:0.6}}>Ganancia neta acumulada histórica menos retiros registrados desde "Ganancias".</small>
+                    <small style={{opacity:0.6}}>Ganancia neta acumulada menos los retiros registrados desde la bolsa "Ganancias".</small>
                 </div>
             </div>
 
@@ -715,16 +717,17 @@ export default function SistemaBJCMasterFinal() {
                     <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {valorizacionInventarioTotal.cost.toLocaleString('es-PE')}</h4>
                 </div>
                 <div style={{ ...sCrd, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
-                    <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO EN MANO)</small>
+                    <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO FÍSICO EN MANO)</small>
                     <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {balanceBunkerElite.cajaGlobal.toFixed(2)}</h4>
                 </div>
             </div>
 
+            {/* FORMULARIOS DE REGISTRO */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '45px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
                 <div style={sCrd}>
                   <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>💸 Registrar Movimiento de Caja Detallado</h4>
-                  <form onSubmit={handleRegistrarFinanzaElite} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <form onSubmit={handleRegistrarFinanzaMaster} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
                         <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={sInp}>
                             <option value="Gasto Local">🏪 Gasto Local</option>
@@ -739,7 +742,7 @@ export default function SistemaBJCMasterFinal() {
                     </div>
                     <input placeholder="Descripción del movimiento..." value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={sInp} />
                     <input type="text" placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={sInp} />
-                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR REGISTRO</button>
+                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR MOVIMIENTO</button>
                   </form>
                 </div>
                 <div style={{ ...sCrd, border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
@@ -750,7 +753,7 @@ export default function SistemaBJCMasterFinal() {
                         <input type="text" placeholder="Costo Compra" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: handleInputMonto(e.target.value)})} style={sInp} />
                         <input type="number" placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={sInp} />
                     </div>
-                    <button type="submit" style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>CREAR EN SISTEMA</button>
+                    <button type="submit" style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>CREAR PRODUCTO</button>
                   </form>
                 </div>
               </div>
@@ -770,7 +773,7 @@ export default function SistemaBJCMasterFinal() {
                     {analyticsMasterBJ.dormidos.map((p, i) => (
                         <div key={i} style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
                             <span>{p.nombre}</span>
-                            <strong style={{color:ROJO_BJ}}>{p.stock} Unidades</strong>
+                            <strong style={{color:ROJO_BJ}}>{p.stock} Und.</strong>
                         </div>
                     ))}
                 </div>
@@ -792,7 +795,7 @@ export default function SistemaBJCMasterFinal() {
                             </td>
                             <td style={{ textAlign: 'right', padding: '20px 10px', fontWeight: '900', fontSize: '18px', color: (f.tipo.includes('Ingreso')) ? VERDE_BJ : OSCURO_BJ }}>S/ {(Number(f.monto) || 0).toFixed(2)}</td>
                             <td style={{ textAlign: 'right', padding: '20px 10px' }}>
-                                <button onClick={async ()=> { if(confirm("¿Borrar definitivamente?")) await supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '1.5rem'}}>🗑️</button>
+                                <button onClick={async ()=> { if(confirm("¿Borrar movimiento definitivamente?")) await supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '1.5rem'}}>🗑️</button>
                             </td>
                             </tr>
                         ))}
@@ -805,22 +808,17 @@ export default function SistemaBJCMasterFinal() {
                 <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '35px', fontWeight: '900', fontSize: '1.4rem' }}>📈 ROI / Retorno de Inversión Almacén</h4>
                 <div style={{ height: '400px', width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartROIConfig} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
+                        <BarChart data={configChartROI} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                             <XAxis dataKey="n" fontSize={13} fontWeight="900" axisLine={false} tickLine={false} dy={15} />
                             <YAxis fontSize={13} axisLine={false} tickLine={false} />
                             <Tooltip formatter={(v)=> `S/ ${v.toLocaleString()}`} contentStyle={{ borderRadius: '25px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', fontWeight: '900' }} />
                             <Bar dataKey="v" radius={[20, 20, 0, 0]} barSize={90}>
-                                {chartROIConfig.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
+                                {configChartROI.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
             </div>
-
           </div>
         )}
-      </main>
-    </div>
-  );
-}
