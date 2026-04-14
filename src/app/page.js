@@ -8,8 +8,8 @@ import {
 /**
  * ============================================================
  * SISTEMA BJ IMPORTACIONES CHICLAYO - CONTROL EMPRESARIAL
- * VERSION: 62.0 - BUNKER SUPREMO (SIN SIMPLIFICACIONES)
- * ESTADO: TOTALMENTE EXPANDIDO Y BLINDADO
+ * VERSION: 63.0 - MASTER INMORTAL (EXPANDIDO AL 100%)
+ * ESTADO: PROTECCIÓN ATÓMICA DE PESTAÑA GESTIÓN
  * ============================================================
  */
 
@@ -19,92 +19,114 @@ export default function SistemaBJCMasterFinal() {
   // [BLOQUE 1] HELPERS DE SEGURIDAD (ANTI-CRASH)
   // ============================================================
 
-  // getFechaPeru: Manejo de tiempo en Chiclayo (GMT-5).
-  // Blindaje: Si el dato es nulo, evita el error "undefined" devolviendo hoy.
+  /**
+   * getFechaPeru:
+   * Convierte cualquier entrada de tiempo de Supabase al formato Chiclayo (GMT-5).
+   * Blindaje absoluto: Si el dato es corrupto, devuelve la fecha de hoy.
+   */
   const getFechaPeru = (dateInput) => {
     try {
-        const fechaObj = dateInput ? new Date(dateInput) : new Date();
-        if (isNaN(fechaObj.getTime())) {
+        const fechaBase = dateInput ? new Date(dateInput) : new Date();
+        
+        if (isNaN(fechaBase.getTime())) {
             const fallbackHoy = new Date();
-            return fallbackHoy.toISOString().split('T')[0];
+            const aF = fallbackHoy.getFullYear();
+            const mF = String(fallbackHoy.getMonth() + 1).padStart(2, '0');
+            const dF = String(fallbackHoy.getDate()).padStart(2, '0');
+            return `${aF}-${mF}-${dF}`;
         }
-        const configuracionRegional = { 
+
+        const opcionesLocal = { 
             timeZone: "America/Lima", 
             year: 'numeric', 
             month: '2-digit', 
             day: '2-digit' 
         };
-        const formateador = new Intl.DateTimeFormat('en-CA', configuracionRegional);
-        const partes = formateador.formatToParts(fechaObj);
-        const anioFinal = partes.find(p => p.type === 'year')?.value || "2026";
-        const mesFinal = partes.find(p => p.type === 'month')?.value || "01";
-        const diaFinal = partes.find(p => p.type === 'day')?.value || "01";
-        return `${anioFinal}-${mesFinal}-${diaFinal}`;
-    } catch (errorF) { 
+        
+        const formateadorBJ = new Intl.DateTimeFormat('en-CA', opcionesLocal);
+        const partesBJ = formateadorBJ.formatToParts(fechaBase);
+        
+        const anioBJ = partesBJ.find(p => p.type === 'year')?.value || "2026";
+        const mesBJ = partesBJ.find(p => p.type === 'month')?.value || "01";
+        const diaBJ = partesBJ.find(p => p.type === 'day')?.value || "01";
+        
+        return `${anioBJ}-${mesBJ}-${diaBJ}`;
+    } catch (errF) { 
         return new Date().toISOString().split('T')[0]; 
     }
   };
 
-  // getHoraPeru: Formato 12H (AM/PM) para control operativo.
+  /**
+   * getHoraPeru:
+   * Extrae la hora exacta de una operación en formato 12H (AM/PM).
+   */
   const getHoraPeru = (dateInput) => {
     if (!dateInput) return "--:--";
     try {
-        const dHora = new Date(dateInput);
-        if (isNaN(dHora.getTime())) return "--:--";
-        const opcionesH = { 
+        const dObjeto = new Date(dateInput);
+        if (isNaN(dObjeto.getTime())) return "--:--";
+        
+        const configH = { 
             timeZone: "America/Lima", 
             hour: '2-digit', 
             minute: '2-digit', 
             hour12: true 
         };
-        return dHora.toLocaleTimeString('es-PE', opcionesH);
+        
+        return dObjeto.toLocaleTimeString('es-PE', configH);
     } catch (eH) { 
         return "--:--"; 
     }
   };
 
-  // handleInputMonto: Limpiador estricto para evitar errores NaN en la base de datos.
-  const handleInputMonto = (valorEntrada) => {
-    if (valorEntrada === undefined || valorEntrada === null) return "";
-    const textoValor = String(valorEntrada);
-    const conPunto = textoValor.replace(',', '.');
-    const soloNumerosYDecimal = conPunto.replace(/[^0-9.]/g, '');
-    return soloNumerosYDecimal;
+  /**
+   * handleInputMonto:
+   * Limpia inputs de precio para evitar errores de cálculo por comas o textos.
+   */
+  const handleInputMonto = (valorCrudo) => {
+    if (valorCrudo === undefined || valorCrudo === null) return "";
+    const aTexto = String(valorCrudo);
+    const conPunto = aTexto.replace(',', '.');
+    const soloNum = conPunto.replace(/[^0-9.]/g, '');
+    return soloNum;
   };
 
-  // getEtiquetaProducto: Badge visual para el catálogo de Chiclayo.
-  const getEtiquetaProducto = (fechaCreacion) => {
-    if (!fechaCreacion) return null;
+  /**
+   * getEtiquetaProducto:
+   * Identifica ingresos recientes para el catálogo.
+   */
+  const getEtiquetaProducto = (fCreacion) => {
+    if (!fCreacion) return null;
     try {
-        const fCreacion = new Date(fechaCreacion);
-        const fHoy = new Date();
-        const mSecsDia = 1000 * 60 * 60 * 24;
-        const diffD = Math.floor((fHoy - fCreacion) / mSecsDia);
-        if (diffD <= 3) return { tipo: 'NUEVO', icono: '✨', color: '#F01097' };
-        if (diffD <= 8) return { tipo: 'RECIENTE', icono: '📦', color: '#A13C6D' };
+        const fCreacionObj = new Date(fCreacion);
+        const fHoyObj = new Date();
+        const mPorDia = 1000 * 60 * 60 * 24;
+        const diffD = Math.floor((fHoyObj - fCreacionObj) / mPorDia);
+        
+        if (diffD <= 3) {
+            return { tipo: 'NUEVO', icono: '✨', color: '#F01097' };
+        } else if (diffD <= 8) {
+            return { tipo: 'RECIENTE', icono: '📦', color: '#A13C6D' };
+        }
         return null;
-    } catch (errTag) { return null; }
+    } catch (eTag) { return null; }
   };
 
   // ============================================================
   // [BLOQUE 2] ALMACÉN DE ESTADOS (STATE MANAGEMENT)
   // ============================================================
 
-  // --- 2.1 Datos Principales ---
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [finanzas, setFinanzas] = useState([]);
   
-  // --- 2.2 Control de UI ---
   const [vista, setVista] = useState('ventas'); 
   const [cargando, setCargando] = useState(true);
   
-  // --- 2.3 Filtros y Búsqueda ---
   const [busqueda, setBusqueda] = useState(''); 
   const [busquedaStock, setBusquedaStock] = useState(''); 
   const [fechaConsulta, setFechaConsulta] = useState(getFechaPeru());
   
-  // --- 2.4 Memoria del Carrito ---
   const [cliente, setCliente] = useState('');
   const [localidad, setLocalidad] = useState(''); 
   const [telefono, setTelefono] = useState(''); 
@@ -114,20 +136,17 @@ export default function SistemaBJCMasterFinal() {
   const [carrito, setCarrito] = useState([]);
   const [descuento, setDescuento] = useState(0); 
 
-  // --- 2.5 Estados de Edición ---
   const [editandoGrupoId, setEditandoGrupoId] = useState(null); 
   const [formEditCliente, setFormEditCliente] = useState({ nombre: '', localidad: '', telefono: '' });
   const [idItemVentaEditando, setIdItemVentaEditando] = useState(null); 
   const [nuevaCantVenta, setNuevaCantVenta] = useState(0);
   
-  // --- 2.6 Estados de Gestión ---
   const [idFinanzaEditando, setIdFinanzaEditando] = useState(null);
   const [formEditFinanza, setFormEditFinanza] = useState({ tipo: '', descripcion: '', monto: '', origen: 'Caja Global' });
   const [formProd, setFormProd] = useState({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' });
   const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '', origen: 'Caja Global' });
   const [formEditStock, setFormEditStock] = useState({}); 
 
-  // --- 2.7 Paleta de Colores Corporativa ---
   const FUCSIA_PRINCIPAL = '#F01097';
   const VERDE_BJ = '#16A34A';
   const ROJO_BJ = '#E11D48';
@@ -135,183 +154,168 @@ export default function SistemaBJCMasterFinal() {
   const OSCURO_BJ = '#1E1B1C';
 
   // ============================================================
-  // [BLOQUE 3] DB & REALTIME (CONEXIÓN SUPABASE)
+  // [BLOQUE 3] NÚCLEO DE DATOS (DB & REALTIME)
   // ============================================================
 
   useEffect(() => {
-    const arrancarBunker = async () => {
-        await cargarTodoFull();
+    const bootstrapBJ = async () => {
+        await cargarTodoDesdeNube();
         setCargando(false);
     };
-    arrancarBunker();
+    bootstrapBJ();
 
-    // Sincronización Platinum v62 sin una sola simplificación
-    const cSales = supabase.channel('v62-real-sales').on('postgres_changes',{event:'*',schema:'public',table:'ventas'},()=>cargarTodoFull()).subscribe();
-    const cProd = supabase.channel('v62-real-prod').on('postgres_changes',{event:'*',schema:'public',table:'productos'},()=>cargarTodoFull()).subscribe();
-    const cFin = supabase.channel('v62-real-fin').on('postgres_changes',{event:'*',schema:'public',table:'finanzas'},()=>cargarTodoFull()).subscribe();
+    const cV = supabase.channel('v63-v').on('postgres_changes',{event:'*',schema:'public',table:'ventas'},()=>cargarTodoDesdeNube()).subscribe();
+    const cP = supabase.channel('v63-p').on('postgres_changes',{event:'*',schema:'public',table:'productos'},()=>cargarTodoDesdeNube()).subscribe();
+    const cF = supabase.channel('v63-f').on('postgres_changes',{event:'*',schema:'public',table:'finanzas'},()=>cargarTodoDesdeNube()).subscribe();
 
     return () => {
-      supabase.removeChannel(cSales);
-      supabase.removeChannel(cProd);
-      supabase.removeChannel(cFin);
+      supabase.removeChannel(cV);
+      supabase.removeChannel(cP);
+      supabase.removeChannel(cF);
     };
   }, []);
 
-  const cargarTodoFull = async () => {
+  const cargarTodoDesdeNube = async () => {
     try {
-        const { data: dP } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
-        const { data: dV } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
-        const { data: dF } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
+        const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
+        const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
+        const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
         
-        if (dP) setProductos(dP);
-        if (dV) setVentas(dV);
-        if (dF) setFinanzas(dF);
-    } catch (errorMaster) { 
-        console.error("Error fatal en sincronización Supabase:", errorMaster); 
-    }
+        if (p) setProductos(p);
+        if (v) setVentas(v);
+        if (f) setFinanzas(f);
+    } catch (e) { console.error("Fallo de conexión Supabase:", e); }
   };
 
   // ============================================================
-  // [BLOQUE 4] LÓGICA ESTRATÉGICA (MEMOS ANALÍTICOS BLINDADOS)
+  // [BLOQUE 4] LÓGICA ESTRATÉGICA (MEMOS BLINDADOS)
   // ============================================================
 
-  // 4.1 LOGÍSTICA: Clasificación Operativa
+  // 4.1 LOGÍSTICA: Clasificación (Entrega vs Deuda)
   const logisticaInteligente = useMemo(() => {
-    const resLogistica = { almacen: [], cuentasPorCobrar: [] };
-    if (!ventas || ventas.length === 0) return resLogistica;
+    const resLog = { almacen: [], cuentasPorCobrar: [] };
+    if (!ventas || ventas.length === 0) return resLog;
 
     try {
-        const mapaTemporalAlmacen = {}; 
-        const mapaTemporalDeudores = {};
+        const mapaAlmacen = {}; const mapaCuentas = {};
 
-        ventas.forEach(registro => {
-            if (!registro || !registro.cliente_nombre) return;
-            const llaveCliente = `${registro.cliente_nombre}-${registro.localidad || 'SN'}`;
+        ventas.forEach(v => {
+            if (!v || !v.cliente_nombre) return;
+            const llaveC = `${v.cliente_nombre}-${v.localidad || 'SN'}`;
             
-            if (registro.estado_pedido === 'En Almacén') {
-                if (!mapaTemporalAlmacen[llaveCliente]) {
-                    mapaTemporalAlmacen[llaveCliente] = { cliente: registro.cliente_nombre, localidad: registro.localidad, telefono: registro.telefono, items: [], total: 0 };
-                }
-                mapaTemporalAlmacen[llaveCliente].items.push(registro);
-                mapaTemporalAlmacen[llaveCliente].total += (Number(registro.precio_venta_unitario || 0) * Number(registro.cantidad || 0));
+            if (v.estado_pedido === 'En Almacén') {
+                if (!mapaAlmacen[llaveC]) mapaAlmacen[llaveC] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
+                mapaAlmacen[llaveC].items.push(v);
+                mapaAlmacen[llaveC].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
             }
             
-            if (registro.estado_pedido === 'Pendiente de Pago') {
-                if (!mapaTemporalDeudores[llaveCliente]) {
-                    mapaTemporalDeudores[llaveCliente] = { cliente: registro.cliente_nombre, localidad: registro.localidad, telefono: registro.telefono, items: [], total: 0 };
-                }
-                mapaTemporalDeudores[llaveCliente].items.push(registro);
-                mapaTemporalDeudores[llaveCliente].total += (Number(registro.precio_venta_unitario || 0) * Number(registro.cantidad || 0));
+            if (v.estado_pedido === 'Pendiente de Pago') {
+                if (!mapaCuentas[llaveC]) mapaCuentas[llaveC] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
+                mapaCuentas[llaveC].items.push(v);
+                mapaCuentas[llaveC].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
             }
         });
 
-        resLogistica.almacen = Object.values(mapaTemporalAlmacen);
-        resLogistica.cuentasPorCobrar = Object.values(mapaTemporalDeudores);
-        return resLogistica;
-    } catch (eL) { return resLogistica; }
+        resLog.almacen = Object.values(mapaAlmacen);
+        resLog.cuentasPorCobrar = Object.values(mapaCuentas);
+        return resLog;
+    } catch (e) { return resLog; }
   }, [ventas]);
 
-  // 4.2 HISTORIAL: Ventas agrupadas
+  // 4.2 HISTORIAL: Ventas agrupadas para el día
   const historialVentasDiaBJ = useMemo(() => {
     if (!ventas || ventas.length === 0) return [];
     try {
-        const filtradasH = ventas.filter(v => v && getFechaPeru(v.created_at) === fechaConsulta);
-        const agrupadasH = {};
-
-        filtradasH.forEach(v => {
-            const hCorte = v.created_at ? v.created_at.substring(0,16) : "0000";
-            const idAgrup = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}-${hCorte}`; 
-            
-            if (!agrupadasH[idAgrup]) {
-                agrupadasH[idAgrup] = { id_grupo: idAgrup, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
-            }
-            agrupadasH[idAgrup].items.push(v);
-            agrupadasH[idAgrup].total += (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0));
+        const filt = ventas.filter(v => v && getFechaPeru(v.created_at) === fechaConsulta);
+        const grupos = {};
+        filt.forEach(v => {
+            const hU = v.created_at ? v.created_at.substring(0,16) : "0000";
+            const idG = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}-${hU}`; 
+            if (!grupos[idG]) grupos[idG] = { id_grupo: idG, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
+            grupos[idG].items.push(v);
+            grupos[idG].total += (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0));
         });
-        return Object.values(agrupadasH).reverse();
-    } catch (eH) { return []; }
+        return Object.values(grupos).reverse();
+    } catch (e) { return []; }
   }, [ventas, fechaConsulta]);
 
-  // 4.3 BALANCE FINANCIERO CRÍTICO (BUNKER v62 - EL MÁS PROTEGIDO)
+  // 4.3 BALANCE FINANCIERO CRÍTICO (RE-BLINDADO v63)
   const balanceBunkerElite = useMemo(() => {
-    const errorSafeObj = { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, bovedaRetiro: 0, pe_progreso: 0, pe_gan: 0, pe_meta: 0 };
-    if (!Array.isArray(ventas) || !Array.isArray(finanzas)) return errorSafeObj;
+    const errorSafe = { cajaHoy: 0, ganHoy: 0, cajaGlobalReal: 0, disponibleBoveda: 0, pe_progreso: 0, pe_ganActual: 0, pe_metaEgresos: 0 };
+    if (!Array.isArray(ventas) || !Array.isArray(finanzas)) return errorSafe;
 
     try {
-        const fL = finanzas;
-        const vL = ventas;
+        const fList = finanzas;
+        const vList = ventas;
         const hoyS = getFechaPeru();
         const mesI = hoyS.substring(0,7);
         
-        // --- DINERO DE HOY (EFECTIVO PAGADO) ---
-        const vH = vL.filter(v => v && getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
+        // --- DINERO DE HOY ---
+        const vH = vList.filter(v => v && getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
         
-        // --- BÓVEDA (UTILIDAD REAL PARA TI) ---
-        const gananciaBrutaVentasAcumulada = vL.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
-        const retirosMarcadosComoGanancia = fL.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // --- BÓVEDA (UTILIDAD) ---
+        const ganAcumulada = vList.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
+        const retirosBoveda = fList.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        // --- CAJA GLOBAL (DINERO TOTAL FÍSICO) ---
-        const ingresosVentasEfectivo = vL.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
-        const ingresosCapitalExterno = fL.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const egresosGlobalesEfectuados = fL.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // --- CAJA GLOBAL ---
+        const in_VentasEfectivo = vList.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
+        const in_CapitalExterno = fList.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const out_GastosGlobales = fList.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        // --- PUNTO DE EQUILIBRIO ---
-        const gastosOperativosMensuales = fL.filter(f => {
+        // --- PTO EQUILIBRIO ---
+        const egMetaMes = fList.filter(f => {
             if (!f || !f.created_at) return false;
             return getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo);
         }).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        const utilidadesVentasMensuales = vL.filter(v => {
+        const ganRealMes = vList.filter(v => {
             if (!v || !v.created_at) return false;
             return getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago';
         }).reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
 
         let pMetaBJ = 0;
-        if (gastosOperativosMensuales > 0) {
-            pMetaBJ = (utilidadesVentasMensuales / gastosOperativosMensuales) * 100;
-        } else if (utilidadesVentasMensuales > 0) {
-            pMetaBJ = 100;
-        }
+        if (egMetaMes > 0) pMetaBJ = (ganRealMes / egMetaMes) * 100;
+        else if (ganRealMes > 0) pMetaBJ = 100;
 
         return { 
             cajaHoy: vH.reduce((acc, v) => acc + (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0)), 0),
             ganHoy: vH.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-            cajaGlobal: (ingresosVentasEfectivo + ingresosCapitalExterno - egresosGlobalesEfectuados),
-            bovedaRetiro: (gananciaBrutaVentasAcumulada - retirosMarcadosComoGanancia),
+            cajaGlobalReal: (in_VentasEfectivo + in_CapitalExterno - out_GastosGlobales),
+            disponibleBoveda: (ganAcumulada - retirosBoveda),
             pe_progreso: pMetaBJ,
-            pe_gan: utilidadesVentasMensuales,
-            pe_meta: gastosOperativosMensuales
+            pe_ganActual: ganRealMes,
+            pe_metaEgresos: egMetaMes
         };
-    } catch (eCrítico) { 
-        console.error("Falla en Cálculos de Gestión:", eCrítico);
-        return errorSafeObj;
+    } catch (eCrash) { 
+        console.error("Falla en Cálculos de Gestión:", eCrash);
+        return errorSafe;
     }
   }, [finanzas, ventas]);
 
-  // 4.4 ANALÍTICA DE PRODUCTOS (Resiliente)
+  // 4.4 ANALÍTICA DE PRODUCTOS
   const analyticsMasterBJ = useMemo(() => {
     try {
         const dicRank = {};
         (ventas || []).forEach(v => {
             if (!v) return;
-            const pMatch = productos.find(prod => prod.id === v.producto_id);
-            const nMod = pMatch ? pMatch.nombre : "Modelo Descatalogado";
+            const pMatch = productos.find(p => p.id === v.producto_id);
+            const nMod = pMatch ? pMatch.nombre : "Modelo Eliminado";
             dicRank[nMod] = (dicRank[nMod] || 0) + Number(v.ganancia_total || 0);
         });
         const rFinal = Object.entries(dicRank).sort((a,b) => b[1] - a[1]).slice(0, 5);
 
-        const diaHoyA = new Date();
+        const dHoyActual = new Date();
         const dormidosBJ = (productos || []).filter(p => {
             if (!p) return false;
-            const histVp = (ventas || []).filter(v => v && v.producto_id === p.id);
-            const uVen = histVp.pop();
+            const hVp = (ventas || []).filter(v => v && v.producto_id === p.id);
+            const uVen = hVp.pop();
             if (!uVen) return true; 
-            const dDiff = Math.floor((diaHoyA - new Date(uVen.created_at)) / (1000 * 60 * 60 * 24));
+            const dDiff = Math.floor((dHoyActual - new Date(uVen.created_at)) / (1000 * 60 * 60 * 24));
             return dDiff > 20 && p.stock > 0;
         }).slice(0, 5);
 
         return { ranking: rFinal, dormidos: dormidosBJ };
-    } catch (eAn) { return { ranking: [], dormidos: [] }; }
+    } catch (eA) { return { ranking: [], dormidos: [] }; }
   }, [ventas, productos]);
 
   const valorizacionInventarioTotal = useMemo(() => {
@@ -328,32 +332,29 @@ export default function SistemaBJCMasterFinal() {
     return { cost: cTotal, vent: vTotal, util: vTotal - cTotal };
   }, [productos]);
 
-  const seriesROIConfig = [
-    { n: 'Capital (Costo)', v: valorizacionInventarioTotal.cost || 0, fill: OSCURO_BJ },
-    { n: 'Retorno (Venta)', v: valorizacionInventarioTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
+  const chartROIConfigBJ = [
+    { n: 'Capital Invertido', v: valorizacionInventarioTotal.cost || 0, fill: OSCURO_BJ },
+    { n: 'Venta Potencial', v: valorizacionInventarioTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
   ];
 
   // ============================================================
-  // [BLOQUE 5] FUNCIONES DE ACCIÓN (LÓGICA OPERATIVA)
+  // [BLOQUE 5] FUNCIONES DE ACCIÓN (LÓGICA OPERATIVA COMPLETA)
   // ============================================================
 
-  // 5.1 AUTOCOMPLETADO
-  const handleSeleccionarClienteAuto = (e) => {
+  const handleAutocompleteCliente = (e) => {
     const valC = e.target.value; setCliente(valC);
     const mBJ = (ventas || []).find(ven => ven && ven.cliente_nombre?.toLowerCase() === valC.toLowerCase());
     if (mBJ) { setLocalidad(mBJ.localidad || ''); setTelefono(mBJ.telefono || ''); }
   };
 
-  // 5.2 CARRITO
   const handleAddAlCarritoElite = (p) => {
     const canM = Number(cantidades[p.id] || 1);
     const preM = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
     const yaEnC = carrito.filter(i => i.producto_id === p.id).reduce((acc, i) => acc + i.cantidad, 0);
-    if ((Number(p.stock) || 0) < canM + yaEnC) return alert("¡Sin stock físico suficiente!");
+    if ((Number(p.stock) || 0) < canM + yaEnC) return alert("¡Sin stock suficiente!");
     setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: canM, color: (coloresElegidos[p.id] || "Único"), precio_venta: preM, precio_compra: p.precio_compra }]);
   };
 
-  // 5.3 PROCESO DE VENTA (REPARADO v62)
   const handleEjecutarVentaBJ = async (estadoOperativo) => {
     if (!cliente || !localidad) return alert("Error: Faltan datos del cliente (Nombre/Zona).");
     if (carrito.length === 0) return alert("Error: El carrito está vacío.");
@@ -374,9 +375,7 @@ export default function SistemaBJCMasterFinal() {
     });
 
     const { error } = await supabase.from('ventas').insert(listaInserts);
-    if (error) {
-        alert(`Fallo Supabase: ${error.message}`);
-    } else {
+    if (!error) {
       for (const item of carrito) {
         const pR = productos.find(p => p.id === item.producto_id);
         if (pR) await supabase.from('productos').update({ stock: pR.stock - item.cantidad }).eq('id', item.producto_id);
@@ -385,13 +384,12 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  // 5.4 EXPORTACIÓN CIERRE (v62 INCLUYE GESTIÓN)
   const handleExportarExcelCajaFull = () => {
     let csvBJ = "REPORTE DE AUDITORIA Y CIERRE DIARIO - BJ IMPORTACIONES\n";
-    csvBJ += `Fecha de Auditoría: ${fechaConsulta}\n`;
+    csvBJ += `Auditoría: ${fechaConsulta}\n`;
     csvBJ += `--------------------------------------------------\n`;
-    csvBJ += `SALDO CAJA GLOBAL,S/ ${balanceBunkerElite.cajaGlobal.toFixed(2)}\n`;
-    csvBJ += `BOVEDA UTILIDADES DISPO,S/ ${balanceBunkerElite.bovedaRetiro.toFixed(2)}\n`;
+    csvBJ += `SALDO CAJA GLOBAL,S/ ${balanceBunkerElite.cajaGlobalReal.toFixed(2)}\n`;
+    csvBJ += `BOVEDA UTILIDADES DISPO,S/ ${balanceBunkerElite.disponibleBoveda.toFixed(2)}\n`;
     csvBJ += `VENTAS DEL DIA (EFECTIVO),S/ ${balanceBunkerElite.cajaHoy.toFixed(2)}\n`;
     csvBJ += `GANANCIA NETA DEL DIA,S/ ${balanceBunkerElite.ganHoy.toFixed(2)}\n`;
     csvBJ += `PTO. EQUILIBRIO MES,${balanceBunkerElite.pe_progreso.toFixed(1)}%\n`;
@@ -405,30 +403,30 @@ export default function SistemaBJCMasterFinal() {
       csvBJ += `${getHoraPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${nomP},${v.color},${v.cantidad},${v.precio_venta_unitario},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`;
     });
 
-    const blobOBJ = new Blob([csvBJ], { type: 'text/csv;charset=utf-8;' });
-    const linkB = document.createElement("a");
-    linkB.setAttribute("href", URL.createObjectURL(blobOBJ));
-    linkB.setAttribute("download", `AUDITORIA_BJ_${fechaConsulta}.csv`);
-    document.body.appendChild(linkB);
-    linkB.click();
-    document.body.removeChild(linkB);
+    const blobFinal = new Blob([csvBJ], { type: 'text/csv;charset=utf-8;' });
+    const linkBFinal = document.createElement("a");
+    linkBFinal.setAttribute("href", URL.createObjectURL(blobFinal));
+    linkBFinal.setAttribute("download", `AUDITORIA_BJ_${fechaConsulta}.csv`);
+    document.body.appendChild(linkBFinal);
+    linkBFinal.click();
+    document.body.removeChild(linkBFinal);
   };
 
   const handleCobrarDeudaBJ = async (grupoD) => {
     if(confirm(`¿Registrar pago de S/ ${grupoD.total.toFixed(2)}?`)) {
         for(let it of grupoD.items) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', it.id); }
-        alert("💰 Pago inyectado correctamente.");
+        alert("💰 Pago recibido correctamente.");
     }
   };
 
   const handleWhatsAppTicketDirecto = (grupoW) => {
-    let t_ms = `¡Hola *${grupoW.cliente_nombre}*! 👋 Recibo de BJ Importaciones Chiclayo.%0A%0A`;
+    let t_m = `¡Hola *${grupoW.cliente_nombre}*! 👋 Recibo de BJ Importaciones Chiclayo.%0A%0A`;
     grupoW.items.forEach(v => {
         const pR = productos.find(p => p.id === v.producto_id);
-        t_ms += `- *${v.cantidad}x* ${pR?.nombre || 'Item'} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
+        t_m += `- *${v.cantidad}x* ${pR?.nombre || 'Item'} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
     });
-    t_ms += `%0A*TOTAL PAGADO: S/ ${grupoW.total.toFixed(2)}*%0A¡Muchas gracias por elegirnos! 😊`;
-    window.open(`https://wa.me/51${grupoW.telefono?.replace(/\D/g,'')}?text=${t_ms}`, '_blank');
+    t_m += `%0A*TOTAL PAGADO: S/ ${grupoW.total.toFixed(2)}*%0A¡Muchas gracias por elegirnos! 😊`;
+    window.open(`https://wa.me/51${grupoW.telefono?.replace(/\D/g,'')}?text=${t_m}`, '_blank');
   };
 
   const handleRegistrarFinanzaMaster = async (e) => {
@@ -437,7 +435,7 @@ export default function SistemaBJCMasterFinal() {
     await supabase.from('finanzas').insert([{
         tipo: formFinanzas.tipo, descripcion: formFinanzas.descripcion, monto: Number(cl_M), origen: formFinanzas.origen 
     }]);
-    setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen: 'Caja Global'}); alert("✅ Movimiento guardado.");
+    setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen: 'Caja Global'}); alert("✅ Registro guardado.");
   };
 
   const handleAnularVentaElite = async (v) => {
@@ -457,7 +455,7 @@ export default function SistemaBJCMasterFinal() {
 
   if (cargando) return (
     <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>
-        INICIANDO BUNKER BJ ELITE v62... 🚀💎
+        INICIANDO BUNKER BJ ELITE v63... 🚀💎
     </div>
   );
 
@@ -470,7 +468,7 @@ export default function SistemaBJCMasterFinal() {
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.4rem' }}>BJ</div>
           <div>
             <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1>
-            <small style={{ color: '#64748B', fontWeight: '900', fontSize: '10px' }}>CHICLAYO • v62 MASTER OMEGA</small>
+            <small style={{ color: '#64748B', fontWeight: '900', fontSize: '10px', textTransform:'uppercase' }}>CHICLAYO • v63 BUNKER SUPREMO</small>
           </div>
         </div>
         <nav style={{ display: 'flex', gap: '10px', backgroundColor: `#FCA5D415`, padding: '6px', borderRadius: '18px' }}>
@@ -509,8 +507,8 @@ export default function SistemaBJCMasterFinal() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="cli_bj_v62" placeholder="👤 Nombre Cliente" value={cliente} onChange={handleSeleccionarClienteAuto} style={sInp_BJ} />
-                <datalist id="cli_bj_v62">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="clis_v63" placeholder="👤 Nombre Cliente" value={cliente} onChange={handleAutocompleteCliente} style={sInp_BJ} />
+                <datalist id="clis_v63">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={sInp_BJ} />
                 <input placeholder="📍 Zona / Distrito" value={localidad} onChange={e => setLocalidad(e.target.value)} style={sInp_BJ} />
               </div>
@@ -586,16 +584,7 @@ export default function SistemaBJCMasterFinal() {
                         </div>
                         <div style={{marginTop:'15px'}}>{grupo.items.map(v => (
                             <div key={v.id} style={{background:'#fff', padding:'10px 20px', borderRadius:'15px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                <div>
-                                    {idItemVentaEditando === v.id ? (
-                                        <div style={{display:'flex', gap:'10px'}}>
-                                            <input type="number" value={nuevaCantVenta} onChange={(e)=>setNuevaCantVenta(Number(e.target.value))} style={{width:'60px', padding:'5px', borderRadius:'8px', border:'1px solid #ccc'}} />
-                                            <button onClick={()=>handleEditarCantidadVentaMasterBJ(v)} style={{background:VERDE_BJ, color:'#fff', border:'none', borderRadius:'8px', padding:'5px 10px'}}>OK</button>
-                                        </div>
-                                    ) : (
-                                        <small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre || 'Item'} ({v.color}) | <span style={{color: v.estado_pedido==='Pendiente de Pago' ? AMARILLO_BJ : '#64748B'}}>{v.estado_pedido}</span></small>
-                                    )}
-                                </div>
+                                <div><small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre || 'Item'} ({v.color}) | <span style={{color: v.estado_pedido==='Pendiente de Pago' ? AMARILLO_BJ : '#64748B'}}>{v.estado_pedido}</span></small></div>
                                 <div style={{display:'flex', gap:'15px', alignItems:'center'}}>
                                     <strong>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</strong>
                                     <button onClick={()=>handleAnularVentaElite(v)} style={{border:'none', background:'none', color:ROJO_BJ, fontWeight:'bold', cursor:'pointer'}}>🗑️</button>
@@ -611,11 +600,6 @@ export default function SistemaBJCMasterFinal() {
         {/* ===================== VISTA: LOGÍSTICA ===================== */}
         {vista === 'logistica' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
-            <div style={{ ...sCrd_BJ, backgroundColor: OSCURO_BJ, color: '#fff', padding: '40px', textAlign: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900' }}>📦 Centro de Control BJ</h2>
-                <p style={{opacity:0.7, fontSize:'1.1rem'}}>Gestión de almacén físico y cobranzas de ventas a crédito.</p>
-            </div>
-            
             <div style={sCrd_BJ}>
                 <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: FUCSIA_PRINCIPAL, marginBottom:'25px' }}>📦 Entregas Pendientes (Ya Pagado)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
@@ -623,9 +607,8 @@ export default function SistemaBJCMasterFinal() {
                         <div key={idx} style={{ padding: '25px', border: '1px solid #f1f1f1', borderRadius: '25px' }}>
                             <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                                 <div><strong>{grupo.cliente}</strong><br/><small>{grupo.localidad}</small></div>
-                                <button onClick={() => { let m = `¡Hola *${grupo.cliente}*! 👋 BJ Importaciones te avisa que tu pedido ya está listo. ✨📦`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>AVISAR 📱</button>
+                                <button onClick={() => { let m = `¡Hola *${grupo.cliente}*! 👋 Tu pedido en BJ Importaciones Chiclayo ya está listo. ✨📦`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>AVISAR 📱</button>
                             </div>
-                            <div style={{marginBottom:'15px'}}>{grupo.items.map((it,i) => <div key={i}><small>{it.cantidad}x {it.color}</small></div>)}</div>
                             <button onClick={async () => { if(confirm("¿Confirmar entrega física?")) { for(let it of grupo.items) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', it.id); } }} style={{ width: '100%', backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>CONFIRMAR ENTREGA ✅</button>
                         </div>
                     ))}
@@ -642,7 +625,7 @@ export default function SistemaBJCMasterFinal() {
                                 <button onClick={() => { let m = `Hola *${grupo.cliente}* 👋 BJ Importaciones te recuerda tu saldo pendiente de S/ ${grupo.total.toFixed(2)}. ✨`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:AMARILLO_BJ, color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>RECORDAR 📱</button>
                             </div>
                             <h4 style={{color:AMARILLO_BJ, margin:'10px 0'}}>SALDO DEUDOR: S/ {grupo.total.toFixed(2)}</h4>
-                            <button onClick={() => handleCobrarDeudaBJ(grupo)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 REGISTRAR PAGO TOTAL (COBRAR)</button>
+                            <button onClick={() => handleCobrarDeudaBunker(grupo)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 REGISTRAR PAGO TOTAL (COBRAR)</button>
                         </div>
                     ))}
                 </div>
@@ -650,23 +633,23 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ===================== VISTA: GESTIÓN (BUNKER v62) ===================== */}
+        {/* ===================== VISTA: GESTIÓN (BUNKER v63) ===================== */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
-                {/* 1. PUNTO DE EQUILIBRIO MENSUAL */}
+                {/* 1. PUNTO DE EQUILIBRIO */}
                 <div style={sCrd_BJ}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 PUNTO DE EQUILIBRIO (UTILIDAD REAL VENTAS)</h4>
                     <div style={{height:'20px', width:'100%', backgroundColor:'#F1F5F9', borderRadius:'10px', overflow:'hidden', marginBottom:'15px', border:'1px solid #eee'}}>
                         <div style={{height:'100%', width:`${balanceBunkerElite.pe_progreso}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
-                        <span>Utilidad Mes: S/ {balanceBunkerElite.pe_gan.toFixed(2)}</span>
-                        <strong>Meta Gasto: S/ {balanceBunkerElite.pe_meta.toFixed(2)}</strong>
+                        <span>Utilidad Mes: S/ {balanceBunkerElite.pe_ganActual.toFixed(2)}</span>
+                        <strong>Meta Gasto: S/ {balanceBunkerElite.pe_metaEgresos.toFixed(2)}</strong>
                     </div>
                     {balanceBunkerElite.pe_progreso < 100 ? (
-                        <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceBunkerElite.pe_meta - balanceBunkerElite.pe_gan).toFixed(2)} para cubrir gastos operativos.</small>
+                        <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceBunkerElite.pe_metaEgresos - balanceBunkerElite.pe_ganActual).toFixed(2)} para cubrir gastos operativos.</small>
                     ) : (
                         <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>
                     )}
@@ -675,8 +658,8 @@ export default function SistemaBJCMasterFinal() {
                 {/* 2. BÓVEDA DE GANANCIAS ACUMULADAS */}
                 <div style={{ ...sCrd_BJ, backgroundColor: OSCURO_BJ, color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA: DISPONIBLE PARA RETIRO (GANANCIA NETA)</h4>
-                    <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceBunkerElite.bovedaRetiro.toFixed(2)}</h3>
-                    <small style={{opacity:0.6}}>Ganancia neta acumulada histórica menos tus retiros personales marcados como "Ganancias".</small>
+                    <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceBunkerElite.disponibleBoveda.toFixed(2)}</h3>
+                    <small style={{opacity:0.6}}>Ganancia neta acumulada histórica menos retiros personales realizados desde "Ganancias".</small>
                 </div>
             </div>
 
@@ -687,7 +670,7 @@ export default function SistemaBJCMasterFinal() {
                 </div>
                 <div style={{ ...sCrd_BJ, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO EN MANO)</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceBunkerElite.cajaGlobal.toFixed(2)}</h4>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceBunkerElite.cajaGlobalReal.toFixed(2)}</h4>
                 </div>
             </div>
 
@@ -714,7 +697,7 @@ export default function SistemaBJCMasterFinal() {
                   </form>
                 </div>
                 <div style={{ ...sCrd_BJ, border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>🆕 Subir Nuevo Producto al Catálogo</h4>
+                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', fontSize:'1.2rem' }}>🆕 Subir Nuevo Producto BJ</h4>
                   <form onSubmit={handleAddProductoBJ} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={sInp_BJ} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -776,13 +759,13 @@ export default function SistemaBJCMasterFinal() {
                 <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '35px', fontWeight: '900', fontSize: '1.4rem' }}>📈 ROI / Retorno de Inversión Almacén</h4>
                 <div style={{ height: '400px', width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={seriesROIConfig} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
+                        <BarChart data={chartROIConfigBJ} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                             <XAxis dataKey="n" fontSize={13} fontWeight="900" axisLine={false} tickLine={false} dy={15} />
                             <YAxis fontSize={13} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '25px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', fontWeight: '900' }} />
                             <Bar dataKey="v" radius={[20, 20, 0, 0]} barSize={90}>
-                                {seriesROIConfig.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
+                                {chartROIConfigBJ.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
