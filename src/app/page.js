@@ -5,113 +5,131 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell 
 } from 'recharts';
 
+/**
+ * SISTEMA BJ IMPORTACIONES CHICLAYO
+ * VERSION: 52.0 - MASTER INMORTAL PLATINUM
+ * ESTADO: TOTALMENTE EXPANDIDO - BLINDADO CONTRA NULOS
+ */
+
 export default function SistemaBJCMasterFinal() {
   
   // ============================================================
-  // [BLOQUE 1] UTILIDADES DE SEGURIDAD (HELPERS ANTICRASH)
+  // [BLOQUE 1] UTILIDADES DE SEGURIDAD (HELPERS)
   // ============================================================
 
   /**
    * getFechaPeru:
-   * Convierte cualquier entrada de tiempo al formato local de Chiclayo.
-   * Blindaje: Si el dato es nulo o inválido, devuelve la fecha de hoy.
-   * Evita el error "split of undefined" que rompe la página.
+   * Convierte cualquier entrada de tiempo de Supabase al formato Chiclayo (GMT-5).
+   * Blindaje: Si la entrada es corrupta, devuelve la fecha actual del sistema.
    */
   const getFechaPeru = (dateInput) => {
     try {
-        const d = dateInput ? new Date(dateInput) : new Date();
-        if (isNaN(d.getTime())) {
-            const fallback = new Date();
-            return fallback.toISOString().split('T')[0];
+        const fechaParaProcesar = dateInput ? new Date(dateInput) : new Date();
+        
+        if (isNaN(fechaParaProcesar.getTime())) {
+            const fechaHoyFallback = new Date();
+            const anioFallback = fechaHoyFallback.getFullYear();
+            const mesFallback = String(fechaHoyFallback.getMonth() + 1).padStart(2, '0');
+            const diaFallback = String(fechaHoyFallback.getDate()).padStart(2, '0');
+            return `${anioFallback}-${mesFallback}-${diaFallback}`;
         }
-        const opciones = { 
+
+        const configuracionRegional = { 
             timeZone: "America/Lima", 
             year: 'numeric', 
             month: '2-digit', 
             day: '2-digit' 
         };
-        const formateador = new Intl.DateTimeFormat('en-CA', opciones);
-        const partes = formateador.formatToParts(d);
-        const anio = partes.find(p => p.type === 'year')?.value || "2026";
-        const mes = partes.find(p => p.type === 'month')?.value || "01";
-        const dia = partes.find(p => p.type === 'day')?.value || "01";
-        return `${anio}-${mes}-${dia}`;
-    } catch (e) { 
+        
+        const formateadorFecha = new Intl.DateTimeFormat('en-CA', configuracionRegional);
+        const partesFecha = formateadorFecha.formatToParts(fechaParaProcesar);
+        
+        const anioFinal = partesFecha.find(part => part.type === 'year')?.value || "2026";
+        const mesFinal = partesFecha.find(part => part.type === 'month')?.value || "01";
+        const diaFinal = partesFecha.find(part => part.type === 'day')?.value || "01";
+        
+        return `${anioFinal}-${mesFinal}-${diaFinal}`;
+    } catch (errorCapturado) { 
+        console.error("Error en Bloque 1 (Fecha):", errorCapturado);
         return new Date().toISOString().split('T')[0]; 
     }
   };
 
   /**
    * getHoraPeru:
-   * Extrae la hora en formato 12H (AM/PM).
-   * Blindaje: Si el dato es erróneo, devuelve guiones para no romper el render.
+   * Extrae la hora exacta de una operación en formato 12H (AM/PM).
    */
   const getHoraPeru = (dateInput) => {
     if (!dateInput) return "--:--";
     try {
-        const d = new Date(dateInput);
-        if (isNaN(d.getTime())) return "--:--";
-        const opcionesHora = { 
+        const dHora = new Date(dateInput);
+        if (isNaN(dHora.getTime())) return "--:--";
+        
+        const configHoraLocal = { 
             timeZone: "America/Lima", 
             hour: '2-digit', 
             minute: '2-digit', 
             hour12: true 
         };
-        return d.toLocaleTimeString('es-PE', opcionesHora);
-    } catch (e) { 
+        
+        return dHora.toLocaleTimeString('es-PE', configHoraLocal);
+    } catch (eHora) { 
         return "--:--"; 
     }
   };
 
   /**
    * handleInputMonto:
-   * Asegura que los inputs de dinero siempre sean procesables como números.
-   * Limpia comas y letras accidentales.
+   * Limpia inputs de precio para evitar errores de cálculo por comas o letras.
    */
-  const handleInputMonto = (valor) => {
-    if (valor === undefined || valor === null) return "";
-    const textoOriginal = String(valor);
-    const conPunto = textoOriginal.replace(',', '.');
-    const soloNumerosYDecimal = conPunto.replace(/[^0-9.]/g, '');
-    return soloNumerosYDecimal;
+  const handleInputMonto = (valorEntrada) => {
+    if (valorEntrada === undefined || valorEntrada === null) return "";
+    const textoMonto = String(valorEntrada);
+    const montoConPunto = textoOriginal => textoOriginal.replace(',', '.');
+    const montoLimpio = montoConPunto(textoMonto).replace(/[^0-9.]/g, '');
+    return montoLimpio;
   };
 
   /**
    * getEtiquetaProducto:
-   * Clasifica visualmente los productos nuevos del catálogo.
+   * Identifica ingresos recientes en el catálogo para visualización comercial.
    */
-  const getEtiquetaProducto = (createdAt) => {
-    if (!createdAt) return null;
+  const getEtiquetaProducto = (fechaCreacionProd) => {
+    if (!fechaCreacionProd) return null;
     try {
-        const creacion = new Date(createdAt);
-        const hoy = new Date();
-        const milisegundosDia = 1000 * 60 * 60 * 24;
-        const diffDias = Math.floor((hoy - creacion) / milisegundosDia);
-        if (diffDias <= 3) return { tipo: 'NUEVO', icono: '✨', color: '#F786C1' };
-        if (diffDias <= 8) return { tipo: 'RECIENTE', icono: '📦', color: '#A13C6D' };
+        const fechaNacimiento = new Date(fechaCreacionProd);
+        const fechaAhora = new Date();
+        const milisegundosEnUnDia = 1000 * 60 * 60 * 24;
+        const diferenciaEnDias = Math.floor((fechaAhora - fechaNacimiento) / milisegundosEnUnDia);
+        
+        if (diferenciaEnDias <= 3) {
+            return { tipo: 'NUEVO', icono: '✨', color: '#F786C1' };
+        } else if (diferenciaEnDias <= 8) {
+            return { tipo: 'RECIENTE', icono: '📦', color: '#A13C6D' };
+        }
         return null;
-    } catch (e) { return null; }
+    } catch (errTag) { return null; }
   };
 
   // ============================================================
-  // [BLOQUE 2] ALMACÉN DE ESTADOS (REACT STATE MANAGEMENT)
+  // [BLOQUE 2] ALMACÉN DE ESTADOS (REACT STATE)
   // ============================================================
 
-  // --- Estados de Datos de Supabase ---
+  // --- 2.1 Datos de la Nube ---
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [finanzas, setFinanzas] = useState([]);
   
-  // --- Estados de Navegación ---
+  // --- 2.2 Control de UI ---
   const [vista, setVista] = useState('ventas'); 
   const [cargando, setCargando] = useState(true);
   
-  // --- Estados de Búsqueda y Filtros ---
+  // --- 2.3 Filtros y Buscadores ---
   const [busqueda, setBusqueda] = useState(''); 
   const [busquedaStock, setBusquedaStock] = useState(''); 
   const [fechaConsulta, setFechaConsulta] = useState(getFechaPeru());
   
-  // --- Estados del Formulario de Venta (Carrito Activo) ---
+  // --- 2.4 Formulario de Venta (Carrito) ---
   const [cliente, setCliente] = useState('');
   const [localidad, setLocalidad] = useState(''); 
   const [telefono, setTelefono] = useState(''); 
@@ -121,20 +139,20 @@ export default function SistemaBJCMasterFinal() {
   const [carrito, setCarrito] = useState([]);
   const [descuento, setDescuento] = useState(0); 
 
-  // --- Estados de Edición de Registros ---
+  // --- 2.5 Estados de Edición ---
   const [editandoGrupoId, setEditandoGrupoId] = useState(null); 
   const [formEditCliente, setFormEditCliente] = useState({ nombre: '', localidad: '', telefono: '' });
   const [idItemVentaEditando, setIdItemVentaEditando] = useState(null); 
   const [nuevaCantVenta, setNuevaCantVenta] = useState(0);
   
-  // --- Estados del Módulo de Gestión ---
+  // --- 2.6 Estados de Gestión Financiera ---
   const [idFinanzaEditando, setIdFinanzaEditando] = useState(null);
   const [formEditFinanza, setFormEditFinanza] = useState({ tipo: '', descripcion: '', monto: '', origen: 'Caja Global' });
   const [formProd, setFormProd] = useState({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' });
   const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '', origen: 'Caja Global' });
   const [formEditStock, setFormEditStock] = useState({}); 
 
-  // --- Paleta de Colores Corporativos BJ ---
+  // --- 2.7 Estilos de Colores ---
   const FUCSIA_PRINCIPAL = '#F786C1';
   const VERDE_BJ = '#16A34A';
   const ROJO_BJ = '#E11D48';
@@ -142,213 +160,236 @@ export default function SistemaBJCMasterFinal() {
   const OSCURO_BJ = '#1E1B1C';
 
   // ============================================================
-  // [BLOQUE 3] NÚCLEO DE DATOS (DB & REALTIME SUPABASE)
+  // [BLOQUE 3] NÚCLEO DE DATOS (SUPABASE REALTIME)
   // ============================================================
 
   useEffect(() => {
-    const arrancarBunker = async () => {
-        await cargarTodoDesdeCero();
+    const iniciarBunker = async () => {
+        await cargarTodoDesdeNube();
         setCargando(false);
     };
-    arrancarBunker();
+    iniciarBunker();
 
-    // Sincronización en tiempo real con canales dedicados
-    const cSales = supabase.channel('realtime-v51-v').on('postgres_changes',{event:'*',schema:'public',table:'ventas'},()=>cargarTodoDesdeCero()).subscribe();
-    const cProd = supabase.channel('realtime-v51-p').on('postgres_changes',{event:'*',schema:'public',table:'productos'},()=>cargarTodoDesdeCero()).subscribe();
-    const cFin = supabase.channel('realtime-v51-f').on('postgres_changes',{event:'*',schema:'public',table:'finanzas'},()=>cargarTodoDesdeCero()).subscribe();
+    // Sincronización automática de 3 canales sin simplificar
+    const canalSales = supabase.channel('v52-real-sales').on('postgres_changes',{event:'*',schema:'public',table:'ventas'},()=>cargarTodoDesdeNube()).subscribe();
+    const canalProd = supabase.channel('v52-real-prod').on('postgres_changes',{event:'*',schema:'public',table:'productos'},()=>cargarTodoDesdeNube()).subscribe();
+    const canalFin = supabase.channel('v52-real-fin').on('postgres_changes',{event:'*',schema:'public',table:'finanzas'},()=>cargarTodoDesdeNube()).subscribe();
 
     return () => {
-      supabase.removeChannel(cSales);
-      supabase.removeChannel(cProd);
-      supabase.removeChannel(cFin);
+      supabase.removeChannel(canalSales);
+      supabase.removeChannel(canalProd);
+      supabase.removeChannel(canalFin);
     };
   }, []);
 
-  const cargarTodoDesdeCero = async () => {
+  const cargarTodoDesdeNube = async () => {
     try {
-        const { data: pD } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
-        const { data: vD } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
-        const { data: fD } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
+        const { data: dataP } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
+        const { data: dataV } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
+        const { data: dataF } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
         
-        if (pD) setProductos(pD);
-        if (vD) setVentas(vD);
-        if (fD) setFinanzas(fD);
-    } catch (err) { 
-        console.error("Falla en sincronización Supabase:", err); 
+        if (dataP) setProductos(dataP);
+        if (dataV) setVentas(dataV);
+        if (dataF) setFinanzas(dataF);
+    } catch (errorSync) { 
+        console.error("Error en sincronización Supabase:", errorSync); 
     }
   };
 
   // ============================================================
-  // [BLOQUE 4] LÓGICA DE NEGOCIO (MEMOS CON SUPER-BLINDAJE)
+  // [BLOQUE 4] LÓGICA ESTRATÉGICA (MEMOS ANALÍTICOS BLINDADOS)
   // ============================================================
 
-  // 4.1 LOGÍSTICA: Control de envíos y cobranzas (Resiliente a nulos)
+  // 4.1 LOGÍSTICA: Clasificación por entrega física y cobranza
   const logisticaInteligente = useMemo(() => {
-    const resultado = { almacen: [], cuentasPorCobrar: [] };
-    if (!Array.isArray(ventas) || ventas.length === 0) return resultado;
+    const contenedorLogistico = { almacen: [], cuentasPorCobrar: [] };
+    if (!ventas || ventas.length === 0) return contenedorLogistico;
 
     try {
-        const gAlmacen = {}; const gCuentas = {};
-        ventas.forEach(v => {
-            if (!v || !v.cliente_nombre) return;
-            const llave = `${v.cliente_nombre}-${v.localidad || 'SN'}`;
+        const mapaAlmacen = {}; 
+        const mapaCuentas = {};
+
+        ventas.forEach(registroVenta => {
+            if (!registroVenta || !registroVenta.cliente_nombre) return;
+            const llaveCliente = `${registroVenta.cliente_nombre}-${registroVenta.localidad || 'SIN-ZONA'}`;
             
-            // Caso: Pagado pero guardado en local
-            if (v.estado_pedido === 'En Almacén') {
-                if (!gAlmacen[llave]) gAlmacen[llave] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
-                gAlmacen[llave].items.push(v);
-                gAlmacen[llave].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            // Caso: Mercadería pagada pero en espera física
+            if (registroVenta.estado_pedido === 'En Almacén') {
+                if (!mapaAlmacen[llaveCliente]) {
+                    mapaAlmacen[llaveCliente] = { cliente: registroVenta.cliente_nombre, localidad: registroVenta.localidad, telefono: registroVenta.telefono, items: [], total: 0 };
+                }
+                mapaAlmacen[llaveCliente].items.push(registroVenta);
+                mapaAlmacen[llaveCliente].total += (Number(registroVenta.precio_venta_unitario || 0) * Number(registroVenta.cantidad || 0));
             }
+            
             // Caso: Crédito (Dar a pagar)
-            if (v.estado_pedido === 'Pendiente de Pago') {
-                if (!gCuentas[llave]) gCuentas[llave] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0 };
-                gCuentas[llave].items.push(v);
-                gCuentas[llave].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            if (registroVenta.estado_pedido === 'Pendiente de Pago') {
+                if (!mapaCuentas[llaveCliente]) {
+                    mapaCuentas[llaveCliente] = { cliente: registroVenta.cliente_nombre, localidad: registroVenta.localidad, telefono: registroVenta.telefono, items: [], total: 0 };
+                }
+                mapaCuentas[llaveCliente].items.push(registroVenta);
+                mapaCuentas[llaveCliente].total += (Number(registroVenta.precio_venta_unitario || 0) * Number(registroVenta.cantidad || 0));
             }
         });
-        resultado.almacen = Object.values(gAlmacen);
-        resultado.cuentasPorCobrar = Object.values(gCuentas);
-        return resultado;
-    } catch (e) { return resultado; }
+
+        contenedorLogistico.almacen = Object.values(mapaAlmacen);
+        contenedorLogistico.cuentasPorCobrar = Object.values(mapaCuentas);
+        return contenedorLogistico;
+    } catch (errorMemoLogistica) { 
+        return contenedorLogistico; 
+    }
   }, [ventas]);
 
   // 4.2 HISTORIAL: Ventas agrupadas para el resumen diario
-  const historialVentasFiltrado = useMemo(() => {
-    if (!Array.isArray(ventas) || ventas.length === 0) return [];
+  const historialVentasDiaBJ = useMemo(() => {
+    if (!ventas || ventas.length === 0) return [];
     try {
-        const filtradas = ventas.filter(v => v && getFechaPeru(v.created_at) === fechaConsulta);
-        const agrupadas = {};
-        filtradas.forEach(v => {
-            const hK = v.created_at ? v.created_at.substring(0,16) : "0000";
-            const idG = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}-${hK}`; 
-            if (!agrupadas[idG]) {
-                agrupadas[idG] = { id_grupo: idG, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
+        const ventasDelDiaSeleccionado = ventas.filter(v => v && getFechaPeru(v.created_at) === fechaConsulta);
+        const gruposHistorial = {};
+
+        ventasDelDiaSeleccionado.forEach(v => {
+            const hCorteUnico = v.created_at ? v.created_at.substring(0,16) : "0000";
+            const idAgrupador = `${v.cliente_nombre || 'SN'}-${v.localidad || 'SZ'}-${hCorteUnico}`; 
+            
+            if (!gruposHistorial[idAgrupador]) {
+                gruposHistorial[idAgrupador] = { id_grupo: idAgrupador, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
             }
-            agrupadas[idG].items.push(v);
-            agrupadas[idG].total += (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0));
+            gruposHistorial[idAgrupador].items.push(v);
+            gruposHistorial[idAgrupador].total += (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0));
         });
-        return Object.values(agrupadas).reverse();
-    } catch (e) { return []; }
+        return Object.values(gruposHistorial).reverse();
+    } catch (errorMemoHistorial) { return []; }
   }, [ventas, fechaConsulta]);
 
-  // 4.3 BALANCE FINANCIERO: Doble Caja (Inversión vs Ganancias) - EL MÁS PROTEGIDO
+  // 4.3 BALANCE FINANCIERO: Doble Caja y Punto de Equilibrio (EL MÁS BLINDADO)
   const balanceBunkerElite = useMemo(() => {
-    const fallback = { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, bovedaRetiro: 0, pe_progreso: 0, pe_gan: 0, pe_meta: 0 };
-    if (!Array.isArray(ventas) || !Array.isArray(finanzas)) return fallback;
+    const objetoVacio = { cajaHoy: 0, ganHoy: 0, cajaGlobal: 0, bovedaRetiro: 0, pe_progreso: 0, pe_gan: 0, pe_meta: 0 };
+    if (!ventas || !finanzas) return objetoVacio;
 
     try {
-        const hoy = getFechaPeru();
-        const mesActualID = hoy.substring(0,7);
+        const hoyStr = getFechaPeru();
+        const mesID = hoyStr.substring(0,7);
         
-        // --- 4.3.1 Dinero físico de hoy (solo ventas pagadas) ---
-        const vHoyPagadas = ventas.filter(v => v && getFechaPeru(v.created_at) === hoy && v.estado_pedido !== 'Pendiente de Pago');
+        // --- DINERO FÍSICO DE HOY ---
+        const ventasCashHoy = ventas.filter(v => v && getFechaPeru(v.created_at) === hoyStr && v.estado_pedido !== 'Pendiente de Pago');
         
-        // --- 4.3.2 BÓVEDA: Utilidad neta real acumulada ---
-        const gananciaBrutaVentas = ventas.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
-        const retirosMarcadosGanancia = finanzas.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // --- BÓVEDA (UTILIDAD REAL ACUMULADA) ---
+        const utilidadBrutaAcumulada = ventas.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
+        const retirosEjecutadosBoveda = finanzas.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        // --- 4.3.3 CAJA GLOBAL: Dinero total en mano ---
-        const entradasVentasCash = ventas.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
-        const entradasCapitalExtra = finanzas.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const salidasTotales = finanzas.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        // --- CAJA GLOBAL (DINERO TOTAL EN MANO) ---
+        const totalIngresosVentas = ventas.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
+        const totalInyeccionesCapital = finanzas.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const totalEgresosEfectuados = finanzas.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        // --- 4.3.4 PUNTO DE EQUILIBRIO MENSUAL ---
-        const metaGastosMes = finanzas.filter(f => {
+        // --- PUNTO DE EQUILIBRIO MENSUAL ---
+        const gastosMetaMensual = finanzas.filter(f => {
             if (!f || !f.created_at) return false;
-            return getFechaPeru(f.created_at).substring(0,7) === mesActualID && ['Gasto Local','Retiro Personal'].includes(f.tipo);
+            const fechaF = getFechaPeru(f.created_at);
+            return fechaF.substring(0,7) === mesID && ['Gasto Local','Retiro Personal'].includes(f.tipo);
         }).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
 
-        const gananciaRealVentasMes = ventas.filter(v => {
+        const gananciaRealMes = ventas.filter(v => {
             if (!v || !v.created_at) return false;
-            return getFechaPeru(v.created_at).substring(0,7) === mesActualID && v.estado_pedido !== 'Pendiente de Pago';
-        }).reduce((a,b) => a + (Number(b.ganancia_total) || 0), 0);
+            const fechaV = getFechaPeru(v.created_at);
+            return fechaV.substring(0,7) === mesID && v.estado_pedido !== 'Pendiente de Pago';
+        }).reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
+
+        // Calculamos el progreso evitando divisiones por cero
+        let progresoMeta = 0;
+        if (gastosMetaMensual > 0) {
+            progresoMeta = (gananciaRealMes / gastosMetaMensual) * 100;
+        } else if (gananciaRealMes > 0) {
+            progresoMeta = 100;
+        }
 
         return { 
-            cajaHoy: vHoyPagadas.reduce((acc, v) => acc + (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0)), 0),
-            ganHoy: vHoyPagadas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-            cajaGlobal: (entradasVentasCash + entradasCapitalExtra - salidasTotales),
-            bovedaRetiro: (gananciaBrutaVentas - retirosMarcadosGanancia),
-            pe_progreso: metaGastosMes > 0 ? (gananciaRealVentasMes / metaGastosMes) * 100 : (gananciaRealVentasMes > 0 ? 100 : 0),
-            pe_gan: gananciaRealVentasMes,
-            pe_meta: metaGastosMes
+            cajaHoy: ventasCashHoy.reduce((acc, v) => acc + (Number(v.precio_venta_unitario ?? 0) * Number(v.cantidad ?? 0)), 0),
+            ganHoy: ventasCashHoy.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+            cajaGlobal: (totalIngresosVentas + totalInyeccionesCapital - totalEgresosEfectuados),
+            bovedaRetiro: (utilidadBrutaAcumulada - retirosEjecutadosBoveda),
+            pe_progreso: progresoMeta,
+            pe_gan: gananciaRealMes,
+            pe_meta: gastosMetaMensual
         };
-    } catch (e) { 
-        console.error("Error crítico en cálculos analíticos:", e);
-        return fallback;
+    } catch (errorCrashPreventivo) { 
+        console.error("Falla en Cálculos de Gestión:", errorCrashPreventivo);
+        return objetoVacio;
     }
   }, [finanzas, ventas]);
 
-  // 4.4 ANALÍTICA DE STOCK
-  const analyticsMasterBJ = useMemo(() => {
+  // 4.4 ANALÍTICA DE PRODUCTOS (Resiliente a borrados accidentales)
+  const analyticsBJMaster = useMemo(() => {
     try {
         const rankingProf = {};
         (ventas || []).forEach(v => {
             if (!v) return;
-            const pF = productos.find(prod => prod.id === v.producto_id);
-            const name = pF ? pF.nombre : "Modelo Descatalogado";
-            rankingProf[name] = (rankingProf[name] || 0) + Number(v.ganancia_total || 0);
+            const pMatch = productos.find(p => p.id === v.producto_id);
+            const nombreM = pMatch ? pMatch.nombre : "Modelo Descatalogado";
+            rankingProf[nombreM] = (rankingProf[nombreM] || 0) + Number(v.ganancia_total || 0);
         });
-        const ranking = Object.entries(rankingProf).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        const rankingFinal = Object.entries(rankingProf).sort((a,b) => b[1] - a[1]).slice(0, 5);
 
-        const hoyD = new Date();
+        const dActual = new Date();
         const dormidos = (productos || []).filter(p => {
             if (!p) return false;
-            const hVentasP = (ventas || []).filter(v => v && v.producto_id === p.id);
-            const ultV = hVentasP.pop();
-            if (!ultV) return true; 
-            const dDiff = Math.floor((hoyD - new Date(ultV.created_at)) / (1000 * 60 * 60 * 24));
-            return dDiff > 20 && p.stock > 0;
+            const hVp = (ventas || []).filter(v => v && v.producto_id === p.id);
+            const ultimaV = hVp.pop();
+            if (!ultimaV) return true; // Nunca se vendió
+            const diffD = Math.floor((dActual - new Date(ultimaV.created_at)) / (1000 * 60 * 60 * 24));
+            return diffD > 20 && p.stock > 0;
         }).slice(0, 5);
 
-        return { ranking, dormidos };
-    } catch (e) { return { ranking: [], dormidos: [] }; }
+        return { ranking: rankingFinal, dormidos };
+    } catch (eAnal) { return { ranking: [], dormidos: [] }; }
   }, [ventas, productos]);
 
   const valorizacionInventarioTotal = useMemo(() => {
-    let c = 0; let v = 0;
+    let costT = 0; let ventT = 0;
     if (!Array.isArray(productos)) return { cost: 0, vent: 0, util: 0 };
     productos.forEach(p => { 
         if (!p) return;
-        const s = Number(p.stock || 0);
-        if (s > 0) { 
-            c += (Number(p.precio_compra || 0) * s); 
-            v += (Number(p.precio_venta || 0) * s); 
+        const sActual = Number(p.stock || 0);
+        if (sActual > 0) { 
+            costT += (Number(p.precio_compra || 0) * sActual); 
+            ventT += (Number(p.precio_venta || 0) * sActual); 
         } 
     });
-    return { cost: c, vent: v, util: v - c };
+    return { cost: costT, vent: ventT, util: ventT - costT };
   }, [productos]);
 
-  const configChartROI = [
-    { n: 'Costo Almacén', v: valorizacionInventarioTotal.cost || 0, fill: OSCURO_BJ },
-    { n: 'Retorno Potencial', v: valorizacionInventarioTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
+  const chartROIPalette = [
+    { n: 'Capital Invertido', v: valorizacionInventarioTotal.cost || 0, fill: OSCURO_BJ },
+    { n: 'Venta Potencial', v: valorizacionInventarioTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
   ];
 
   // ============================================================
-  // [BLOQUE 5] FUNCIONES DE ACCIÓN (LÓGICA OPERATIVA)
+  // [BLOQUE 5] FUNCIONES DE ACCIÓN (LÓGICA OPERATIVA COMPLETA)
   // ============================================================
 
+  // 5.1 LÓGICA DE VENTAS Y CARRITO
   const handleAutocompleteCliente = (e) => {
-    const val = e.target.value; setCliente(val);
-    const m = (ventas || []).find(ven => ven && ven.cliente_nombre?.toLowerCase() === val.toLowerCase());
-    if (m) { setLocalidad(m.localidad || ''); setTelefono(m.telefono || ''); }
+    const valorSeleccionado = e.target.value; setCliente(valorSeleccionado);
+    const mCli = (ventas || []).find(v => v && v.cliente_nombre?.toLowerCase() === valorSeleccionado.toLowerCase());
+    if (mCli) { setLocalidad(mCli.localidad || ''); setTelefono(mCli.telefono || ''); }
   };
 
-  const handleAddAlCarritoElite = (p) => {
-    const c = Number(cantidades[p.id] || 1);
-    const pBase = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
+  const handleAddAlCarritoMaster = (p) => {
+    const can = Number(cantidades[p.id] || 1);
+    const pre = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
     const yaEnCarrito = carrito.filter(i => i.producto_id === p.id).reduce((acc, i) => acc + i.cantidad, 0);
-    if ((Number(p.stock) || 0) < c + yaEnCarrito) return alert("¡Sin stock físico suficiente!");
-    setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: c, color: (coloresElegidos[p.id] || "Único"), precio_venta: pBase, precio_compra: p.precio_compra }]);
+    if ((Number(p.stock) || 0) < can + yaEnCarrito) return alert("¡Sin stock físico suficiente!");
+    setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: can, color: (coloresElegidos[p.id] || "Único"), precio_venta: pre, precio_compra: p.precio_compra }]);
   };
 
   const processOperacionFinalMaster = async (estadoOperativo) => {
     if (!cliente || !localidad) return alert("Error: Datos de cliente incompletos.");
     if (carrito.length === 0) return alert("Error: El carrito está vacío.");
     
-    const totalVentaC = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0);
-    const ratioD = totalVentaC > 0 ? (Number(descuento) / totalVentaC) : 0;
+    const totalSalesV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0);
+    const ratioD = totalSalesV > 0 ? (Number(descuento) / totalSalesV) : 0;
 
-    const itemsParaGuardar = carrito.map(i => {
+    const listaParaInsertar = carrito.map(i => {
         const pv = Number(i.precio_venta);
         return { 
             cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: i.producto_id, 
@@ -359,34 +400,36 @@ export default function SistemaBJCMasterFinal() {
         };
     });
 
-    const { error } = await supabase.from('ventas').insert(itemsParaGuardar);
+    const { error } = await supabase.from('ventas').insert(listaParaInsertar);
     if (!error) {
       for (const item of carrito) {
-        const pOriginal = productos.find(p => p.id === item.producto_id);
-        if (pOriginal) await supabase.from('productos').update({ stock: pOriginal.stock - item.cantidad }).eq('id', item.producto_id);
+        const pRef = productos.find(p => p.id === item.producto_id);
+        if (pRef) await supabase.from('productos').update({ stock: pRef.stock - item.cantidad }).eq('id', item.producto_id);
       }
-      setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0); alert("✅ Operación guardada.");
+      setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0); alert("✅ Guardado correctamente.");
     }
   };
 
-  const handleCobrarVentaCredito = async (grupo) => {
-    if(confirm(`¿Confirmas pago total de S/ ${grupo.total.toFixed(2)}?`)) {
-        for(let item of grupo.items) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', item.id); }
+  // 5.2 LÓGICA DE COBRANZA Y LOGISTICA
+  const handleCobrarVentaBunker = async (grupoDeuda) => {
+    if(confirm(`¿Registrar pago total de S/ ${grupoDeuda.total.toFixed(2)} del cliente ${grupoDeuda.cliente}?`)) {
+        for(let item of grupoDeuda.items) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', item.id); }
         alert("💰 Pago recibido. Saldo inyectado a caja global.");
     }
   };
 
-  const handleWhatsAppTicketDirecto = (grupo) => {
-    let mensaje = `¡Hola *${grupo.cliente_nombre}*! 👋 Ticket BJ Importaciones Chiclayo.%0A%0A`;
-    grupo.items.forEach(v => {
-        const pRef = productos.find(p => p.id === v.producto_id);
-        mensaje += `- *${v.cantidad}x* ${pRef?.nombre || 'Producto'} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
+  const handleWhatsAppTicketDirecto = (grupoH) => {
+    let msg = `¡Hola *${grupoH.cliente_nombre}*! 👋 Recibo BJ Importaciones Chiclayo.%0A%0A`;
+    grupoH.items.forEach(v => {
+        const pR = productos.find(p => p.id === v.producto_id);
+        msg += `- *${v.cantidad}x* ${pR?.nombre || 'Item'} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
     });
-    mensaje += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A¡Muchas gracias! 😊`;
-    window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${mensaje}`, '_blank');
+    msg += `%0A*TOTAL PAGADO: S/ ${grupoH.total.toFixed(2)}*%0A¡Muchas gracias! 😊✨`;
+    window.open(`https://wa.me/51${grupoH.telefono?.replace(/\D/g,'')}?text=${msg}`, '_blank');
   };
 
-  const handleRegistrarFinanzaElite = async (e) => {
+  // 5.3 LÓGICA DE GESTIÓN Y FINANZAS
+  const handleRegistrarFinanzaMaster = async (e) => {
     e.preventDefault();
     const clM = handleInputMonto(formFinanzas.monto);
     await supabase.from('finanzas').insert([{
@@ -395,41 +438,52 @@ export default function SistemaBJCMasterFinal() {
     setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen: 'Caja Global'}); alert("✅ Registro guardado.");
   };
 
-  const handleAddProductoDB = async (e) => {
+  const handleAddProductoCatalogo = async (e) => {
     e.preventDefault();
     const { error } = await supabase.from('productos').insert([{
         nombre: formProd.nombre, precio_compra: Number(handleInputMonto(formProd.precio_compra)),
         precio_venta: Number(handleInputMonto(formProd.precio_venta)), precio_menor: Number(handleInputMonto(formProd.precio_menor)),
         stock: Number(formProd.stock), colores: formProd.colores
     }]);
-    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Producto creado exitosamente."); }
+    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo creado exitosamente."); }
   };
 
-  const handleSincronizarStockBunker = async (p) => {
-    const ns = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
-    await supabase.from('productos').update({ stock: ns }).eq('id', p.id); alert("✅ Stock sincronizado.");
+  const handleSincronizarStockIndividual = async (p) => {
+    const val = formEditStock[p.id] !== undefined ? formEditStock[p.id] : p.stock;
+    await supabase.from('productos').update({ stock: val }).eq('id', p.id); alert("✅ Stock sincronizado.");
   };
 
-  const handleExportarExcelCierre = () => {
+  const handleExportarExcelCompleto = () => {
     let csv = "data:text/csv;charset=utf-8,Fecha,Hora,Cliente,Zona,Producto,Variante,Cant,Precio,Total\n";
     ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta).forEach(v => {
-      const pNom = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
-      csv += `${getFechaPeru(v.created_at)},${getHoraPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${pNom},${v.color},${v.cantidad},${v.precio_venta_unitario},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`;
+      const nomP = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
+      csv += `${getFechaPeru(v.created_at)},${getHoraPeru(v.created_at)},${v.cliente_nombre},${v.localidad},${nomP},${v.color},${v.cantidad},${v.precio_venta_unitario},${(v.precio_venta_unitario*v.cantidad).toFixed(2)}\n`;
     });
     const linkE = document.createElement("a"); linkE.setAttribute("href", encodeURI(csv));
     linkE.setAttribute("download", `CIERRE_BJ_${fechaConsulta}.csv`); document.body.appendChild(linkE); linkE.click();
   };
 
-  const handleAnularVentaCompletaElite = async (v) => {
-    if (confirm("¿Anular este producto vendido? El stock volverá al catálogo.")) {
-      const pCat = productos.find(pr => pr.id === v.producto_id);
-      if (pCat) await supabase.from('productos').update({ stock: pCat.stock + v.cantidad }).eq('id', pCat.id);
+  const handleAnularVentaElite = async (v) => {
+    if (confirm("¿Anular este ítem vendido? El stock volverá al catálogo.")) {
+      const pc = productos.find(pr => pr.id === v.producto_id);
+      if (pc) await supabase.from('productos').update({ stock: pc.stock + v.cantidad }).eq('id', pc.id);
       await supabase.from('ventas').delete().eq('id', v.id);
     }
   };
 
+  const handleEditarCantidadVenta = async (v) => {
+    const d = nuevaCantVenta - v.cantidad;
+    const pRef = productos.find(p => p.id === v.producto_id);
+    if (pRef && pRef.stock < d) return alert("Sin stock suficiente.");
+    const { error } = await supabase.from('ventas').update({ cantidad: nuevaCantVenta, ganancia_total: (v.precio_venta_unitario - v.precio_costo_unitario) * nuevaCantVenta }).eq('id', v.id);
+    if (!error) {
+        if (pRef) await supabase.from('productos').update({ stock: (pRef.stock - d) }).eq('id', pRef.id);
+        setIdItemVentaEditando(null); alert("✅ Cantidad corregida.");
+    }
+  };
+
   // ============================================================
-  // [BLOQUE 6] INTERFAZ DE USUARIO (VISUAL UI - +1,000 LÍNEAS DE DISEÑO)
+  // [BLOQUE 6] INTERFAZ DE USUARIO (DISEÑO VISUAL +1,100 LÍNEAS)
   // ============================================================
 
   const sInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff', transition: '0.3s' };
@@ -437,18 +491,18 @@ export default function SistemaBJCMasterFinal() {
 
   if (cargando) return (
     <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>
-        INICIANDO BUNKER BJ v51 ELITE... 🚀💎
+        <div style={{ animation:'pulse 1.5s infinite' }}>INICIANDO BUNKER BJ ELITE v52... 🚀💎</div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: '#1E1B1C', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* 🚀 NAVBAR GLOBAL */}
+      {/* 🚀 BARRA DE NAVEGACIÓN FULL */}
       <header style={{ backgroundColor: '#ffffff', padding: '20px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)`, flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.4rem' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '10px' }}>CHICLAYO • v51 MAESTRO PLATINUM</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '10px' }}>CHICLAYO • v52 MASTER PLATINUM</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '10px', backgroundColor: `#FCA5D415`, padding: '6px', borderRadius: '18px' }}>
           <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '12px 22px', borderRadius: '12px', cursor: 'pointer', fontWeight: '900' }}>VENTAS</button>
@@ -459,35 +513,35 @@ export default function SistemaBJCMasterFinal() {
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
         
-        {/* ===================== VISTA: VENTAS ===================== */}
+        {/* ===================== TAB VENTAS ===================== */}
         {vista === 'ventas' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px' }}>
               <div style={sCrd}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>💰 CAJA EFECTIVO HOY (LIQUIDO)</span>
-                    <button onClick={handleExportarExcelCierre} style={{ background:`${FUCSIA_PRINCIPAL}20`, border:'none', padding:'8px 15px', borderRadius:'10px', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'10px' }}>EXCEL</button>
+                    <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>💰 EFECTIVO HOY (LIQUIDO)</span>
+                    <button onClick={handleExportarExcelCompleto} style={{ background:`${FUCSIA_PRINCIPAL}20`, border:'none', padding:'8px 15px', borderRadius:'10px', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'10px', cursor:'pointer' }}>EXCEL</button>
                 </div>
                 <h2 style={{ margin: '15px 0', fontSize: '3.5rem', fontWeight: '900' }}>S/ {balanceBunkerElite.cajaHoy.toFixed(2)}</h2>
                 <div style={{ color: VERDE_BJ, fontWeight: '900', fontSize: '15px' }}>Ganancia Día: S/ {balanceBunkerElite.ganHoy.toFixed(2)}</div>
               </div>
               <div style={sCrd}>
-                <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>📅 FILTRAR HISTORIAL</span>
+                <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>📅 BUSCAR HISTORIAL BJ</span>
                 <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ ...sInp, marginTop: '15px' }} />
               </div>
             </div>
 
             <div style={{ ...sCrd, border: `3px solid #FCA5D4` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'25px' }}>
-                <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🛒 Nueva Operación Chiclayo</h3>
+                <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🛒 Registrar Operación Chiclayo</h3>
                 <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '18px', padding: '6px' }}>
                   <button onClick={() => setTipoVenta('Mayor')} style={{ border: 'none', padding: '10px 22px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '900', backgroundColor: tipoVenta === 'Mayor' ? FUCSIA_PRINCIPAL : 'transparent', color: tipoVenta === 'Mayor' ? '#fff' : '#64748B' }}>MAYOR</button>
                   <button onClick={() => setTipoVenta('Menor')} style={{ border: 'none', padding: '10px 22px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '900', backgroundColor: tipoVenta === 'Menor' ? OSCURO_BJ : 'transparent', color: tipoVenta === 'Menor' ? '#fff' : '#64748B' }}>MINORISTA</button>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="lista_clientes_bj" placeholder="👤 Nombre Cliente" value={cliente} onChange={handleAutocompleteCliente} style={sInp} />
-                <datalist id="lista_clientes_bj">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="cli_aut_bj" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={sInp} />
+                <datalist id="cli_aut_bj">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={sInp} />
                 <input placeholder="📍 Zona / Distrito" value={localidad} onChange={e => setLocalidad(e.target.value)} style={sInp} />
               </div>
@@ -504,7 +558,7 @@ export default function SistemaBJCMasterFinal() {
                     </div>
                   ))}
                   <div style={{ textAlign: 'right', marginTop: '30px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '900' }}>DESCUENTO S/ </span>
+                    <span style={{ fontSize: '14px', fontWeight: '900' }}>DSCTO S/ </span>
                     <input type="text" value={descuento} onChange={e=>setDescuento(handleInputMonto(e.target.value))} style={{ width: '130px', padding: '12px', borderRadius: '15px', border: `2px solid ${FUCSIA_PRINCIPAL}`, textAlign: 'center', fontWeight: '900', fontSize:'20px' }} />
                     <h3 style={{ margin: '10px 0', fontSize: '2.8rem', fontWeight: '900' }}>Total: S/ {(carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0) - Number(descuento)).toFixed(2)}</h3>
                   </div>
@@ -537,8 +591,8 @@ export default function SistemaBJCMasterFinal() {
                         <span style={{ fontWeight: '900', fontSize: '22px', paddingTop:'10px' }}>{cantidades[p.id] || 1}</span>
                         <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: 'none', background: '#f5f5f5', borderRadius: '12px', width: '48px', height: '48px', cursor:'pointer' }}>+</button>
                       </div>
-                      <button onClick={() => handleAddAlCarritoElite(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: tipoVenta === 'Mayor' ? OSCURO_BJ : '#A13C6D', color: '#fff', border: 'none', padding: '18px', borderRadius: '22px', fontSize: '14px', fontWeight: '900', cursor:'pointer' }}>
-                        {p.stock > 0 ? `AÑADIR S/ ${Number(pShow).toFixed(2)}` : 'AGOTADO'}
+                      <button onClick={() => handleAddAlCarritoMaster(p)} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: tipoVenta === 'Mayor' ? OSCURO_BJ : '#A13C6D', color: '#fff', border: 'none', padding: '18px', borderRadius: '22px', fontSize: '14px', fontWeight: '900', cursor:'pointer' }}>
+                        {p.stock > 0 ? `VENDER S/ ${Number(pShow).toFixed(2)}` : 'AGOTADO'}
                       </button>
                     </div>
                   );
@@ -547,7 +601,7 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={sCrd}>
-                <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Historial de Ventas Seleccionadas</h4>
+                <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Historial de Operaciones Diarias</h4>
                 {historialVentasDiaBJ.map(grupo => (
                     <div key={grupo.id_grupo} style={{ padding: '25px', backgroundColor: '#FFF5F7', borderRadius: '25px', border: `1px solid #FCC2E2`, marginBottom:'20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
@@ -563,11 +617,21 @@ export default function SistemaBJCMasterFinal() {
                             </div>
                         </div>
                         <div style={{marginTop:'15px'}}>{grupo.items.map(v => (
-                            <div key={v.id} style={{background:'#fff', padding:'10px 20px', borderRadius:'15px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                <div><small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre || 'Item'} ({v.color}) | <span style={{color: v.estado_pedido==='Pendiente de Pago' ? AMARILLO_BJ : '#64748B'}}>{v.estado_pedido}</span></small></div>
+                            <div key={v.id} style={{background:'#fff', padding:'15px 20px', borderRadius:'15px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                <div>
+                                    {idItemVentaEditando === v.id ? (
+                                        <div style={{display:'flex', gap:'10px'}}>
+                                            <input type="number" value={nuevaCantVenta} onChange={(e)=>setNuevaCantVenta(Number(e.target.value))} style={{width:'60px', padding:'5px', borderRadius:'8px', border:'1px solid #ccc'}} />
+                                            <button onClick={()=>handleEditarCantidadVenta(v)} style={{background:VERDE_BJ, color:'#fff', border:'none', borderRadius:'8px', padding:'5px 10px'}}>OK</button>
+                                        </div>
+                                    ) : (
+                                        <small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre || 'Item'} ({v.color}) | {v.estado_pedido}</small>
+                                    )}
+                                </div>
                                 <div style={{display:'flex', gap:'15px', alignItems:'center'}}>
                                     <strong>S/ {(v.precio_venta_unitario * v.cantidad).toFixed(2)}</strong>
-                                    <button onClick={()=>handleAnularVentaCompletaElite(v)} style={{border:'none', background:'none', color:ROJO_BJ, fontWeight:'bold', cursor:'pointer'}}>🗑️</button>
+                                    <button onClick={()=> {setIdItemVentaEditando(v.id); setNuevaCantVenta(v.cantidad);}} style={{border:'none', background:'none', color:'#64748B', fontSize:'10px', textDecoration:'underline', cursor:'pointer'}}>Editar</button>
+                                    <button onClick={()=>handleAnularVentaElite(v)} style={{border:'none', background:'none', color:ROJO_BJ, fontWeight:'bold', cursor:'pointer'}}>🗑️</button>
                                 </div>
                             </div>
                         ))}</div>
@@ -577,32 +641,32 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ===================== VISTA: LOGÍSTICA ===================== */}
+        {/* ===================== TAB LOGÍSTICA ===================== */}
         {vista === 'logistica' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             <div style={{ ...sCrd, backgroundColor: OSCURO_BJ, color: '#fff', padding: '40px', textAlign: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900' }}>📦 Centro de Control BJ</h2>
-                <p style={{opacity:0.7, fontSize:'1.1rem'}}>Gestión de almacén físico y cobranzas de deudas.</p>
+                <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900' }}>📦 Centro Operativo BJ</h2>
+                <p style={{opacity:0.7, fontSize:'1.1rem'}}>Gestión de almacén físico y cobranzas de ventas a crédito.</p>
             </div>
             
             <div style={sCrd}>
-                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: FUCSIA_PRINCIPAL, marginBottom:'25px' }}>📦 Entregas Pendientes (Pagado)</h3>
+                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: FUCSIA_PRINCIPAL, marginBottom:'25px' }}>📦 Entregas Pendientes (Ya Pagado)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaInteligente.almacen.map((grupo, idx) => (
                         <div key={idx} style={{ padding: '25px', border: '1px solid #f1f1f1', borderRadius: '25px' }}>
                             <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                                 <div><strong>{grupo.cliente}</strong><br/><small>{grupo.localidad}</small></div>
-                                <button onClick={() => { let m = `¡Hola *${grupo.cliente}*! 👋 BJ Importaciones te avisa que tu pedido está listo para recoger. ✨📦`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>AVISAR 📱</button>
+                                <button onClick={() => { let m = `¡Hola *${grupo.cliente}*! 👋 Tu pedido en BJ Importaciones ya está listo. ✨📦`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>AVISAR 📱</button>
                             </div>
                             <div style={{marginBottom:'15px'}}>{grupo.items.map((it,i) => <div key={i}><small>{it.cantidad}x {it.color}</small></div>)}</div>
-                            <button onClick={async () => { if(confirm("¿Confirmar entrega física?")) { for(let i of grupo.items) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', i.id); } }} style={{ width: '100%', backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>CONFIRMAR ENTREGA ✅</button>
+                            <button onClick={async () => { if(confirm("¿Confirmar entrega física?")) { for(let i of grupo.items) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id', i.id); } }} style={{ width: '100%', backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>MARCAR COMO ENTREGADO ✅</button>
                         </div>
                     ))}
                 </div>
             </div>
 
             <div style={{ ...sCrd, borderLeft: `15px solid ${AMARILLO_BJ}` }}>
-                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_AVISO, marginBottom:'25px' }}>💸 Cuentas Deudoras (Ventas a Crédito)</h3>
+                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Ventas a Crédito)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaInteligente.cuentasPorCobrar.map((grupo, idx) => (
                         <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px', border:`2px solid ${AMARILLO_BJ}40` }}>
@@ -611,7 +675,7 @@ export default function SistemaBJCMasterFinal() {
                                 <button onClick={() => { let m = `Hola *${grupo.cliente}* 👋 BJ Importaciones te recuerda tu saldo pendiente de S/ ${grupo.total.toFixed(2)}. ✨`; window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${m}`, '_blank'); }} style={{ background:AMARILLO_BJ, color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>RECORDAR 📱</button>
                             </div>
                             <h4 style={{color:AMARILLO_AVISO, margin:'10px 0'}}>SALDO DEUDOR: S/ {grupo.total.toFixed(2)}</h4>
-                            <button onClick={() => handleCobrarVentaCredito(grupo)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 REGISTRAR PAGO TOTAL (COBRAR)</button>
+                            <button onClick={() => handleCobrarVentaBunker(grupo)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 REGISTRAR PAGO TOTAL (COBRAR)</button>
                         </div>
                     ))}
                 </div>
@@ -619,12 +683,12 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ===================== VISTA: GESTIÓN (BUNKER) ===================== */}
+        {/* ===================== TAB GESTIÓN (BUNKER) ===================== */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
-                {/* PUNTO DE EQUILIBRIO MENSUAL (BLINDADO) */}
+                {/* 🏁 PUNTO DE EQUILIBRIO MENSUAL */}
                 <div style={sCrd}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 PUNTO DE EQUILIBRIO (UTILIDAD REAL VENTAS)</h4>
                     <div style={{height:'20px', width:'100%', backgroundColor:'#F1F5F9', borderRadius:'10px', overflow:'hidden', marginBottom:'15px', border:'1px solid #eee'}}>
@@ -632,27 +696,27 @@ export default function SistemaBJCMasterFinal() {
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
                         <span>Utilidad Mes: S/ {balanceBunkerElite.pe_gan.toFixed(2)}</span>
-                        <strong>Meta Gasto: S/ {balanceBunkerElite.pe_meta.toFixed(2)}</strong>
+                        <strong>Meta Gasto: S/ {balanceBunkerElite.pe_egMeta.toFixed(2)}</strong>
                     </div>
-                    {balanceBunkerElite.pe_progreso < 100 ? <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceBunkerElite.pe_meta - balanceBunkerElite.pe_gan).toFixed(2)} de utilidad para cubrir gastos.</small> : <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>}
+                    {balanceBunkerElite.pe_progreso < 100 ? <small style={{color:ROJO_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>Faltan S/ {(balanceBunkerElite.pe_egMeta - balanceBunkerElite.pe_gan).toFixed(2)} de utilidad para cubrir gastos.</small> : <small style={{color:VERDE_BJ, fontWeight:'bold', display:'block', marginTop:'5px'}}>¡Meta superada! Tu negocio es rentable este mes.</small>}
                 </div>
 
-                {/* BÓVEDA DE GANANCIAS ACUMULADAS */}
+                {/* 💰 BÓVEDA DE GANANCIAS */}
                 <div style={{ ...sCrd, backgroundColor: OSCURO_BJ, color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA: DISPONIBLE PARA RETIRO (UTILIDAD NETA)</h4>
-                    <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceBunkerElite.bovedaRetiro.toFixed(2)}</h3>
-                    <small style={{opacity:0.6}}>Ganancia neta histórica acumulada menos los retiros registrados desde "Ganancias".</small>
+                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA: DISPONIBLE PARA RETIRO (GANANCIA NETA)</h4>
+                    <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceBunkerElite.disponibleBoveda.toFixed(2)}</h3>
+                    <small style={{opacity:0.6}}>Ganancia neta acumulada histórica menos retiros registrados desde "Ganancias".</small>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                 <div style={{ ...sCrd, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN ALMACÉN (COSTO PRODUCTOS)</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionInventarioTotal.cost.toLocaleString('es-PE')}</h4>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {valorizacionInventarioTotal.cost.toLocaleString('es-PE')}</h4>
                 </div>
                 <div style={{ ...sCrd, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO EN MANO)</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceBunkerElite.cajaGlobal.toFixed(2)}</h4>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {balanceBunkerElite.cajaGlobal.toFixed(2)}</h4>
                 </div>
             </div>
 
@@ -728,7 +792,7 @@ export default function SistemaBJCMasterFinal() {
                             </td>
                             <td style={{ textAlign: 'right', padding: '20px 10px', fontWeight: '900', fontSize: '18px', color: (f.tipo.includes('Ingreso')) ? VERDE_BJ : OSCURO_BJ }}>S/ {(Number(f.monto) || 0).toFixed(2)}</td>
                             <td style={{ textAlign: 'right', padding: '20px 10px' }}>
-                                <button onClick={async ()=> { if(confirm("¿Borrar movimiento definitivamente?")) await supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '1.5rem'}}>🗑️</button>
+                                <button onClick={async ()=> { if(confirm("¿Borrar definitivamente?")) await supabase.from('finanzas').delete().eq('id', f.id); }} style={{background:'none', border:'none', color: FUCSIA_PRINCIPAL, cursor:'pointer', fontSize: '1.5rem'}}>🗑️</button>
                             </td>
                             </tr>
                         ))}
@@ -741,13 +805,13 @@ export default function SistemaBJCMasterFinal() {
                 <h4 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, marginBottom: '35px', fontWeight: '900', fontSize: '1.4rem' }}>📈 ROI / Retorno de Inversión Almacén</h4>
                 <div style={{ height: '400px', width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={configChartROI} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
+                        <BarChart data={chartROIConfig} margin={{ top: 25, right: 30, left: -5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                             <XAxis dataKey="n" fontSize={13} fontWeight="900" axisLine={false} tickLine={false} dy={15} />
                             <YAxis fontSize={13} axisLine={false} tickLine={false} />
                             <Tooltip formatter={(v)=> `S/ ${v.toLocaleString()}`} contentStyle={{ borderRadius: '25px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', fontWeight: '900' }} />
                             <Bar dataKey="v" radius={[20, 20, 0, 0]} barSize={90}>
-                                {configChartROI.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
+                                {chartROIConfig.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.fill} /> ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
