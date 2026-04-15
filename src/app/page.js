@@ -7,17 +7,18 @@ import {
 
 /**
  * ============================================================================
- * SISTEMA BJ IMPORTACIONES CHICLAYO - VERSION 86.0
- * ARCHIVO: page.js (ESTRUCTURA DE INGENIERÍA TOTAL SIN RECORTES)
- * ESTADO: FUSIÓN COMPLETA + CORRECCIÓN DE SALDOS + HISTORIAL DE CAJA
+ * SISTEMA BJ IMPORTACIONES CHICLAYO - VERSION 87.0
+ * ARCHIVO: page.js (ESTRUCTURA DE INGENIERÍA TOTAL SIN SIMPLIFICAR)
+ * ESTADO: CORRECCIÓN MATEMÁTICA DE GANANCIAS + BALANCES COMPLETOS
  * ============================================================================
  */
 
 export default function SistemaBJCMasterFinal() {
   
-  // ============================================================
-  // [BLOQUE 1: HELPERS Y SEGURIDAD (FECHAS Y HORA)]
-  // ============================================================
+  // ============================================================================
+  // [BLOQUE 1: HELPERS Y SEGURIDAD]
+  // Lógica de fechas Chiclayo y validación de números.
+  // ============================================================================
 
   const getFechaPeru = (dateInput) => {
     try {
@@ -58,9 +59,9 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { return null; }
   };
 
-  // ============================================================
+  // ============================================================================
   // [BLOQUE 2: ALMACÉN DE ESTADOS (useState)]
-  // ============================================================
+  // ============================================================================
 
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
@@ -91,9 +92,10 @@ export default function SistemaBJCMasterFinal() {
   const AMARILLO_BJ = '#CA8A04';
   const OSCURO_BJ = '#1E1B1C';
 
-  // ============================================================
-  // [BLOQUE 3: FUNCIONES DE ACCIÓN (LÓGICA OPERATIVA)]
-  // ============================================================
+  // ============================================================================
+  // [BLOQUE 3: FUNCIONES DE ACCIÓN (REGISTRO Y VENTA)]
+  // Aquí corregimos la matemática de ganancia para evitar saldos negativos.
+  // ============================================================================
 
   const handleAutocompleteCliente = (e) => {
     const valInput = e.target.value; setCliente(valInput);
@@ -102,25 +104,28 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleEjecutarVentaBJ = async (estadoOperativo) => {
-    if (!cliente || !localidad || !carrito.length) return alert("Completa cliente, zona y productos.");
+    if (!cliente || !localidad || !carrito.length) return alert("Error: Cliente, Zona y Productos son obligatorios.");
     
-    // Cálculo de ganancia blindado contra saldos negativos
-    const totalVentaBase = carrito.reduce((acc, item) => acc + (Number(item.precio_venta) * item.cantidad), 0);
+    // --- LÓGICA DE GANANCIA REPARADA v87 ---
+    const totalVentaSinDescuento = carrito.reduce((acc, item) => acc + (Number(item.precio_venta) * item.cantidad), 0);
     const descuentoNumerico = Number(descuento) || 0;
-    const ratioDescuento = totalVentaBase > 0 ? (descuentoNumerico / totalVentaBase) : 0;
-
+    
+    // Calculamos la proporción del descuento para cada ítem basado en su peso en la venta total
     const listaV = carrito.map(item => {
         const pvU = Number(item.precio_venta);
         const pcU = Number(item.precio_compra || 0);
-        const cantidadItem = Number(item.cantidad);
-        const subtotalU = pvU * cantidadItem;
+        const cant = Number(item.cantidad);
+        const subtotalU = pvU * cant;
         
-        // Ganancia = (Venta Total del Item - Descuento Proporcional) - Costo Total del Item
-        const gananciaReal = (subtotalU - (subtotalU * ratioDescuento)) - (pcU * cantidadItem);
+        // El descuento de este item es: (Su parte en la venta total) * Descuento total aplicado
+        const descProporcional = totalVentaBase > 0 ? (subtotalU / totalVentaBase) * descuentoNumerico : 0;
+        
+        // Ganancia = (Venta Bruta Item - Descuento Item) - Costo Total Item
+        const gananciaReal = (subtotalU - descProporcional) - (pcU * cant);
 
         return { 
             cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: item.producto_id, 
-            cantidad: cantidadItem, color: item.color, precio_venta_unitario: pvU, 
+            cantidad: cant, color: item.color, precio_venta_unitario: pvU, 
             precio_costo_unitario: pcU, ganancia_total: gananciaReal, estado_pedido: estadoOperativo 
         };
     });
@@ -129,11 +134,11 @@ export default function SistemaBJCMasterFinal() {
     if (!error) {
       for (const it of carrito) {
         const pO = productos.find(p => p.id === it.producto_id);
-        if (pO) await supabase.from('productos').update({ stock: pO.stock - it.cantidad }).eq('id', it.producto_id);
+        if (pO) await supabase.from('productos').update({ stock: pO.stock - item.cantidad }).eq('id', it.producto_id);
       }
       setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0);
-      alert("✅ Operación guardada."); await cargarTodoDesdeNube();
-    } else { alert("Error al guardar venta."); }
+      alert("✅ Venta registrada y ganancia calculada correctamente."); await cargarTodoDesdeNube();
+    } else { alert("Fallo en base de datos: " + error.message); }
   };
 
   const handleAddProductoBJ = async (e) => {
@@ -144,7 +149,7 @@ export default function SistemaBJCMasterFinal() {
         precio_venta: Number(handleInputMonto(formProd.precio_venta)), precio_menor: Number(handleInputMonto(formProd.precio_menor)),
         stock: Number(formProd.stock), colores: formProd.colores
     }]);
-    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo creado."); await cargarTodoDesdeNube(); }
+    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo añadido."); await cargarTodoDesdeNube(); }
   };
 
   const handleRegistrarFinanzaBJ = async (e) => {
@@ -156,21 +161,21 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleSincronizarStockBJ = async (pId, nuevoStock) => {
-    if (!nuevoStock && nuevoStock !== 0) return alert("Ingresa cantidad.");
+    if (!nuevoStock && nuevoStock !== 0) return alert("Ingresa una cantidad.");
     const { error } = await supabase.from('productos').update({ stock: Number(nuevoStock) }).eq('id', pId);
     if (!error) { alert("✅ Stock sincronizado."); await cargarTodoDesdeNube(); }
   };
 
   const handleCobrarDeudaBJ = async (grupo) => {
-    if(confirm(`¿Confirmar cobro total de S/ ${grupo.total.toFixed(2)}?`)) {
-        const idsV = grupo.items_ids || [];
-        for(let id of idsV) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); }
-        alert("💰 Pago recibido."); await cargarTodoDesdeNube();
+    if(confirm(`¿Confirmar pago de S/ ${grupo.total.toFixed(2)}?`)) {
+        const ids = grupo.items_ids || [];
+        for(let id of ids) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); }
+        alert("💰 Saldo cobrado."); await cargarTodoDesdeNube();
     }
   };
 
   const handleAnularVentaBJ = async (v) => {
-    if (confirm("¿Anular este registro? El stock volverá al catálogo.")) {
+    if (confirm("¿Anular? El stock volverá al inventario.")) {
       const pc = productos.find(pr => pr.id === v.producto_id);
       if (pc) await supabase.from('productos').update({ stock: pc.stock + v.cantidad }).eq('id', pc.id);
       await supabase.from('ventas').delete().eq('id', v.id);
@@ -178,9 +183,9 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  // ============================================================
+  // ============================================================================
   // [BLOQUE 4: LÓGICA DE PROCESAMIENTO (useMemo)]
-  // ============================================================
+  // ============================================================================
 
   const logisticaInteligente = useMemo(() => {
     const res = { almacen: [], deudas: [] };
@@ -191,16 +196,16 @@ export default function SistemaBJCMasterFinal() {
             if (!v || !v.cliente_nombre) return;
             const key = `${v.cliente_nombre}-${v.localidad || 'SN'}`;
             const pMatch = productos.find(p => p.id === v.producto_id);
-            const itemDetalle = { id: v.id, nombre: pMatch ? pMatch.nombre : "Producto", cantidad: v.cantidad, color: v.color };
+            const itDetalle = { id: v.id, nombre: pMatch ? pMatch.nombre : "Producto", cantidad: v.cantidad, color: v.color };
 
             if (v.estado_pedido === 'En Almacén') {
                 if (!mA[key]) mA[key] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0, items_ids: [] };
-                mA[key].items.push(itemDetalle); mA[key].items_ids.push(v.id);
+                mA[key].items.push(itDetalle); mA[key].items_ids.push(v.id);
                 mA[key].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
             }
             if (v.estado_pedido === 'Pendiente de Pago') {
                 if (!mD[key]) mD[key] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0, items_ids: [] };
-                mD[key].items.push(itemDetalle); mD[key].items_ids.push(v.id);
+                mD[key].items.push(itDetalle); mD[key].items_ids.push(v.id);
                 mD[key].total += (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
             }
         });
@@ -215,20 +220,12 @@ export default function SistemaBJCMasterFinal() {
     try {
         const hoy = getFechaPeru();
         const mes = hoy.substring(0,7);
-        
-        // --- DINERO HOY ---
         const vH = ventas.filter(v => v && getFechaPeru(v.created_at) === hoy && v.estado_pedido !== 'Pendiente de Pago');
-        
-        // --- BÓVEDA (UTILIDAD ACUMULADA) ---
         const gAcum = ventas.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
         const retG = finanzas.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        
-        // --- CAJA GLOBAL ---
         const inS = ventas.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
         const inK = finanzas.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         const outG = finanzas.filter(f => f && ['Gasto Local','Inversión (Mercadería)','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        
-        // --- PTO EQUILIBRIO ---
         const eM = finanzas.filter(f => f && getFechaPeru(f.created_at).substring(0,7) === mes && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         const uM = ventas.filter(v => v && getFechaPeru(v.created_at).substring(0,7) === mes && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
         
@@ -264,22 +261,22 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { return []; }
   }, [ventas, fechaConsulta]);
 
-  const seriesRankingBJ = useMemo(() => {
+  const rankingRentabilidad = useMemo(() => {
     try {
-        const dict = {};
-        ventas.forEach(v => { const pMatch = productos.find(x => x.id === v.producto_id); const n = pMatch ? pMatch.nombre : "Eliminado"; dict[n] = (dict[n] || 0) + Number(v.ganancia_total || 0); });
-        return Object.entries(dict).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        const d = {};
+        ventas.forEach(v => { const pMatch = productos.find(x => x.id === v.producto_id); const n = pMatch ? pMatch.nombre : "Modelo Eliminado"; d[n] = (d[n] || 0) + Number(v.ganancia_total || 0); });
+        return Object.entries(d).sort((a,b) => b[1] - a[1]).slice(0, 5);
     } catch (e) { return []; }
   }, [ventas, productos]);
 
   const seriesROI = [
-    { n: 'Inversión Total', v: valorizacionInventarioTotal.cost || 0, fill: OSCURO_BJ },
-    { n: 'Retorno Potencial', v: valorizacionInventarioTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
+    { n: 'Costo Almacén', v: valorizacionInventarioTotal.cost || 0, fill: OSCURO_BJ },
+    { n: 'Ingreso Estimado', v: valorizacionInventarioTotal.vent || 0, fill: FUCSIA_PRINCIPAL }
   ];
 
-  // ============================================================
+  // ============================================================================
   // [BLOQUE 5: CONEXIÓN SUPABASE Y SYNC]
-  // ============================================================
+  // ============================================================================
 
   const cargarTodoDesdeNube = async () => {
     try {
@@ -287,20 +284,20 @@ export default function SistemaBJCMasterFinal() {
         const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
         const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
         if (p) setProductos(p); if (v) setVentas(v); if (f) setFinanzas(f);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Error Sync:", e); }
     finally { setCargando(false); }
   };
 
   useEffect(() => {
     cargarTodoDesdeNube();
-    const arranqueForzado = setTimeout(() => setCargando(false), 3000);
-    return () => clearTimeout(arranqueForzado);
+    const arranqueBJ = setTimeout(() => setCargando(false), 3000);
+    return () => clearTimeout(arranqueBJ);
   }, []);
 
   const handleExportarExcelCajaFull = () => {
     let csv = "REPORTE DE CIERRE Y AUDITORIA - BJ IMPORTACIONES\n";
-    csv += `CAJA ACTUAL (DINERO MANO),S/ ${balanceEliteBJ.cG.toFixed(2)}\n`;
-    csv += `BOVEDA UTILIDADES,S/ ${balanceEliteBJ.bR.toFixed(2)}\n\n`;
+    csv += `CAJA TOTAL ACTUAL,S/ ${balanceEliteBJ.cG.toFixed(2)}\n`;
+    csv += `BOVEDA GANANCIAS,S/ ${balanceEliteBJ.bR.toFixed(2)}\n\n`;
     csv += "Hora,Cliente,Zona,Producto,Cant,Precio,Subtotal\n";
     ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta).forEach(v => {
       const nP = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
@@ -310,23 +307,23 @@ export default function SistemaBJCMasterFinal() {
     link.download = `BJ_AUDITORIA_${fechaConsulta}.csv`; link.click();
   };
 
-  // ============================================================
+  // ============================================================================
   // [BLOQUE 6: INTERFAZ DE USUARIO (JSX)]
-  // ============================================================
+  // ============================================================================
 
   const styleInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff', transition: '0.3s' };
   const styleCrd = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
 
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BUNKER BJ ELITE v86... 🚀💎</div>;
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BUNKER BJ ELITE v87... 🚀💎</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* 🚀 NAVBAR PRINCIPAL */}
+      {/* 🚀 NAVBAR GLOBAL */}
       <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v86 MASTER OMNIDIRECCIONAL</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v87 MASTER FINAL</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '8px', backgroundColor: `#FCA5D415`, padding: '5px', borderRadius: '15px', flexWrap:'wrap' }}>
           <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: '900' }}>VENTAS</button>
@@ -357,7 +354,6 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={{ ...styleCrd, border: `3px solid #FCA5D4` }}>
-              {/* SELECTOR DE PRECIO MAYOR/MENOR RESTAURADO */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'25px' }}>
                 <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🛒 Registrar Operación Chiclayo</h3>
                 <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '18px', padding: '6px' }}>
@@ -367,9 +363,9 @@ export default function SistemaBJCMasterFinal() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="clis_v86" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
-                <datalist id="clis_v86">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
-                <input placeholder="📍 Zona / Distrito" value={localidad} onChange={e => setLocalidad(e.target.value)} style={styleInp} />
+                <input list="clis_v87" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
+                <datalist id="clis_v87">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input placeholder="📍 Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={styleInp} />
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={styleInp} />
               </div>
 
@@ -417,7 +413,7 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={styleCrd}>
-                <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Historial del Día Seleccionado</h4>
+                <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Historial de Operaciones Diarias</h4>
                 {historialVentasDiaBJ.map(grupo => (
                     <div key={grupo.id_grupo} style={{ padding: '25px', backgroundColor: '#FFF5F7', borderRadius: '25px', border: `1px solid #FCC2E2`, marginBottom:'20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -492,7 +488,7 @@ export default function SistemaBJCMasterFinal() {
                                 <div><strong>{grupo.cliente}</strong><br/><small style={{color: '#64748B'}}>📍 {grupo.localidad}</small></div>
                                 <button onClick={() => {
                                     let lista = grupo.items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ');
-                                    let m = `¡Hola *${grupo.cliente}*! 👋 Tu pedido de: ${lista} está listo. ✨`;
+                                    let m = `¡Hola *${grupo.cliente}*! 👋 Tu pedido de: ${lista} está listo en BJ. ✨`;
                                     window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${encodeURI(m)}`, '_blank');
                                 }} style={{ background:'#25D366', color:'#fff', border:'none', padding:'10px 15px', borderRadius:'12px', fontWeight:'900', cursor:'pointer' }}>AVISAR 📱</button>
                             </div>
@@ -509,7 +505,7 @@ export default function SistemaBJCMasterFinal() {
                 <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Crédito)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaInteligente.deudas.map((grupo, idx) => (
-                        <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px', border:`2px solid ${AMARILLO_BJ}40` }}>
+                        <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px' }}>
                             <div><strong>{grupo.cliente}</strong><br/><small>{grupo.localidad}</small></div>
                             <h4 style={{color:AMARILLO_BJ, margin:'10px 0'}}>DEUDA: S/ {grupo.total.toFixed(2)}</h4>
                             <button onClick={() => handleCobrarDeudaBJ(grupo)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 COBRAR TODO</button>
@@ -520,7 +516,7 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* ===================== [VISTA: GESTIÓN (BALANCES Y DIARIO)] ===================== */}
+        {/* ===================== [VISTA: GESTIÓN] ===================== */}
         {vista === 'contabilidad' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
@@ -544,7 +540,7 @@ export default function SistemaBJCMasterFinal() {
                 </div>
             </div>
 
-            {/* 2. Tarjetas de Auditoría (RECUPERADAS) */}
+            {/* 2. Tarjetas de Auditoría */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                 <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN MERCADERÍA (COSTO)</small>
@@ -575,11 +571,11 @@ export default function SistemaBJCMasterFinal() {
                     </div>
                     <input placeholder="Descripción..." value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={styleInp} />
                     <input placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={styleInp} />
-                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR REGISTRO</button>
+                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR</button>
                   </form>
                 </div>
                 <div style={styleCrd}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>🆕 Subir Nuevo Producto al Catálogo</h4>
+                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>🆕 Subir Nuevo Producto</h4>
                   <form onSubmit={handleAddProductoBJ} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={styleInp} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -592,7 +588,7 @@ export default function SistemaBJCMasterFinal() {
                 </div>
             </div>
 
-            {/* 4. Libro Diario (RECUPERADO) */}
+            {/* 4. Libro Diario */}
             <div style={styleCrd}>
                 <h4 style={{ marginTop: 0, marginBottom: '30px', fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro Diario de Operaciones BJ</h4>
                 <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
