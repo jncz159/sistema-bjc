@@ -7,9 +7,9 @@ import {
 
 /**
  * ============================================================================
- * SISTEMA BJ IMPORTACIONES CHICLAYO - VERSION 92.0
+ * SISTEMA BJ IMPORTACIONES CHICLAYO - VERSION 93.0
  * ARCHIVO: page.js (ESTRUCTURA DE INGENIERÍA MAESTRA TOTAL)
- * ESTADO: RESTAURACIÓN DE CANTIDADES + TICKETS WHATSAPP + BALANCES REALES
+ * ESTADO: RESTAURACIÓN DE VALOR POTENCIAL + TODO LO ANTERIOR FUNCIONAL
  * ============================================================================
  */
 
@@ -77,8 +77,7 @@ export default function SistemaBJCMasterFinal() {
   const [telefono, setTelefono] = useState(''); 
   const [tipoVenta, setTipoVenta] = useState('Mayor'); 
   
-  // Estados de control de selección
-  const [cantidades, setCantidades] = useState({}); // Control de unidades +/-
+  const [cantidades, setCantidades] = useState({}); 
   const [coloresElegidos, setColoresElegidos] = useState({});
   const [carrito, setCarrito] = useState([]);
   const [descuento, setDescuento] = useState(0); 
@@ -94,7 +93,7 @@ export default function SistemaBJCMasterFinal() {
   const OSCURO_BJ = '#1E1B1C';
 
   // ============================================================================
-  // [ZONA 3: FUNCIONES DE ACCIÓN (VENTAS Y CRUD)]
+  // [ZONA 3: FUNCIONES DE ACCIÓN (LÓGICA OPERATIVA)]
   // ============================================================================
 
   const handleAutocompleteCliente = (e) => {
@@ -148,7 +147,7 @@ export default function SistemaBJCMasterFinal() {
         precio_venta: Number(handleInputMonto(formProd.precio_venta)), precio_menor: Number(handleInputMonto(formProd.precio_menor)),
         stock: Number(formProd.stock), colores: formProd.colores
     }]);
-    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo creado."); await cargarTodoDesdeNube(); }
+    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo añadido."); await cargarTodoDesdeNube(); }
   };
 
   const handleRegistrarFinanzaBJ = async (e) => {
@@ -166,10 +165,10 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleCobrarDeudaBJ = async (grupo) => {
-    if(confirm(`¿Confirmar cobro de S/ ${grupo.total.toFixed(2)}?`)) {
+    if(confirm(`¿Confirmar cobro total de S/ ${grupo.total.toFixed(2)}?`)) {
         const idsV = grupo.items_ids || [];
         for(let id of idsV) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); }
-        alert("💰 Pago recibido."); await cargarTodoDesdeNube();
+        alert("💰 Cobro realizado."); await cargarTodoDesdeNube();
     }
   };
 
@@ -194,18 +193,14 @@ export default function SistemaBJCMasterFinal() {
         const mesI = hoyS.substring(0,7);
         const vHoy = ventas.filter(v => v && getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
         
-        // BOVEDA
         const gAcumTotal = ventas.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
         const retirosUt = finanzas.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         
-        // CAJA ACTUAL
         const inVentasCob = ventas.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         const inCapital = finanzas.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         const outEgresos = finanzas.filter(f => f && f.origen !== 'Ganancias' && !['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         
         const cajaMano = (inVentasCob + inCapital) - outEgresos;
-
-        // PTO EQUILIBRIO
         const egMeta = finanzas.filter(f => f && getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         const utRealMes = ventas.filter(v => v && getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
         
@@ -268,7 +263,7 @@ export default function SistemaBJCMasterFinal() {
   }, [ventas, fechaConsulta]);
 
   // ============================================================================
-  // [ZONA 5: CONEXIÓN SUPABASE]
+  // [ZONA 5: CONEXIÓN SUPABASE Y SYNC]
   // ============================================================================
 
   const cargarTodoDesdeNube = async () => {
@@ -283,8 +278,8 @@ export default function SistemaBJCMasterFinal() {
 
   useEffect(() => {
     cargarTodoDesdeNube();
-    const timerArr = setTimeout(() => setCargando(false), 3000);
-    return () => clearTimeout(timerArr);
+    const arranqueBunker = setTimeout(() => setCargando(false), 3000);
+    return () => clearTimeout(arranqueBunker);
   }, []);
 
   const handleExportarExcelCajaFull = () => {
@@ -307,16 +302,16 @@ export default function SistemaBJCMasterFinal() {
   const styleInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff', transition: '0.3s' };
   const styleCrd = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
 
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BUNKER BJ v92... 🚀💎</div>;
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BUNKER BJ v93... 🚀💎</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* 🚀 NAVBAR GLOBAL */}
+      {/* NAVBAR GLOBAL */}
       <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v92 MASTER PRO</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v93 MASTER AUDITOR</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '8px', backgroundColor: `#FCA5D415`, padding: '5px', borderRadius: '15px', flexWrap:'wrap' }}>
           <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: '900' }}>VENTAS</button>
@@ -328,7 +323,7 @@ export default function SistemaBJCMasterFinal() {
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
         
-        {/* ===================== [VISTA: VENTAS] ===================== */}
+        {/* VISTA VENTAS */}
         {vista === 'ventas' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px' }}>
@@ -356,8 +351,8 @@ export default function SistemaBJCMasterFinal() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="clis_v92" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
-                <datalist id="clis_v92">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="clis_v93" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
+                <datalist id="clis_v93">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📍 Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={styleInp} />
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={styleInp} />
               </div>
@@ -397,8 +392,6 @@ export default function SistemaBJCMasterFinal() {
                         {tagBJ && <span style={{ position:'absolute', top: '-10px', left: '20px', backgroundColor: tagBJ.color, color: '#fff', fontSize: '10px', padding: '6px 15px', borderRadius: '15px', fontWeight: '900' }}>{tagBJ.tipo}</span>}
                         <strong style={{ display: 'block', height: '40px', overflow: 'hidden' }}>{p.nombre}</strong>
                         <div style={{ color: sLow ? ROJO_BJ : VERDE_BJ, fontWeight: '900', margin: '10px 0', textAlign:'center' }}>STOCK: {p.stock} U.</div>
-                        
-                        {/* SELECTOR DE COLOR Y CANTIDAD RESTAURADOS v92 */}
                         <div style={{ marginBottom: '15px' }}>
                             <select value={coloresElegidos[p.id]} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{...styleInp, padding:'8px', fontSize:'13px', marginBottom:'10px'}}>
                                 {p.colores?.split(',').map(c => <option key={c} value={c.trim()}>{c.trim()}</option>)}
@@ -409,7 +402,6 @@ export default function SistemaBJCMasterFinal() {
                                 <button onClick={() => setCantidades({...cantidades, [p.id]: Math.min(p.stock, (cantidades[p.id] || 1) + 1)})} style={{ border: 'none', background: '#f1f1f1', borderRadius: '10px', width: '35px', height: '35px', cursor:'pointer' }}>+</button>
                             </div>
                         </div>
-
                         <button onClick={() => {
                             const cE = Number(cantidades[p.id] || 1);
                             const clE = coloresElegidos[p.id] || p.colores?.split(',')[0]?.trim() || "Único";
@@ -435,16 +427,14 @@ export default function SistemaBJCMasterFinal() {
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <div style={{ backgroundColor: VERDE_BJ, color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: '900' }}>S/ {grupo.total.toFixed(2)}</div>
-                                
-                                {/* BOTÓN TICKET WHATSAPP RESTAURADO v92 */}
                                 <button onClick={() => {
-                                    let msg = `¡Hola *${grupo.cliente_nombre}*! 👋 Recibo de *BJ Importaciones Chiclayo*.%0A%0A`;
+                                    let msgBJ = `¡Hola *${grupo.cliente_nombre}*! 👋 Recibo de *BJ Importaciones Chiclayo*.%0A%0A`;
                                     grupo.items.forEach(v => {
                                         const pNom = productos.find(p => p.id === v.producto_id)?.nombre || "Item";
-                                        msg += `- *${v.cantidad}x* ${pNom} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
+                                        msgBJ += `- *${v.cantidad}x* ${pNom} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
                                     });
-                                    msg += `%0A*TOTAL PAGADO: S/ ${grupo.total.toFixed(2)}*%0A¡Muchas gracias por tu compra! 😊✨`;
-                                    window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${msg}`, '_blank');
+                                    msgBJ += `%0A*TOTAL PAGADO: S/ ${grupo.total.toFixed(2)}*%0A¡Muchas gracias por tu compra! 😊✨`;
+                                    window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${msgBJ}`, '_blank');
                                 }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '12px', fontWeight:'900', cursor:'pointer' }}>TICKET 📱</button>
                             </div>
                         </div>
@@ -490,7 +480,7 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* VISTA LOGÍSTICA (RESTAURADA v92) */}
+        {/* VISTA LOGÍSTICA */}
         {vista === 'logistica' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             <div style={styleCrd}>
@@ -512,7 +502,7 @@ export default function SistemaBJCMasterFinal() {
             </div>
 
             <div style={{ ...styleCrd, borderLeft: `15px solid ${AMARILLO_BJ}` }}>
-                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Ventas a Crédito)</h3>
+                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Crédito)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaInteligente.deudas.map((grupo, idx) => (
                         <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px', border:`2px solid ${AMARILLO_BJ}40` }}>
@@ -542,28 +532,36 @@ export default function SistemaBJCMasterFinal() {
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
                         <span>Utilidad Mes: S/ {balanceEliteBJ.pe_g.toFixed(2)}</span>
-                        <strong>Meta: S/ {balanceEliteBJ.pe_m.toFixed(2)}</strong>
+                        <strong>Meta Gasto: S/ {balanceEliteBJ.pe_m.toFixed(2)}</strong>
                     </div>
                 </div>
 
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA PARA RETIRO (UTILIDAD DISPO)</h4>
                     <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceEliteBJ.bR.toFixed(2)}</h3>
-                    <small style={{opacity:0.6}}>Ganancia neta acumulada menos retiros personales marcados "De Ganancias".</small>
+                    <small style={{opacity:0.6}}>Utilidad acumulada menos tus retiros de bolsa "Ganancias".</small>
                 </div>
             </div>
 
+            {/* TARJETAS DE AUDITORÍA (AQUÍ ESTÁ LA NUEVA TARJETA) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                 <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN MERCADERÍA (COSTO PRODUCTOS)</small>
                     <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStock.cost.toLocaleString('es-PE')}</h4>
                 </div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
-                    <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO REAL EN MANO)</small>
+                    <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO EN MANO)</small>
                     <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceEliteBJ.cG.toFixed(2)}</h4>
+                </div>
+                {/* [RESTAURADO: VALOR VENTA POTENCIAL] */}
+                <div style={{ ...styleCrd, borderLeft:`10px solid ${FUCSIA_PRINCIPAL}` }}>
+                    <small style={{fontWeight:'900', opacity:0.6}}>VALOR VENTA TOTAL (POTENCIAL DINERO)</small>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStock.vent.toLocaleString('es-PE')}</h4>
+                    <small style={{opacity:0.5}}>Dinero total si vendieras todo el stock hoy.</small>
                 </div>
             </div>
 
+            {/* FORMULARIOS Y LIBRO DIARIO... (Mantenido sin cambios) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '45px' }}>
                 <div style={styleCrd}>
                   <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>💸 Movimiento de Caja Detallado</h4>
@@ -599,7 +597,6 @@ export default function SistemaBJCMasterFinal() {
                 </div>
             </div>
 
-            {/* LIBRO DIARIO RESTAURADO */}
             <div style={styleCrd}>
                 <h4 style={{ marginTop: 0, marginBottom: '30px', fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro Diario de Operaciones BJ</h4>
                 <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
