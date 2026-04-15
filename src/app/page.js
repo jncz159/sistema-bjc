@@ -104,8 +104,9 @@ export default function SistemaBJCMasterFinal() {
     if (mCli) { setLocalidad(mCli.localidad || ''); setTelefono(mCli.telefono || ''); }
   };
 
+ // [MODIFICABLE: LOGICA_VENTA_PRO]
   const handleEjecutarVentaBJ = async (estadoOperativo) => {
-    if (!cliente || !localidad || !carrito.length) return alert("Faltan datos críticos.");
+    if (!cliente || !localidad || !carrito.length) return alert("Error: Faltan datos críticos.");
     
     const totalVentaBase = carrito.reduce((acc, item) => acc + (Number(item.precio_venta) * item.cantidad), 0);
     const ratioDescuento = totalVentaBase > 0 ? (Number(descuento) / totalVentaBase) : 0;
@@ -113,8 +114,8 @@ export default function SistemaBJCMasterFinal() {
     const listaV = carrito.map(item => {
         const pvU = Number(item.precio_venta);
         const pcU = Number(item.precio_compra || 0);
-        const subtotal = pvU * item.cantidad;
-        const gananciaReal = ((pvU - pcU) * item.cantidad) - (subtotal * ratioDescuento);
+        const subtotalU = pvU * item.cantidad;
+        const gananciaReal = ((pvU - pcU) * item.cantidad) - (subtotalU * ratioDescuento);
 
         return { 
             cliente_nombre: cliente, localidad, telefono: telefono || '', producto_id: item.producto_id, 
@@ -127,11 +128,11 @@ export default function SistemaBJCMasterFinal() {
     if (!error) {
       for (const it of carrito) {
         const pO = productos.find(p => p.id === it.producto_id);
-        if (pO) await supabase.from('productos').update({ stock: pO.stock - item.cantidad }).eq('id', item.producto_id);
+        if (pO) await supabase.from('productos').update({ stock: pO.stock - item.cantidad }).eq('id', it.producto_id);
       }
       setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0);
       alert("✅ Operación guardada."); await cargarTodoDesdeNube();
-    } else { alert("Error al registrar venta."); }
+    } else { alert("Error al guardar venta: " + error.message); }
   };
 
   const handleAddProductoBJ = async (e) => {
@@ -340,6 +341,14 @@ export default function SistemaBJCMasterFinal() {
 
             <div style={{ ...styleCrd, border: `3px solid #FCA5D4` }}>
               <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900', marginBottom:'25px' }}>🛒 Nueva Operación Chiclayo</h3>
+              {/* [MODIFICABLE: SELECTOR_PRECIO] */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'25px' }}>
+                <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🛒 Registrar Operación Chiclayo</h3>
+                <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '18px', padding: '6px' }}>
+                  <button onClick={() => setTipoVenta('Mayor')} style={{ border: 'none', padding: '10px 22px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '900', backgroundColor: tipoVenta === 'Mayor' ? FUCSIA_PRINCIPAL : 'transparent', color: tipoVenta === 'Mayor' ? '#fff' : '#64748B' }}>MAYOR</button>
+                  <button onClick={() => setTipoVenta('Menor')} style={{ border: 'none', padding: '10px 22px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '900', backgroundColor: tipoVenta === 'Menor' ? OSCURO_BJ : 'transparent', color: tipoVenta === 'Menor' ? '#fff' : '#64748B' }}>MENOR</button>
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
                 <input list="clis_v84" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
                 <datalist id="clis_v84">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
@@ -373,15 +382,23 @@ export default function SistemaBJCMasterFinal() {
 
               <input placeholder="🔍 Buscar modelo..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...styleInp, marginBottom: '25px', height: '60px' }} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '25px', maxHeight: '600px', overflowY: 'auto' }}>
+              {/* [MODIFICABLE: LISTA_PRODUCTOS_VENTA] */}
                 {productos.filter(p => p.nombre?.toLowerCase().includes(busqueda.toLowerCase())).map((p) => {
-                  const tag = getEtiquetaProducto(p.created_at);
-                  const pSh = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
+                  const tagBJ = getEtiquetaProducto(p.created_at);
+                  const pShowBJ = tipoVenta === 'Mayor' ? p.precio_venta : (p.precio_menor || p.precio_venta);
+                  const sLowBJ = Number(p.stock || 0) < 5;
                   return (
-                    <div key={p.id} style={{ border: Number(p.stock) < 5 ? `2px solid ${ROJO_BJ}` : '1px solid #FFF1F2', padding: '22px', borderRadius: '35px', position: 'relative', backgroundColor:'#fff' }}>
-                        {tag && <span style={{ position:'absolute', top: '-10px', left: '20px', backgroundColor: tag.color, color: '#fff', fontSize: '10px', padding: '6px 15px', borderRadius: '15px', fontWeight: '900' }}>{tag.tipo}</span>}
-                        <strong style={{ display: 'block', height: '40px', overflow: 'hidden' }}>{p.nombre}</strong>
-                        <div style={{ color: Number(p.stock) < 5 ? ROJO_BJ : VERDE_BJ, fontWeight: '900', margin: '10px 0' }}>STOCK: {p.stock} U.</div>
-                        <button onClick={() => setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: 1, color: "Único", precio_venta: pSh, precio_compra: p.precio_compra }])} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', cursor:'pointer' }}>AÑADIR</button>
+                    <div key={p.id} style={{ border: sLowBJ ? `2px solid ${ROJO_BJ}` : '1px solid #FFF1F2', padding: '22px', borderRadius: '35px', backgroundColor: '#fff', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+                      {tagBJ && <span style={{ position:'absolute', top: '-15px', left: '20px', backgroundColor: tagBJ.color, color: '#fff', fontSize: '10px', padding: '6px 15px', borderRadius: '15px', fontWeight: '900', zIndex: 10 }}>{tagBJ.tipo}</span>}
+                      <strong style={{ display: 'block', height: '45px', overflow: 'hidden', fontSize: '16px' }}>{p.nombre}</strong>
+                      <div style={{ margin: '10px 0', padding: '10px', backgroundColor: sLowBJ ? '#FFF1F2' : '#F0FDF4', borderRadius: '18px', textAlign: 'center' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '900', color: sLowBJ ? ROJO_BJ : VERDE_BJ }}>STOCK: {p.stock} U.</span>
+                      </div>
+                      <button onClick={() => {
+                        setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: 1, color: "Único", precio_venta: pShowBJ, precio_compra: p.precio_compra }]);
+                      }} disabled={p.stock <= 0} style={{ width: '100%', backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '22px', fontSize: '14px', fontWeight: '900', cursor:'pointer' }}>
+                        {p.stock > 0 ? `AÑADIR S/ ${Number(pShowBJ).toFixed(2)}` : 'AGOTADO'}
+                      </button>
                     </div>
                   );
                 })}
