@@ -7,9 +7,9 @@ import {
 
 /**
  * ============================================================================
- * SISTEMA BJ IMPORTACIONES CHICLAYO - VERSION 96.0
+ * SISTEMA BJ IMPORTACIONES CHICLAYO - VERSION 99.0
  * ARCHIVO: page.js (ESTRUCTURA DE INGENIERÍA MAESTRA TOTAL)
- * ESTADO: LIBRO DIARIO EDITABLE + FIX FECHA/HORA + BALANCES DINÁMICOS
+ * ESTADO: EDICIÓN INTEGRAL DE PRODUCTOS + ELIMINACIÓN + AUDITORÍA DINÁMICA
  * ============================================================================
  */
 
@@ -36,7 +36,6 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { return "--:--"; }
   };
 
-  // Helper para el input datetime-local (formato YYYY-MM-DDTHH:mm)
   const formatForInputDT = (isoString) => {
     if (!isoString) return "";
     const d = new Date(isoString);
@@ -88,9 +87,11 @@ export default function SistemaBJCMasterFinal() {
   const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '', origen: 'Caja Global' });
   const [formEditStockBJ, setFormEditStockBJ] = useState({}); 
 
-  // Estados para Edición de Libro Diario (NUEVO v96)
+  // Estados de Edición
   const [idEditFinanza, setIdEditFinanza] = useState(null);
   const [formEditFinanza, setFormEditFinanza] = useState({});
+  const [idEditProducto, setIdEditProducto] = useState(null); // NUEVO v99
+  const [formEditProducto, setFormEditProducto] = useState({}); // NUEVO v99
 
   const FUCSIA_PRINCIPAL = '#F01097';
   const VERDE_BJ = '#16A34A';
@@ -99,7 +100,7 @@ export default function SistemaBJCMasterFinal() {
   const OSCURO_BJ = '#1E1B1C';
 
   // ============================================================================
-  // [ZONA 3: FUNCIONES DE ACCIÓN (VENTAS Y CRUD)]
+  // [ZONA 3: FUNCIONES DE ACCIÓN]
   // ============================================================================
 
   const handleAutocompleteCliente = (e) => {
@@ -139,7 +140,7 @@ export default function SistemaBJCMasterFinal() {
                 if (pO) await supabase.from('productos').update({ stock: pO.stock - it.cantidad }).eq('id', it.producto_id);
             }
             setCliente(''); setLocalidad(''); setTelefono(''); setCarrito([]); setDescuento(0); setCantidades({});
-            alert("✅ Venta registrada."); await cargarTodoDesdeNube();
+            alert("✅ Venta registrada correctamente."); await cargarTodoDesdeNube();
         } else { throw error; }
     } catch (err) { alert("Error al registrar: " + err.message); }
   };
@@ -152,7 +153,34 @@ export default function SistemaBJCMasterFinal() {
         precio_venta: Number(handleInputMonto(formProd.precio_venta)), precio_menor: Number(handleInputMonto(formProd.precio_menor)),
         stock: Number(formProd.stock), colores: formProd.colores
     }]);
-    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo creado."); await cargarTodoDesdeNube(); }
+    if (!error) { setFormProd({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' }); alert("✨ Modelo añadido."); await cargarTodoDesdeNube(); }
+  };
+
+  // NUEVA FUNCIÓN: ACTUALIZAR PRODUCTO (ZONA ALMACÉN)
+  const handleUpdateProductoBJ = async (id) => {
+    const { error } = await supabase.from('productos').update({
+        nombre: formEditProducto.nombre,
+        precio_venta: Number(formEditProducto.precio_venta),
+        precio_menor: Number(formEditProducto.precio_menor),
+        precio_compra: Number(formEditProducto.precio_compra)
+    }).eq('id', id);
+
+    if (!error) {
+        setIdEditProducto(null);
+        alert("✅ Producto actualizado con éxito.");
+        await cargarTodoDesdeNube();
+    } else { alert("Error al actualizar producto: " + error.message); }
+  };
+
+  // NUEVA FUNCIÓN: ELIMINAR PRODUCTO (ZONA ALMACÉN)
+  const handleDeleteProductoBJ = async (id, nombre) => {
+    if (confirm(`¿ESTÁS SEGURO? Eliminarás "${nombre}" definitivamente del catálogo.`)) {
+        const { error } = await supabase.from('productos').delete().eq('id', id);
+        if (!error) {
+            alert("🗑️ Producto eliminado.");
+            await cargarTodoDesdeNube();
+        } else { alert("No se puede eliminar: el producto tiene ventas asociadas."); }
+    }
   };
 
   const handleRegistrarFinanzaBJ = async (e) => {
@@ -163,7 +191,6 @@ export default function SistemaBJCMasterFinal() {
     if (!error) { setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen: 'Caja Global'}); alert("✅ Registro guardado."); await cargarTodoDesdeNube(); }
   };
 
-  // Función para EDITAR el Libro Diario (NUEVO v96)
   const handleUpdateFinanzaBJ = async (id) => {
     const { error } = await supabase.from('finanzas').update({
       tipo: formEditFinanza.tipo,
@@ -173,11 +200,8 @@ export default function SistemaBJCMasterFinal() {
       created_at: new Date(formEditFinanza.created_at).toISOString()
     }).eq('id', id);
 
-    if (!error) {
-      setIdEditFinanza(null);
-      alert("✅ Movimiento actualizado.");
-      await cargarTodoDesdeNube();
-    } else { alert("Error al actualizar: " + error.message); }
+    if (!error) { setIdEditFinanza(null); alert("✅ Movimiento actualizado."); await cargarTodoDesdeNube(); }
+    else { alert("Error al actualizar: " + error.message); }
   };
 
   const handleSincronizarStockBJ = async (pId, nuevoStock) => {
@@ -187,7 +211,7 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleCobrarDeudaBJ = async (grupo) => {
-    if(confirm(`¿Confirmar cobro de S/ ${grupo.total.toFixed(2)}?`)) {
+    if(confirm(`¿Confirmar cobro total de S/ ${grupo.total.toFixed(2)}?`)) {
         for(let id of (grupo.items_ids || [])) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); }
         alert("💰 Pago recibido."); await cargarTodoDesdeNube();
     }
@@ -203,7 +227,7 @@ export default function SistemaBJCMasterFinal() {
   };
 
   // ============================================================================
-  // [ZONA 4: LÓGICA DE PROCESAMIENTO (BALANCES Y MEMOS)]
+  // [ZONA 4: LÓGICA DE PROCESAMIENTO]
   // ============================================================================
 
   const balanceEliteBJ = useMemo(() => {
@@ -213,25 +237,22 @@ export default function SistemaBJCMasterFinal() {
         const hoyS = getFechaPeru();
         const mesI = hoyS.substring(0,7);
         const vHoy = ventas.filter(v => v && getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
-        
-        const gAcumTotal = ventas.reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
-        const retirosUt = finanzas.filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        
-        const inVentasCob = ventas.filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
-        const inCapital = finanzas.filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const outEgresos = finanzas.filter(f => f && f.origen !== 'Ganancias' && !['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        
+        const gAcumTotal = (ventas || []).reduce((acc, v) => acc + (Number(v?.ganancia_total) || 0), 0);
+        const retUt = (finanzas || []).filter(f => f && f.origen === 'Ganancias').reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const inVentasCob = (ventas || []).filter(v => v && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0);
+        const inCapital = (finanzas || []).filter(f => f && ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const outEgresos = (finanzas || []).filter(f => f && f.origen !== 'Ganancias' && !['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
         const cajaMano = (inVentasCob + inCapital) - outEgresos;
-        const egMeta = finanzas.filter(f => f && getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
-        const utRealMes = ventas.filter(v => v && getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.ganancia_total) || 0), 0);
+        const egMetaMes = (finanzas || []).filter(f => f && getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + (Number(f.monto) || 0), 0);
+        const utRealMes = (ventas || []).filter(v => v && getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.ganancia_total || 0)), 0);
         
         return { 
-            cH: vHoy.reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0),
+            cH: vHoy.reduce((acc, v) => acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)), 0),
             gH: vHoy.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
             cG: cajaMano,
-            bR: (gAcumTotal - retirosUt),
-            pe_p: egMeta > 0 ? (utRealMes / egMeta) * 100 : (utRealMes > 0 ? 100 : 0),
-            pe_g: utRealMes, pe_m: egMeta
+            bR: (gAcumTotal - retUt),
+            pe_p: egMetaMes > 0 ? Math.min((utRealMes / egMetaMes) * 100, 100) : (utRealMes > 0 ? 100 : 0),
+            pe_g: utRealMes, pe_m: egMetaMes
         };
     } catch (e) { return s; }
   }, [finanzas, ventas]);
@@ -246,7 +267,6 @@ export default function SistemaBJCMasterFinal() {
             const key = `${v.cliente_nombre}-${v.localidad || 'SN'}`;
             const pMatch = productos.find(p => p.id === v.producto_id);
             const itD = { id: v.id, nombre: pMatch ? pMatch.nombre : "Producto", cantidad: v.cantidad, color: v.color };
-
             if (v.estado_pedido === 'En Almacén') {
                 if (!mA[key]) mA[key] = { cliente: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, items: [], total: 0, items_ids: [] };
                 mA[key].items.push(itD); mA[key].items_ids.push(v.id);
@@ -263,9 +283,9 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { return res; }
   }, [ventas, productos]);
 
-  const valorizacionStock = useMemo(() => {
+  const valorizacionStockBJ = useMemo(() => {
     let c = 0; let v = 0;
-    productos.forEach(p => { if (p && Number(p.stock) > 0) { c += (Number(p.precio_compra || 0) * p.stock); v += (Number(p.precio_venta || 0) * p.stock); } });
+    (productos || []).forEach(p => { if (p && Number(p.stock) > 0) { c += (Number(p.precio_compra || 0) * p.stock); v += (Number(p.precio_venta || 0) * p.stock); } });
     return { cost: c, vent: v };
   }, [productos]);
 
@@ -304,9 +324,9 @@ export default function SistemaBJCMasterFinal() {
   }, []);
 
   const handleExportarExcelCajaFull = () => {
-    let csv = "REPORTE DE CIERRE Y AUDITORIA - BJ IMPORTACIONES\n";
+    let csv = "REPORTE DE CIERRE - BJ IMPORTACIONES\n";
     csv += `CAJA TOTAL ACTUAL,S/ ${balanceEliteBJ.cG.toFixed(2)}\n`;
-    csv += `BOVEDA UTILIDADES,S/ ${balanceEliteBJ.bR.toFixed(2)}\n\n`;
+    csv += `BOVEDA GANANCIAS,S/ ${balanceEliteBJ.bR.toFixed(2)}\n\n`;
     csv += "Hora,Cliente,Zona,Producto,Cant,Precio,Subtotal\n";
     ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta).forEach(v => {
       const nP = productos.find(p=>p.id===v.producto_id)?.nombre || "Item";
@@ -323,7 +343,7 @@ export default function SistemaBJCMasterFinal() {
   const styleInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff', transition: '0.3s' };
   const styleCrd = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
 
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BUNKER BJ v96... 🚀💎</div>;
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'1.5rem' }}>INICIANDO BUNKER BJ v99... 🚀💎</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
@@ -332,7 +352,7 @@ export default function SistemaBJCMasterFinal() {
       <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v96 MASTER AUDITOR</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v99 MASTER CONTROL</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '8px', backgroundColor: `#FCA5D415`, padding: '5px', borderRadius: '15px', flexWrap:'wrap' }}>
           <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: '900' }}>VENTAS</button>
@@ -372,8 +392,8 @@ export default function SistemaBJCMasterFinal() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="clis_v96" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
-                <datalist id="clis_v96">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="clis_v99" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
+                <datalist id="clis_v99">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📍 Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={styleInp} />
                 <input placeholder="📱 WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} style={styleInp} />
               </div>
@@ -448,12 +468,12 @@ export default function SistemaBJCMasterFinal() {
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <div style={{ backgroundColor: VERDE_BJ, color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: '900' }}>S/ {grupo.total.toFixed(2)}</div>
                                 <button onClick={() => {
-                                    let msg = `¡Hola *${grupo.cliente_nombre}*! 👋 Recibo de *BJ Importaciones*.%0A%0A`;
+                                    let msg = `¡Hola *${grupo.cliente_nombre}*! 👋 Recibo de *BJ Importaciones Chiclayo*.%0A%0A`;
                                     grupo.items.forEach(v => {
                                         const pNom = productos.find(p => p.id === v.producto_id)?.nombre || "Item";
                                         msg += `- *${v.cantidad}x* ${pNom} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
                                     });
-                                    msg += `%0A*TOTAL PAGADO: S/ ${grupo.total.toFixed(2)}*%0A¡Gracias! 😊`;
+                                    msg += `%0A*TOTAL PAGADO: S/ ${grupo.total.toFixed(2)}*%0A¡Muchas gracias por tu compra! 😊✨`;
                                     window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${msg}`, '_blank');
                                 }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '12px', fontWeight:'900', cursor:'pointer' }}>TICKET 📱</button>
                             </div>
@@ -470,29 +490,81 @@ export default function SistemaBJCMasterFinal() {
           </div>
         )}
 
-        {/* VISTA ALMACÉN */}
+        {/* VISTA ALMACÉN (CON EDICIÓN v99) */}
         {vista === 'stock' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', textAlign: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '2.5rem' }}>📦 Inventario Físico BJ</h2>
-                <p style={{ opacity: 0.7 }}>Control detallado del stock real en Chiclayo.</p>
+                <p style={{ opacity: 0.7 }}>Gestión total de productos y precios.</p>
             </div>
+
+            {/* FORMULARIO DE REGISTRO */}
+            <div style={{ ...styleCrd, border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
+              <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>🆕 Ingresar Nuevo Producto</h4>
+              <form onSubmit={handleAddProductoBJ} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+                    <input placeholder="Nombre del Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={styleInp} />
+                    <input placeholder="Costo de Compra S/" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: handleInputMonto(e.target.value)})} style={styleInp} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                    <input placeholder="Precio Mayor S/" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: handleInputMonto(e.target.value)})} style={{...styleInp, border:`2px solid ${FUCSIA_PRINCIPAL}`}} />
+                    <input placeholder="Precio Menor S/" value={formProd.precio_menor} onChange={e => setFormProd({...formProd, precio_menor: handleInputMonto(formProd.precio_menor)})} style={{...styleInp, border:`2px solid ${OSCURO_BJ}`}} />
+                    <input placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={styleInp} />
+                </div>
+                <input placeholder="Colores (separados por coma: Rojo, Azul...)" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={styleInp} />
+                <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR EN CATÁLOGO</button>
+              </form>
+            </div>
+
             <div style={styleCrd}>
-              <input placeholder="🔍 Buscar en almacén..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...styleInp, marginBottom: '30px' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
+              <input placeholder="🔍 Buscar modelo para editar o ver stock..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...styleInp, marginBottom: '30px' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px' }}>
                 {productos.filter(p => p.nombre?.toLowerCase().includes(busquedaStock.toLowerCase())).map((p) => (
-                    <div key={p.id} style={{ border: '1px solid #F1F5F9', padding: '25px', borderRadius: '30px', backgroundColor: '#fff' }}>
-                        <strong style={{ fontSize: '1.1rem', display:'block', marginBottom:'15px' }}>{p.nombre}</strong>
-                        <div style={{ background: '#F8FAFC', padding: '15px', borderRadius: '20px', marginBottom: '15px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <small style={{ opacity: 0.6 }}>STOCK ACTUAL:</small>
-                                <strong style={{ color: p.stock < 5 ? ROJO_BJ : OSCURO_BJ }}>{p.stock} U.</strong>
+                    <div key={p.id} style={{ border: '1px solid #F1F5F9', padding: '25px', borderRadius: '30px', backgroundColor: '#fff', position:'relative' }}>
+                        
+                        {idEditProducto === p.id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <input value={formEditProducto.nombre} onChange={e => setFormEditProducto({...formEditProducto, nombre: e.target.value})} style={{...styleInp, padding:'10px'}} />
+                                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
+                                    <small>COSTO:</small><small>MAYOR:</small>
+                                    <input value={formEditProducto.precio_compra} onChange={e => setFormEditProducto({...formEditProducto, precio_compra: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'8px'}} />
+                                    <input value={formEditProducto.precio_venta} onChange={e => setFormEditProducto({...formEditProducto, precio_venta: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'8px'}} />
+                                </div>
+                                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
+                                    <small>MENOR:</small><small></small>
+                                    <input value={formEditProducto.precio_menor} onChange={e => setFormEditProducto({...formEditProducto, precio_menor: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'8px'}} />
+                                    <button onClick={() => handleUpdateProductoBJ(p.id)} style={{background: VERDE_BJ, color: '#fff', border:'none', borderRadius:'10px', fontWeight:'900', cursor:'pointer'}}>OK</button>
+                                </div>
                             </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <input type="number" placeholder="Nuevo" value={formEditStockBJ[p.id] || ''} onChange={(e) => setFormEditStockBJ({...formEditStockBJ, [p.id]: e.target.value})} style={{ ...styleInp, padding: '10px', flex: 1 }} />
-                            <button onClick={() => handleSincronizarStockBJ(p.id, formEditStockBJ[p.id])} style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '0 20px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>SYNC</button>
-                        </div>
+                        ) : (
+                            <>
+                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'15px'}}>
+                                    <strong style={{ fontSize: '1.1rem', flex:1 }}>{p.nombre}</strong>
+                                    <div style={{display:'flex', gap:'10px'}}>
+                                        <button onClick={() => { setIdEditProducto(p.id); setFormEditProducto({...p}); }} style={{border:'none', background:'none', cursor:'pointer', fontSize:'18px'}}>✏️</button>
+                                        <button onClick={() => handleDeleteProductoBJ(p.id, p.nombre)} style={{border:'none', background:'none', cursor:'pointer', fontSize:'18px'}}>🗑️</button>
+                                    </div>
+                                </div>
+                                <div style={{ background: '#F8FAFC', padding: '15px', borderRadius: '20px', marginBottom: '15px', fontSize:'13px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'5px' }}>
+                                        <span style={{ opacity: 0.6 }}>STOCK:</span>
+                                        <strong style={{ color: p.stock < 5 ? ROJO_BJ : OSCURO_BJ }}>{p.stock} U.</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ opacity: 0.6 }}>MAYOR:</span>
+                                        <strong>S/ {Number(p.precio_venta).toFixed(2)}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ opacity: 0.6 }}>MENOR:</span>
+                                        <strong>S/ {Number(p.precio_menor || p.precio_venta).toFixed(2)}</strong>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <input type="number" placeholder="Nuevo stock" value={formEditStockBJ[p.id] || ''} onChange={(e) => setFormEditStockBJ({...formEditStockBJ, [p.id]: e.target.value})} style={{ ...styleInp, padding: '10px', flex: 1, fontSize:'13px' }} />
+                                    <button onClick={() => handleSincronizarStockBJ(p.id, formEditStockBJ[p.id])} style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '0 15px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer', fontSize:'12px' }}>SYNC</button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ))}
               </div>
@@ -517,11 +589,12 @@ export default function SistemaBJCMasterFinal() {
                             <button onClick={() => handleCobrarDeudaBJ(grupo)} style={{ width: '100%', backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>MARCAR ENTREGADO ✅</button>
                         </div>
                     ))}
+                    {logisticaInteligente.almacen.length === 0 && <p style={{opacity:0.5}}>Sin entregas pendientes.</p>}
                 </div>
             </div>
 
             <div style={{ ...styleCrd, borderLeft: `15px solid ${AMARILLO_BJ}` }}>
-                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Ventas a Crédito)</h3>
+                <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Crédito)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
                     {logisticaInteligente.deudas.map((grupo, idx) => (
                         <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '25px', border:`2px solid ${AMARILLO_BJ}40` }}>
@@ -548,9 +621,9 @@ export default function SistemaBJCMasterFinal() {
                     <div style={{height:'20px', width:'100%', backgroundColor:'#F1F5F9', borderRadius:'10px', overflow:'hidden', marginBottom:'15px', border:'1px solid #eee'}}>
                         <div style={{height:'100%', width:`${balanceEliteBJ.pe_p}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
                     </div>
-                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
-                        <span>Utilidad Mes: S/ {balanceEliteBJ.pe_g.toFixed(2)}</span>
-                        <strong>Meta Gasto: S/ {balanceEliteBJ.pe_m.toFixed(2)}</strong>
+                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', fontWeight:'600'}}>
+                        <span style={{color: VERDE_BJ}}>Utilidad: S/ {balanceEliteBJ.pe_g.toFixed(2)}</span>
+                        <span style={{color: ROJO_BJ}}>Meta: S/ {balanceEliteBJ.pe_m.toFixed(2)}</span>
                     </div>
                 </div>
 
@@ -563,7 +636,7 @@ export default function SistemaBJCMasterFinal() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                 <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN MERCADERÍA (COSTO)</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStock.cost.toLocaleString('es-PE')}</h4>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ.cost.toLocaleString('es-PE')}</h4>
                 </div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAJA TOTAL ACTUAL (DINERO EN MANO)</small>
@@ -571,11 +644,11 @@ export default function SistemaBJCMasterFinal() {
                 </div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${FUCSIA_PRINCIPAL}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>VALOR VENTA TOTAL (POTENCIAL)</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStock.vent.toLocaleString('es-PE')}</h4>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ.vent.toLocaleString('es-PE')}</h4>
                 </div>
             </div>
 
-            {/* [NUEVO: LIBRO DIARIO EDITABLE v96] */}
+            {/* LIBRO DIARIO EDITABLE */}
             <div style={styleCrd}>
                 <h4 style={{ marginTop: 0, marginBottom: '30px', fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro Diario de Operaciones BJ (Editable)</h4>
                 <div style={{ overflowX: 'auto' }}>
@@ -645,39 +718,25 @@ export default function SistemaBJCMasterFinal() {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '45px' }}>
-                <div style={styleCrd}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>💸 Registrar Movimiento Nuevo</h4>
-                  <form onSubmit={handleRegistrarFinanzaBJ} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
-                        <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={styleInp}>
-                            <option value="Gasto Local">🏪 Gasto Local</option>
-                            <option value="Inversión (Mercadería)">📦 Inversión</option>
-                            <option value="Retiro Personal">🏧 Retiro Personal</option>
-                            <option value="Ingreso Adicional">💰 Ingreso Adicional</option>
-                        </select>
-                        <select value={formFinanzas.origen} onChange={e => setFormFinanzas({...formFinanzas, origen: e.target.value})} style={{...styleInp, border:`2px solid ${AMARILLO_BJ}`}}>
-                            <option value="Caja Global">Bolsa: Caja Global</option>
-                            <option value="Ganancias">Bolsa: Ganancias</option>
-                        </select>
-                    </div>
-                    <input placeholder="Descripción..." value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={styleInp} />
-                    <input placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={styleInp} />
-                    <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR</button>
-                  </form>
+            <div style={styleCrd}>
+                <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>💸 Registrar Movimiento Nuevo</h4>
+                <form onSubmit={handleRegistrarFinanzaBJ} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
+                    <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={styleInp}>
+                        <option value="Gasto Local">🏪 Gasto Local</option>
+                        <option value="Inversión (Mercadería)">📦 Inversión</option>
+                        <option value="Retiro Personal">🏧 Retiro Personal</option>
+                        <option value="Ingreso Adicional">💰 Ingreso Adicional</option>
+                    </select>
+                    <select value={formFinanzas.origen} onChange={e => setFormFinanzas({...formFinanzas, origen: e.target.value})} style={{...styleInp, border:`2px solid ${AMARILLO_BJ}`}}>
+                        <option value="Caja Global">Bolsa: Caja Global</option>
+                        <option value="Ganancias">Bolsa: Ganancias</option>
+                    </select>
                 </div>
-                <div style={styleCrd}>
-                  <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>🆕 Subir Nuevo Producto</h4>
-                  <form onSubmit={handleAddProductoBJ} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={styleInp} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                        <input placeholder="Costo Compra" value={formProd.precio_compra} onChange={e => setFormProd({...formProd, precio_compra: handleInputMonto(e.target.value)})} style={styleInp} />
-                        <input placeholder="Venta Mayor" value={formProd.precio_venta} onChange={e => setFormProd({...formProd, precio_venta: handleInputMonto(e.target.value)})} style={styleInp} />
-                    </div>
-                    <input placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={styleInp} />
-                    <button type="submit" style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>CREAR PRODUCTO</button>
-                  </form>
-                </div>
+                <input placeholder="Descripción..." value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} style={styleInp} />
+                <input placeholder="Monto S/" value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} style={styleInp} />
+                <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR</button>
+                </form>
             </div>
           </div>
         )}
