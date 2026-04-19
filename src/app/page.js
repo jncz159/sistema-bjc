@@ -295,7 +295,38 @@ export default function SistemaBJCMasterFinal() {
     link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     link.download = `BJ_REPORTE_${fechaConsulta}.csv`; link.click();
   };
+// --- FUNCIONES DE EDICIÓN EN LOGÍSTICA (Bunker BJ v1.2) ---
 
+  const handleUpdateItemLogistica = async (idVenta, dataNueva, idProductoAnterior, cantAnterior) => {
+    try {
+      // 1. Si cambió la cantidad o el producto, ajustamos stock
+      if (dataNueva.producto_id !== idProductoAnterior || dataNueva.cantidad !== cantAnterior) {
+        // Devolvemos lo anterior
+        const pAnt = productos.find(p => p.id === idProductoAnterior);
+        if (pAnt) await supabase.from('productos').update({ stock: pAnt.stock + Number(cantAnterior) }).eq('id', pAnt.id);
+        
+        // Quitamos lo nuevo
+        const pNue = productos.find(p => p.id === dataNueva.producto_id);
+        if (pNue) await supabase.from('productos').update({ stock: pNue.stock - Number(dataNueva.cantidad) }).eq('id', pNue.id);
+      }
+
+      // 2. Actualizamos la fila en Ventas
+      await supabase.from('ventas').update(dataNueva).eq('id', idVenta);
+      
+      alert("✅ Ítem actualizado.");
+      cargarTodoDesdeNube();
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  const handleEliminarItemIndividualLogistica = async (v) => {
+    if (confirm(`¿Eliminar ${v.nombre} de este pedido? Se devolverá el stock.`)) {
+      const pOrig = productos.find(p => p.id === v.producto_id);
+      if (pOrig) await supabase.from('productos').update({ stock: pOrig.stock + v.cantidad }).eq('id', pOrig.id);
+      
+      await supabase.from('ventas').delete().eq('id', v.id);
+      cargarTodoDesdeNube();
+    }
+  };
   // [BLOQUE G: RENDER]
   if (!hasMounted) return null;
   if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ v106.1... 🚀</div>;
@@ -433,7 +464,10 @@ export default function SistemaBJCMasterFinal() {
           <LogisticaSection {...{ 
             logisticaInteligente, 
             handleCobrarDeudaBJ, 
-            handleAnularCreditoBJ, // <--- ESTA ES LA CONEXIÓN NUEVA
+            handleAnularCreditoBJ,
+            handleUpdateItemLogistica, // <--- NUEVA
+            handleEliminarItemIndividualLogistica, // <--- NUEVA
+            productos,
             finanzas, 
             FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, 
             styleCrd, styleInp 
