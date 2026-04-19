@@ -251,16 +251,16 @@ export default function SistemaBJCMasterFinal() {
         
         {/* VISTA VENTAS */}
         {vista === 'ventas' && (
-          <VentasSection {...{
-            balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, 
-            cliente, handleAutocompleteCliente, ventas, localidad, setLocalidad, telefono, setTelefono, 
-            carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, 
-            productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, 
-            setBusquedaHistorial, historialVentasDiaBJ, 
-            handleAnularVentaBJ: async (v) => { if(confirm("¿Anular?")){ await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube(); }},
-            FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
-          }} />
-        )}
+  <VentasSection {...{
+    balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, 
+    cliente, handleAutocompleteCliente, ventas, localidad, setLocalidad, telefono, setTelefono, // <--- TELEFONO INCLUIDO
+    carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, 
+    productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, 
+    setBusquedaHistorial, historialVentasDiaBJ, 
+    handleAnularVentaBJ: async (v) => { if(confirm("¿Anular?")){ await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube(); }},
+    FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
+  }} />
+)}
 
         {/* VISTA ALMACÉN */}
         {vista === 'stock' && (
