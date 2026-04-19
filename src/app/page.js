@@ -244,8 +244,75 @@ export default function SistemaBJCMasterFinal() {
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
         {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ: async (v) => { if(confirm("Anular?")){ await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube(); }}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
         
-        {vista === 'stock' && <AlmacenSection {...{ formProd, setFormProd, handleAddProductoBJ: async (e) => { e.preventDefault(); await supabase.from('productos').insert([{ ...formProd, precio_compra: Number(handleInputMonto(formProd.precio_compra)), precio_venta: Number(handleInputMonto(formProd.precio_venta)), precio_menor: Number(handleInputMonto(formProd.precio_menor)) }]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube(); }, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id) => { await supabase.from('productos').update(formEditProducto).eq('id', id); setIdEditProducto(null); cargarTodoDesdeNube(); }, handleDeleteProductoBJ: async (id, n) => { if(confirm(`Borrar ${n}?`)){ await supabase.from('productos').delete().eq('id', id); cargarTodoDesdeNube(); }}, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id, s) => { await supabase.from('productos').update({ stock: Number(s) }).eq('id', id); cargarTodoDesdeNube(); }, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
-
+        {vista === 'stock' && (
+  <AlmacenSection {...{
+    formProd, 
+    setFormProd, 
+    // AGREGAR PRODUCTO (CON TODOS LOS CAMPOS)
+    handleAddProductoBJ: async (e) => { 
+        e.preventDefault(); 
+        const { error } = await supabase.from('productos').insert([{ 
+            ...formProd, 
+            precio_compra: Number(handleInputMonto(formProd.precio_compra)), 
+            precio_venta: Number(handleInputMonto(formProd.precio_venta)), 
+            precio_menor: Number(handleInputMonto(formProd.precio_menor)),
+            stock: Number(formProd.stock)
+        }]); 
+        if(!error){ 
+            setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); 
+            cargarTodoDesdeNube(); 
+            alert("✨ Modelo añadido al catálogo.");
+        } 
+    },
+    busquedaStock, 
+    setBusquedaStock, 
+    productos, 
+    idEditProducto, 
+    setIdEditProducto, 
+    formEditProducto, 
+    setFormEditProducto,
+    // ACTUALIZAR PRODUCTO (EDICIÓN TOTAL v106.5)
+    handleUpdateProductoBJ: async (id) => { 
+        const { error } = await supabase.from('productos').update({
+            nombre: formEditProducto.nombre,
+            precio_compra: Number(formEditProducto.precio_compra),
+            precio_venta: Number(formEditProducto.precio_venta),
+            precio_menor: Number(formEditProducto.precio_menor),
+            stock: Number(formEditProducto.stock)
+        }).eq('id', id);
+        
+        if(!error){
+            setIdEditProducto(null); 
+            cargarTodoDesdeNube(); 
+            alert("✅ Producto actualizado correctamente.");
+        } else {
+            alert("Error al actualizar: " + error.message);
+        }
+    },
+    handleDeleteProductoBJ: async (id, nom) => { 
+        if(confirm(`¿Estás seguro de eliminar ${nom}?`)){ 
+            const { error } = await supabase.from('productos').delete().eq('id', id); 
+            if(!error) cargarTodoDesdeNube();
+            else alert("No se puede eliminar: tiene ventas registradas.");
+        } 
+    },
+    formEditStockBJ, 
+    setFormEditStockBJ, 
+    handleSincronizarStockBJ: async (id, s) => { 
+        const { error } = await supabase.from('productos').update({ stock: Number(s) }).eq('id', id); 
+        if(!error) {
+            cargarTodoDesdeNube(); 
+            alert("✅ Stock sincronizado."); 
+        }
+    },
+    FUCSIA_PRINCIPAL, 
+    VERDE_BJ, 
+    ROJO_BJ, 
+    OSCURO_BJ, 
+    styleInp, 
+    styleCrd
+  }} />
+)}
         {/* BUSCA ESTA PARTE EN EL MAIN Y REEMPLÁZALA */}
         {vista === 'logistica' && (
           <LogisticaSection {...{
