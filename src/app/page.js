@@ -72,7 +72,7 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { console.error("BJ Sync Error:", e); } finally { setCargando(false); }
   };
 
- // [BLOQUE E: CÁLCULOS ESTRATÉGICOS - CORRECCIÓN DE CAJA REAL v108]
+ // [BLOQUE E: CÁLCULOS ESTRATÉGICOS - CORRECCIÓN DE CAJA v1.1]
   const balanceEliteBJ = useMemo(() => {
     const s = { cH: 0, gH: 0, cG: 0, bR: 0, pe_p: 0, pe_g: 0, pe_m: 0 };
     if (!ventas.length && !finanzas.length) return s;
@@ -80,46 +80,54 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
     
-    // --- 1. DINERO EN CAJA FÍSICA (LA CLAVE) ---
-    
-    // A. Ventas que fueron PAGADAS TOTALMENTE al momento de la venta (No fueron créditos)
-    // Filtramos para NO contar las que fueron saldadas después (para evitar duplicidad con Finanzas)
-    const ventasEfectivoDirecto = ventas.filter(v => 
-        (v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén') &&
-        !finanzas.some(f => f.descripcion.includes(`Saldo liquidado deuda: ${v.cliente_nombre}`))
-    ).reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * v.cantidad), 0);
+    // --- 1. LÓGICA DE CAJA ACTUAL FÍSICA (SIN ERRORES DE EXCLUSIÓN) ---
 
-    // B. Todo el dinero real que entró al Libro Diario (Abonos iniciales + Saldos pagados + Capital extra)
+    // A. Ventas Directas (Efectivo/Almacén): 
+    // Solo sumamos el total si NO es una venta que nació como crédito (identificada por su abono en finanzas)
+    const ventasEfectivoDirecto = ventas.filter(v => {
+        if (v.estado_pedido === 'Pendiente de Pago') return false;
+        
+        // Buscamos si esta venta específica tiene un abono registrado (mismo cliente y mismo minuto)
+        const tieneAbonoInicial = finanzas.some(f => 
+            f.descripcion === `Abono inicial venta crédito: ${v.cliente_nombre}` && 
+            v.created_at.substring(0,16) === f.created_at.substring(0,16)
+        );
+        
+        return !tieneAbonoInicial; // Si no tiene abono, es dinero fresco que entró directo
+    }).reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * v.cantidad), 0);
+
+    // B. Dinero de Finanzas:
+    // Sumamos TODO lo que entró por el Libro Diario (Abonos de créditos, Saldos liquidados y Capital)
     const dineroEntranteFinanzas = finanzas.filter(f => 
         ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)
     ).reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // C. Salidas (Gastos y Retiros)
-    const totalGastos = finanzas.filter(f => 
+    // C. Gastos y Retiros:
+    const totalSalidas = finanzas.filter(f => 
         !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)
     ).reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // FÓRMULA FINAL DE CAJA FÍSICA (Sin duplicados)
-    const cajaFisicaMano = (ventasEfectivoDirecto + dineroEntranteFinanzas) - totalGastos;
+    // FÓRMULA FINAL DE CAJA (Ventas Directas + Todo lo de Finanzas - Gastos)
+    const cajaFisicaMano = (ventasEfectivoDirecto + dineroEntranteFinanzas) - totalSalidas;
 
 
-    // --- 2. OTROS INDICADORES ---
+    // --- 2. RESTO DE INDICADORES ---
     
-    // Utilidad Neta (Lo que el negocio ganó realmente en total)
-    const utTotalAcum = ventas.reduce((acc, v) => acc + Number(v.ganancia_total), 0);
-    const retirosVault = finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0);
-    
-    // Ventas de Hoy (Para el panel principal)
+    // Ventas del Día (Solo lo cobrado hoy)
     const vHoy = ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
     
-    // Punto de Equilibrio Mensual
+    // Utilidad Neta Total
+    const utTotalAcum = ventas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    const retirosVault = finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0);
+    
+    // Punto de Equilibrio
     const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total), 0);
     const gastoMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
     
     return {
         cH: vHoy.reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*v.cantidad), 0),
         gH: vHoy.reduce((acc, v) => acc + Number(v.ganancia_total), 0),
-        cG: cajaFisicaMano, // Dinero real auditado
+        cG: cajaFisicaMano,
         bR: utTotalAcum - retirosVault,
         pe_p: gastoMes > 0 ? (utMes / gastoMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: gastoMes
     };
@@ -183,28 +191,32 @@ export default function SistemaBJCMasterFinal() {
     if (!cliente || !localidad) return alert("Faltan datos de cliente o zona.");
     const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
     const ratio = totalV > 0 ? (Number(descuento)/totalV) : 0;
+    
+    const timestamp = new Date().toISOString(); // Creamos una marca de tiempo única para el cruce
 
     const lista = carrito.map(i => {
         let g = 0; 
-        if(Number(i.precio_venta) > 0) { // MODO REGALO INTACTO
+        if(Number(i.precio_venta) > 0) { 
             g = (Number(i.precio_venta)*i.cantidad - (Number(i.precio_venta)*i.cantidad*ratio)) - (Number(i.precio_compra)*i.cantidad); 
         }
         return { 
             cliente_nombre: cliente, localidad, telefono, producto_id: i.producto_id, 
             cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
-            precio_costo_unitario: i.precio_compra, ganancia_total: g, estado_pedido: estado 
+            precio_costo_unitario: i.precio_compra, ganancia_total: g, 
+            estado_pedido: estado,
+            created_at: timestamp // Sincronizamos la venta
         };
     });
 
     const { error } = await supabase.from('ventas').insert(lista);
     if (!error) {
-       // Si hay abono en un crédito, se registra como ingreso hoy
         if (estado === 'Pendiente de Pago' && Number(abonoInicial) > 0) {
             await supabase.from('finanzas').insert([{
                 tipo: 'Ingreso Adicional',
                 descripcion: `Abono inicial venta crédito: ${cliente}`,
                 monto: Number(abonoInicial),
-                origen: 'Caja Global'
+                origen: 'Caja Global',
+                created_at: timestamp // Sincronizamos el abono con la venta
             }]);
         }
         for (const it of carrito) {
