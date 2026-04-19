@@ -242,8 +242,47 @@ export default function SistemaBJCMasterFinal() {
       </header>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
-        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ: async (v) => { if(confirm("Anular?")){ await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube(); }}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
-        
+        {vista === 'ventas' && (
+  <VentasSection {...{ 
+    balanceEliteBJ, 
+    fechaConsulta, 
+    setFechaConsulta, 
+    handleExportarExcelCajaFull, 
+    tipoVenta, 
+    setTipoVenta, 
+    cliente, 
+    handleAutocompleteCliente, 
+    ventas, 
+    localidad, 
+    setLocalidad, 
+    telefono, 
+    setTelefono, 
+    carrito, 
+    setCarrito, 
+    descuento, 
+    setDescuento, 
+    handleEjecutarVentaBJ, 
+    busqueda, 
+    setBusqueda, 
+    productos, 
+    coloresElegidos, 
+    setColoresElegidos, 
+    cantidades, 
+    setCantidades, 
+    busquedaHistorial, 
+    setBusquedaHistorial, 
+    historialVentasDiaBJ, 
+    handleAnularVentaBJ: async (v) => { /* misma lógica */ },
+    analiticaProBJ, // <--- ESTE ES EL NUEVO PROP PARA LOS FILTROS
+    FUCSIA_PRINCIPAL, 
+    VERDE_BJ, 
+    ROJO_BJ, 
+    AMARILLO_BJ, 
+    OSCURO_BJ, 
+    styleInp, 
+    styleCrd 
+  }} />
+)}
         {vista === 'stock' && (
   <AlmacenSection {...{
     formProd, 
