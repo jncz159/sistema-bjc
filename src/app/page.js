@@ -1,23 +1,21 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, dynamic } from 'react';
 import { supabase } from './supabaseClient';
 import { getFechaPeru, handleInputMonto } from '../lib/helpers';
 
-// IMPORTACIÓN DE COMPONENTES MODULARES
-import VentasSection from '../components/Ventas';
-import AlmacenSection from '../components/Almacen';
-import LogisticaSection from '../components/Logistica';
-import GestionSection from '../components/Gestion';
+// IMPORTACIÓN DINÁMICA DE COMPONENTES PARA EVITAR EL ERROR "PAGE COULDN'T LOAD"
+const VentasSection = dynamic(() => import('../components/Ventas'), { ssr: false });
+const AlmacenSection = dynamic(() => import('../components/Almacen'), { ssr: false });
+const LogisticaSection = dynamic(() => import('../components/Logistica'), { ssr: false });
+const GestionSection = dynamic(() => import('../components/Gestion'), { ssr: false });
 
 export default function SistemaBJCMasterFinal() {
-  // --- ESTADOS GLOBALES ---
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [finanzas, setFinanzas] = useState([]);
   const [vista, setVista] = useState('ventas'); 
   const [cargando, setCargando] = useState(true);
 
-  // --- ESTADOS DE CONTROL ---
   const [busqueda, setBusqueda] = useState(''); 
   const [busquedaStock, setBusquedaStock] = useState(''); 
   const [busquedaHistorial, setBusquedaHistorial] = useState('');
@@ -40,7 +38,6 @@ export default function SistemaBJCMasterFinal() {
   const [idEditProducto, setIdEditProducto] = useState(null);
   const [formEditProducto, setFormEditProducto] = useState({});
 
-  // --- COLORES Y ESTILOS ---
   const FUCSIA_PRINCIPAL = '#F01097';
   const VERDE_BJ = '#16A34A';
   const ROJO_BJ = '#E11D48';
@@ -49,7 +46,6 @@ export default function SistemaBJCMasterFinal() {
   const styleInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff' };
   const styleCrd = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
 
-  // --- LÓGICA DE CONEXIÓN ---
   const cargarTodoDesdeNube = async () => {
     try {
         const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
@@ -61,14 +57,13 @@ export default function SistemaBJCMasterFinal() {
 
   useEffect(() => { cargarTodoDesdeNube(); }, []);
 
-  // --- FUNCIONES (PASADAS COMO PROPS) ---
   const handleEjecutarVentaBJ = async (estado) => {
     if (!cliente || !localidad) return alert("Faltan datos");
     const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
     const ratio = totalV > 0 ? (Number(descuento)/totalV) : 0;
     const lista = carrito.map(i => {
         let g = 0; if(Number(i.precio_venta) > 0) { g = (Number(i.precio_venta)*i.cantidad - (Number(i.precio_venta)*i.cantidad*ratio)) - (Number(i.precio_compra)*i.cantidad); }
-        return { cliente_nombre: cliente, localidad, producto_id: i.producto_id, cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, precio_costo_unitario: i.precio_compra, ganancia_total: g, estado_pedido: estado };
+        return { cliente_nombre: cliente, localidad, telefono, producto_id: i.producto_id, cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, precio_costo_unitario: i.precio_compra, ganancia_total: g, estado_pedido: estado };
     });
     const { error } = await supabase.from('ventas').insert(lista);
     if (!error) {
@@ -76,11 +71,10 @@ export default function SistemaBJCMasterFinal() {
             const pO = productos.find(p => p.id === it.producto_id);
             if (pO) await supabase.from('productos').update({ stock: pO.stock - it.cantidad }).eq('id', it.producto_id);
         }
-        setCarrito([]); setCliente(''); setLocalidad(''); cargarTodoDesdeNube();
+        setCarrito([]); setCliente(''); setLocalidad(''); setTelefono(''); cargarTodoDesdeNube();
     }
   };
 
-  // --- MEMOS DE CÁLCULO ---
   const balanceEliteBJ = useMemo(() => {
     const s = { cH: 0, gH: 0, cG: 0, bR: 0, pe_p: 0, pe_g: 0, pe_m: 0 };
     if (!ventas.length && !finanzas.length) return s;
@@ -120,14 +114,32 @@ export default function SistemaBJCMasterFinal() {
     return { top: Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,5) };
   }, [ventas, productos]);
 
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>MODULARIZANDO BUNKER... 🚀</div>;
+  const handleAutocompleteCliente = (e) => {
+    const valInput = e.target.value; setCliente(valInput);
+    const mCli = ventas.find(v => v.cliente_nombre?.toLowerCase() === valInput.toLowerCase());
+    if (mCli) { setLocalidad(mCli.localidad || ''); setTelefono(mCli.telefono || ''); }
+  };
+
+  const historialVentasDiaBJ = useMemo(() => {
+    if (!ventas.length) return [];
+    const filt = ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta && (v.cliente_nombre?.toLowerCase().includes(busquedaHistorial.toLowerCase()) || v.localidad?.toLowerCase().includes(busquedaHistorial.toLowerCase())));
+    const agrup = {};
+    filt.forEach(v => {
+        const hId = `${v.cliente_nombre}-${v.localidad}-${v.created_at?.substring(0,16)}`; 
+        if (!agrup[hId]) agrup[hId] = { id_grupo: hId, cliente_nombre: v.cliente_nombre, localidad: v.localidad, telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] };
+        agrup[hId].items.push(v); agrup[hId].total += (Number(v.precio_venta_unitario) * v.cantidad);
+    });
+    return Object.values(agrup).reverse();
+  }, [ventas, fechaConsulta, busquedaHistorial]);
+
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>CARGANDO MODULOS BJ... 🚀</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
       <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>MODULAR ARCHITECTURE</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>MODULAR ARCHITECTURE v104</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '8px', backgroundColor: `#FCA5D415`, padding: '5px', borderRadius: '15px' }}>
           <button onClick={() => setVista('ventas')} style={{ backgroundColor: vista === 'ventas' ? FUCSIA_PRINCIPAL : 'transparent', border: 'none', color: vista === 'ventas' ? '#fff' : FUCSIA_PRINCIPAL, padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: '900' }}>VENTAS</button>
@@ -138,8 +150,8 @@ export default function SistemaBJCMasterFinal() {
       </header>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
-        {vista === 'ventas' && <VentasSection {...{balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd}} />}
-        {vista === 'stock' && <AlmacenSection {...{formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); const {error}=await supabase.from('productos').insert([{...formProd, precio_compra:Number(handleInputMonto(formProd.precio_compra)), precio_venta:Number(handleInputMonto(formProd.precio_venta)), precio_menor:Number(handleInputMonto(formProd.precio_menor)) }]); if(!error){setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{ await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube(); }, handleDeleteProductoBJ: async (id)=>{ if(confirm("¿Borrar?")){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();} }, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id, s)=>{ await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube(); }, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd}} />}
+        {vista === 'ventas' && <VentasSection {...{balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ: async (v)=>{ if(confirm("Anular?")){const pc=productos.find(p=>p.id===v.producto_id); if(pc)await supabase.from('productos').update({stock:pc.stock+v.cantidad}).eq('id',pc.id); await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube();}}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd}} />}
+        {vista === 'stock' && <AlmacenSection {...{formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); const {error}=await supabase.from('productos').insert([{...formProd, precio_compra:Number(handleInputMonto(formProd.precio_compra)), precio_venta:Number(handleInputMonto(formProd.precio_venta)), precio_menor:Number(handleInputMonto(formProd.precio_menor)) }]); if(!error){setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{ await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube(); }, handleDeleteProductoBJ: async (id)=>{ if(confirm("Borrar?")){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();} }, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id, s)=>{ await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube(); }, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd}} />}
         {vista === 'logistica' && <LogisticaSection {...{logisticaInteligente, handleCobrarDeudaBJ: async (g)=>{ for(let id of g.items_ids) await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id',id); cargarTodoDesdeNube(); }, FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, OSCURO_BJ, styleCrd}} />}
         {vista === 'contabilidad' && <GestionSection {...{balanceEliteBJ, valorizacionStockBJ:{cost:productos.reduce((acc,p)=>acc+(p.precio_compra*p.stock),0), vent:productos.reduce((acc,p)=>acc+(p.precio_venta*p.stock),0)}, analiticaProBJ, finanzas, idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ: async (id)=>{ await supabase.from('finanzas').update(formEditFinanza).eq('id',id); setIdEditFinanza(null); cargarTodoDesdeNube(); }, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ: async (e)=>{ e.preventDefault(); await supabase.from('finanzas').insert([{...formFinanzas, monto:Number(handleInputMonto(formFinanzas.monto))}]); cargarTodoDesdeNube(); }, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd}} />}
       </main>

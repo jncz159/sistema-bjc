@@ -1,5 +1,6 @@
+"use client"; // <--- ESTO ES VITAL
 import React from 'react';
-import { getFechaPeru, getHoraPeru, handleInputMonto, getEtiquetaProducto } from '../lib/helpers';
+import { getHoraPeru, handleInputMonto, getEtiquetaProducto } from '../lib/helpers';
 
 export default function VentasSection({ 
     balanceEliteBJ, fechaConsulta, setFechaConsulta, 
@@ -22,7 +23,7 @@ export default function VentasSection({
                     <button onClick={handleExportarExcelCajaFull} style={{ background:`${FUCSIA_PRINCIPAL}20`, border:'none', padding:'8px 15px', borderRadius:'10px', color:FUCSIA_PRINCIPAL, fontWeight:'900', fontSize:'10px', cursor:'pointer' }}>CIERRE</button>
                 </div>
                 <h2 style={{ margin: '15px 0', fontSize: '3.5rem', fontWeight: '900' }}>S/ {balanceEliteBJ.cH.toFixed(2)}</h2>
-                <div style={{ color: VERDE_BJ, fontWeight: '900' }}>Utilidad: S/ {balanceEliteBJ.gH.toFixed(2)}</div>
+                <div style={{ color: VERDE_BJ, fontWeight: '900' }}>Ganancia Día: S/ {balanceEliteBJ.gH.toFixed(2)}</div>
               </div>
               <div style={styleCrd}>
                 <span style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '13px' }}>📅 BUSCAR DÍA BJ</span>
@@ -33,8 +34,8 @@ export default function VentasSection({
             <div style={{ ...styleCrd, border: `3px solid #FCA5D4` }}>
               <h3 style={{ margin: '0 0 25px 0', color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🛒 Registrar Operación</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '30px' }}>
-                <input list="clis_mod" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
-                <datalist id="clis_mod">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                <input list="clis_v104" placeholder="👤 Cliente" value={cliente} onChange={handleAutocompleteCliente} style={styleInp} />
+                <datalist id="clis_v104">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
                 <input placeholder="📍 Zona" value={localidad} onChange={e => setLocalidad(e.target.value)} style={styleInp} />
                 <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '18px', padding: '6px' }}>
                   <button onClick={() => setTipoVenta('Mayor')} style={{ border: 'none', flex:1, padding: '10px', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', fontWeight: '900', backgroundColor: tipoVenta === 'Mayor' ? FUCSIA_PRINCIPAL : 'transparent', color: tipoVenta === 'Mayor' ? '#fff' : '#64748B' }}>MAYOR</button>
@@ -101,7 +102,7 @@ export default function VentasSection({
 
             <div style={styleCrd}>
                 <h4 style={{margin:0, color:'#64748B', fontWeight:'900', fontSize:'13px', textTransform:'uppercase', marginBottom:'25px'}}>📜 Historial de Operaciones BJ</h4>
-                <input placeholder="🔍 Filtrar historial por Cliente o Localidad..." value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} style={{...styleInp, marginBottom:'25px', border:`1px solid ${FUCSIA_PRINCIPAL}30` }} />
+                <input placeholder="🔍 Filtrar historial..." value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} style={{...styleInp, marginBottom:'25px' }} />
                 
                 {historialVentasDiaBJ.map(grupo => (
                     <div key={grupo.id_grupo} style={{ padding: '25px', backgroundColor: '#FFF5F7', borderRadius: '25px', border: `1px solid #FCC2E2`, marginBottom:'20px' }}>
@@ -109,7 +110,7 @@ export default function VentasSection({
                             <div>
                                 <small style={{ fontWeight:'900', color: FUCSIA_PRINCIPAL }}>⏰ {grupo.hora}</small>
                                 <br/><strong style={{ color: OSCURO_BJ, fontSize: '22px' }}>{grupo.cliente_nombre}</strong>
-                                <br/><small>📍 {grupo.localidad} | 📱 {grupo.telefono}</small>
+                                <br/><small>📍 {grupo.localidad}</small>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <div style={{ backgroundColor: VERDE_BJ, color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: '900' }}>S/ {grupo.total.toFixed(2)}</div>
@@ -119,14 +120,14 @@ export default function VentasSection({
                                         const pNom = productos.find(p => p.id === v.producto_id)?.nombre || "Item";
                                         msg += `- *${v.cantidad}x* ${pNom} (${v.color}): S/ ${(v.precio_venta_unitario * v.cantidad).toFixed(2)}%0A`;
                                     });
-                                    msg += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A¡Muchas gracias! 😊`;
+                                    msg += `%0A*TOTAL: S/ ${grupo.total.toFixed(2)}*%0A¡Gracias! 😊`;
                                     window.open(`https://wa.me/51${grupo.telefono?.replace(/\D/g,'')}?text=${msg}`, '_blank');
                                 }} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '12px', fontWeight:'900', cursor:'pointer' }}>TICKET 📱</button>
                             </div>
                         </div>
                         <div style={{marginTop:'15px'}}>{grupo.items.map(v => (
                             <div key={v.id} style={{background:'#fff', padding:'10px 20px', borderRadius:'15px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                <div><small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre} ({v.color}) | <span style={{color: v.estado_pedido === 'Pendiente de Pago' ? AMARILLO_BJ : '#64748B'}}>{v.estado_pedido}</span></small></div>
+                                <div><small>{v.cantidad}x {productos.find(p=>p.id===v.producto_id)?.nombre} ({v.color}) | {v.estado_pedido}</small></div>
                                 <button onClick={()=>handleAnularVentaBJ(v)} style={{border:'none', background:'none', color:ROJO_BJ, fontWeight:'bold', cursor:'pointer'}}>🗑️</button>
                             </div>
                         ))}</div>

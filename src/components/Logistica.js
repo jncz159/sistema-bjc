@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 
 export default function LogisticaSection({
@@ -18,7 +19,6 @@ export default function LogisticaSection({
                             <button onClick={() => handleCobrarDeudaBJ(grupo)} style={{ width: '100%', backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '15px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>MARCAR ENTREGADO ✅</button>
                         </div>
                     ))}
-                    {logisticaInteligente.almacen.length === 0 && <p style={{opacity:0.5}}>Sin entregas pendientes.</p>}
                 </div>
             </div>
 
