@@ -248,7 +248,35 @@ export default function SistemaBJCMasterFinal() {
         alert("💰 Saldo ingresado al Libro Diario.");
     }
   };
+// --- NUEVA FUNCIÓN PARA ANULAR CRÉDITOS (Bunker BJ v1.1) ---
+  const handleAnularCreditoBJ = async (grupo) => {
+    if (confirm(`⚠️ ¿ANULAR CRÉDITO DE ${grupo.cliente}?\n\nSe devolverá el stock al almacén y se ELIMINARÁ el abono de la caja.`)) {
+      try {
+        // 1. Borrar abono del Libro Diario (Finanzas)
+        const { data: abono } = await supabase.from('finanzas').select('id')
+          .ilike('descripcion', `%Abono inicial venta crédito: ${grupo.cliente}%`)
+          .order('created_at', { ascending: false }).limit(1);
 
+        if (abono && abono.length > 0) {
+          await supabase.from('finanzas').delete().eq('id', abono[0].id);
+        }
+
+        // 2. Devolver Stock
+        for (const it of grupo.items) {
+          const pOrig = productos.find(p => p.id === it.producto_id);
+          if (pOrig) {
+            await supabase.from('productos').update({ stock: pOrig.stock + it.cantidad }).eq('id', pOrig.id);
+          }
+        }
+
+        // 3. Borrar registros de venta
+        await supabase.from('ventas').delete().in('id', grupo.items_ids);
+
+        alert("🗑️ Crédito eliminado. Caja y Stock restaurados.");
+        cargarTodoDesdeNube();
+      } catch (e) { alert("Error: " + e.message); }
+    }
+  };
   const handleAutocompleteCliente = (e) => {
     const v = e.target.value; setCliente(v);
     const m = ventas?.find(x => x.cliente_nombre?.toLowerCase() === v.toLowerCase());
@@ -402,20 +430,15 @@ export default function SistemaBJCMasterFinal() {
 )}
         {/* BUSCA ESTA PARTE EN EL MAIN Y REEMPLÁZALA */}
         {vista === 'logistica' && (
-          <LogisticaSection {...{
+          <LogisticaSection {...{ 
             logisticaInteligente, 
             handleCobrarDeudaBJ, 
-            finanzas, // <-- Importante para calcular abonos
-            FUCSIA_PRINCIPAL, 
-            VERDE_BJ, 
-            AMARILLO_BJ, 
-            ROJO_BJ, // <-- ESTO EVITA EL ERROR "ROJO_BJ is not defined"
-            OSCURO_BJ, 
-            styleCrd, 
-            styleInp
+            handleAnularCreditoBJ, // <--- ESTA ES LA CONEXIÓN NUEVA
+            finanzas, 
+            FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, 
+            styleCrd, styleInp 
           }} />
         )}
-
         {vista === 'contabilidad' && <GestionSection {...{ balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ: async (id) => { await supabase.from('finanzas').update(formEditFinanza).eq('id', id); setIdEditFinanza(null); cargarTodoDesdeNube(); }, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ: async (e) => { e.preventDefault(); await supabase.from('finanzas').insert([{ ...formFinanzas, monto: Number(handleInputMonto(formFinanzas.monto)) }]); setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen:'Caja Global'}); cargarTodoDesdeNube(); }, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
       </main>
     </div>
