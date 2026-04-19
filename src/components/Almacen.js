@@ -3,12 +3,10 @@ import React from 'react';
 import { handleInputMonto } from '../lib/helpers';
 
 export default function AlmacenSection({
-    formProd, setFormProd, handleAddProductoBJ,
-    busquedaStock, setBusquedaStock, productos,
+    formProd, setFormProd, handleAddProductoBJ, busquedaStock, setBusquedaStock, productos,
     idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto,
-    handleUpdateProductoBJ, handleDeleteProductoBJ,
-    formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ,
-    FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd
+    handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, setFormEditStockBJ,
+    handleSincronizarStockBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
@@ -18,7 +16,7 @@ export default function AlmacenSection({
             </div>
 
             <div style={{ ...styleCrd, border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-              <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>🆕 Registrar Nuevo Producto</h4>
+              <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>🆕 Registrar Nuevo Modelo</h4>
               <form onSubmit={handleAddProductoBJ} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
                     <input placeholder="Nombre Modelo" value={formProd.nombre} onChange={e => setFormProd({...formProd, nombre: e.target.value})} style={styleInp} />
@@ -29,7 +27,7 @@ export default function AlmacenSection({
                     <input placeholder="Precio Menor" value={formProd.precio_menor} onChange={e => setFormProd({...formProd, precio_menor: handleInputMonto(e.target.value)})} style={{...styleInp, border:`2px solid ${OSCURO_BJ}`}} />
                     <input placeholder="Stock Inicial" value={formProd.stock} onChange={e => setFormProd({...formProd, stock: e.target.value})} style={styleInp} />
                 </div>
-                <input placeholder="Colores" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={styleInp} />
+                <input placeholder="Colores (separados por coma)" value={formProd.colores} onChange={e => setFormProd({...formProd, colores: e.target.value})} style={styleInp} />
                 <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR</button>
               </form>
             </div>
@@ -37,7 +35,7 @@ export default function AlmacenSection({
             <div style={styleCrd}>
               <input placeholder="🔍 Buscar modelo..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...styleInp, marginBottom: '30px' }} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px' }}>
-                {productos.filter(p => p.nombre?.toLowerCase().includes(busquedaStock.toLowerCase())).map((p) => (
+                {productos?.filter(p => p.nombre?.toLowerCase().includes(busquedaStock.toLowerCase())).map((p) => (
                     <div key={p.id} style={{ border: '1px solid #F1F5F9', padding: '25px', borderRadius: '30px', backgroundColor: '#fff' }}>
                         {idEditProducto === p.id ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
