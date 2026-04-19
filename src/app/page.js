@@ -72,29 +72,54 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { console.error("BJ Sync Error:", e); } finally { setCargando(false); }
   };
 
-  // [BLOQUE E: CÁLCULOS ESTRATÉGICOS]
+ // [BLOQUE E: CÁLCULOS ESTRATÉGICOS - CORRECCIÓN DE CAJA REAL v108]
   const balanceEliteBJ = useMemo(() => {
     const s = { cH: 0, gH: 0, cG: 0, bR: 0, pe_p: 0, pe_g: 0, pe_m: 0 };
     if (!ventas.length && !finanzas.length) return s;
+    
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
     
-    const vHoy = ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
+    // --- 1. DINERO EN CAJA FÍSICA (LA CLAVE) ---
     
-    const inVentasCob = ventas.filter(v => v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*v.cantidad), 0);
-    const inCapital = finanzas.filter(f => ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
-    const outGastosTotal = finanzas.filter(f => !['Ingreso Adicional','Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
+    // A. Ventas que fueron PAGADAS TOTALMENTE al momento de la venta (No fueron créditos)
+    // Filtramos para NO contar las que fueron saldadas después (para evitar duplicidad con Finanzas)
+    const ventasEfectivoDirecto = ventas.filter(v => 
+        (v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén') &&
+        !finanzas.some(f => f.descripcion.includes(`Saldo liquidado deuda: ${v.cliente_nombre}`))
+    ).reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * v.cantidad), 0);
+
+    // B. Todo el dinero real que entró al Libro Diario (Abonos iniciales + Saldos pagados + Capital extra)
+    const dineroEntranteFinanzas = finanzas.filter(f => 
+        ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)
+    ).reduce((acc, f) => acc + Number(f.monto), 0);
+
+    // C. Salidas (Gastos y Retiros)
+    const totalGastos = finanzas.filter(f => 
+        !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)
+    ).reduce((acc, f) => acc + Number(f.monto), 0);
+
+    // FÓRMULA FINAL DE CAJA FÍSICA (Sin duplicados)
+    const cajaFisicaMano = (ventasEfectivoDirecto + dineroEntranteFinanzas) - totalGastos;
+
+
+    // --- 2. OTROS INDICADORES ---
     
+    // Utilidad Neta (Lo que el negocio ganó realmente en total)
     const utTotalAcum = ventas.reduce((acc, v) => acc + Number(v.ganancia_total), 0);
     const retirosVault = finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0);
     
+    // Ventas de Hoy (Para el panel principal)
+    const vHoy = ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago');
+    
+    // Punto de Equilibrio Mensual
     const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total), 0);
     const gastoMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
     
     return {
         cH: vHoy.reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*v.cantidad), 0),
         gH: vHoy.reduce((acc, v) => acc + Number(v.ganancia_total), 0),
-        cG: (inVentasCob + inCapital) - outGastosTotal,
+        cG: cajaFisicaMano, // Dinero real auditado
         bR: utTotalAcum - retirosVault,
         pe_p: gastoMes > 0 ? (utMes / gastoMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: gastoMes
     };
@@ -191,13 +216,24 @@ export default function SistemaBJCMasterFinal() {
         alert("✅ Operación registrada.");
     }
   };
-  const handleCobrarDeudaBJ = async (grupo, montoFinal) => {
-    if(confirm(`Confirmar cobro de S/ ${Number(montoFinal).toFixed(2)}?`)) {
-        for(let id of grupo.items_ids) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); }
+ const handleCobrarDeudaBJ = async (grupo, montoFinal) => {
+    if(confirm(`¿Confirmar cobro de saldo pendiente S/ ${Number(montoFinal).toFixed(2)}?`)) {
+        // 1. Cambiamos el estado de los artículos a Entregado
+        for(let id of grupo.items_ids) {
+            await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id);
+        }
+        
+        // 2. Registramos el ingreso en Finanzas con descripción ESTRUCTURADA
         if(Number(montoFinal) > 0) {
-            await supabase.from('finanzas').insert([{ tipo: 'Ingreso Adicional', descripcion: `Saldo liquidado deuda: ${grupo.cliente}`, monto: Number(montoFinal), origen: 'Caja Global' }]);
+            await supabase.from('finanzas').insert([{ 
+                tipo: 'Ingreso Adicional', 
+                descripcion: `Saldo liquidado deuda: ${grupo.cliente}`, // <--- NO CAMBIAR ESTE TEXTO
+                monto: Number(montoFinal), 
+                origen: 'Caja Global' 
+            }]);
         }
         cargarTodoDesdeNube();
+        alert("💰 Saldo ingresado al Libro Diario.");
     }
   };
 
