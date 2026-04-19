@@ -327,6 +327,42 @@ export default function SistemaBJCMasterFinal() {
       cargarTodoDesdeNube();
     }
   };
+  // --- FUNCIÓN: ANULAR VENTA DESDE HISTORIAL (Bunker BJ v1.2) ---
+  const handleAnularVentaBJ = async (v) => {
+    if (confirm(`¿Anular venta de ${v.cantidad} unidades? \n\nSe devolverá el stock y se RESTARÁ el dinero de la caja física.`)) {
+      try {
+        // 1. DEVOLVER EL STOCK
+        const pOrig = productos.find(p => p.id === v.producto_id);
+        if (pOrig) {
+          await supabase.from('productos')
+            .update({ stock: pOrig.stock + v.cantidad })
+            .eq('id', pOrig.id);
+        }
+
+        // 2. LIMPIAR CAJA (Borrar el ingreso en Finanzas)
+        // Buscamos un registro que coincida en monto, cliente y tiempo (minuto)
+        const { data: finanzaABorrar } = await supabase
+          .from('finanzas')
+          .select('id')
+          .eq('monto', (v.precio_venta_unitario * v.cantidad))
+          .ilike('descripcion', `%${v.cliente_nombre}%`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (finanzaABorrar && finanzaABorrar.length > 0) {
+          await supabase.from('finanzas').delete().eq('id', finanzaABorrar[0].id);
+        }
+
+        // 3. ELIMINAR LA VENTA
+        await supabase.from('ventas').delete().eq('id', v.id);
+
+        alert("🗑️ Venta anulada. Stock y Caja restaurados.");
+        cargarTodoDesdeNube();
+      } catch (e) {
+        alert("Error al anular: " + e.message);
+      }
+    }
+  };
   // [BLOQUE G: RENDER]
   if (!hasMounted) return null;
   if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ v106.1... 🚀</div>;
@@ -379,7 +415,7 @@ export default function SistemaBJCMasterFinal() {
     busquedaHistorial, 
     setBusquedaHistorial, 
     historialVentasDiaBJ, 
-    handleAnularVentaBJ: async (v) => { /* misma lógica */ },
+    handleAnularVentaBJ,
     analiticaProBJ, // <--- ESTE ES EL NUEVO PROP PARA LOS FILTROS
     FUCSIA_PRINCIPAL, 
     VERDE_BJ, 
