@@ -185,67 +185,79 @@ export default function SistemaBJCMasterFinal() {
     return Object.values(groups).reverse();
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
-  // [BLOQUE F: MANEJADORES]
-  // Función de Venta: Ahora recibe abonoInicial
+  // [BLOQUE F: MANEJADORES CON AUDITORÍA DE CAJA NEGRA]
+
   const handleEjecutarVentaBJ = async (estado, abonoInicial = 0) => {
-    if (!cliente || !localidad) return alert("Faltan datos de cliente o zona.");
-    const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
-    const ratio = totalV > 0 ? (Number(descuento)/totalV) : 0;
+    if (!cliente || !localidad) return alert("Faltan datos.");
     
-    const timestamp = new Date().toISOString(); // Creamos una marca de tiempo única para el cruce
+    // 1. CAPTURAMOS LA "FOTO" DE LA CAJA ANTES DE OPERAR
+    const cajaSnapshotPre = balanceEliteBJ.cG;
+    
+    const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
+    const totalVentaNeto = totalV - Number(descuento);
+    const montoEntranteReal = estado === 'Pendiente de Pago' ? Number(abonoInicial) : totalVentaNeto;
+    const timestamp = new Date().toISOString();
 
-    const lista = carrito.map(i => {
-        let g = 0; 
-        if(Number(i.precio_venta) > 0) { 
-            g = (Number(i.precio_venta)*i.cantidad - (Number(i.precio_venta)*i.cantidad*ratio)) - (Number(i.precio_compra)*i.cantidad); 
-        }
-        return { 
-            cliente_nombre: cliente, localidad, telefono, producto_id: i.producto_id, 
-            cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
-            precio_costo_unitario: i.precio_compra, ganancia_total: g, 
-            estado_pedido: estado,
-            created_at: timestamp // Sincronizamos la venta
-        };
-    });
+    const lista = carrito.map(i => ({ 
+        cliente_nombre: cliente, localidad, telefono, producto_id: i.producto_id, 
+        cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
+        precio_costo_unitario: i.precio_compra, ganancia_total: 0, estado_pedido: estado, created_at: timestamp 
+    }));
 
-    const { error } = await supabase.from('ventas').insert(lista);
-    if (!error) {
-        if (estado === 'Pendiente de Pago' && Number(abonoInicial) > 0) {
+    const { error: errorVenta } = await supabase.from('ventas').insert(lista);
+    
+    if (!errorVenta) {
+        // Registro en Finanzas (Dinero Real)
+        if (montoEntranteReal > 0) {
+            const descF = estado === 'Pendiente de Pago' ? `Abono inicial venta crédito: ${cliente}` : `Venta Directa: ${cliente}`;
             await supabase.from('finanzas').insert([{
-                tipo: 'Ingreso Adicional',
-                descripcion: `Abono inicial venta crédito: ${cliente}`,
-                monto: Number(abonoInicial),
-                origen: 'Caja Global',
-                created_at: timestamp // Sincronizamos el abono con la venta
+                tipo: 'Ingreso Adicional', descripcion: descF, monto: montoEntranteReal, origen: 'Caja Global', created_at: timestamp
             }]);
         }
+
+        // 2. REGISTRO OCULTO DE AUDITORÍA
+        await supabase.from('auditoria_bj').insert([{
+            cliente: cliente,
+            operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO (ABONO)' : 'EFECTIVO',
+            monto_operacion: montoEntranteReal,
+            caja_antes: cajaSnapshotPre,
+            caja_despues: cajaSnapshotPre + montoEntranteReal
+        }]);
+
         for (const it of carrito) {
             const pO = productos.find(p => p.id === it.producto_id);
             if (pO) await supabase.from('productos').update({ stock: pO.stock - it.cantidad }).eq('id', it.producto_id);
         }
-        setCarrito([]); setCliente(''); setLocalidad(''); setTelefono(''); setDescuento(0);
-        cargarTodoDesdeNube();
-        alert("✅ Operación registrada.");
+        setCarrito([]); setCliente(''); setDescuento(0); cargarTodoDesdeNube();
+        alert("✅ Operación Auditada.");
     }
   };
- const handleCobrarDeudaBJ = async (grupo, montoFinal) => {
-    if(confirm(`¿Confirmar cobro de saldo pendiente S/ ${Number(montoFinal).toFixed(2)}?`)) {
-        // 1. Cambiamos el estado de los artículos a Entregado
+
+  const handleCobrarDeudaBJ = async (grupo, montoFinal) => {
+    if(confirm(`¿Confirmar cobro de saldo S/ ${Number(montoFinal).toFixed(2)}?`)) {
+        // CAPTURAMOS CAJA ANTES
+        const cajaSnapshotPre = balanceEliteBJ.cG;
+
         for(let id of grupo.items_ids) {
             await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id);
         }
         
-        // 2. Registramos el ingreso en Finanzas con descripción ESTRUCTURADA
         if(Number(montoFinal) > 0) {
             await supabase.from('finanzas').insert([{ 
-                tipo: 'Ingreso Adicional', 
-                descripcion: `Saldo liquidado deuda: ${grupo.cliente}`, // <--- NO CAMBIAR ESTE TEXTO
-                monto: Number(montoFinal), 
-                origen: 'Caja Global' 
+                tipo: 'Ingreso Adicional', descripcion: `Saldo liquidado deuda: ${grupo.cliente}`, monto: Number(montoFinal), origen: 'Caja Global' 
+            }]);
+
+            // REGISTRO OCULTO DE AUDITORÍA EN COBRO
+            await supabase.from('auditoria_bj').insert([{
+                cliente: grupo.cliente,
+                operacion: 'COBRO DE SALDO',
+                monto_operacion: Number(montoFinal),
+                caja_antes: cajaSnapshotPre,
+                caja_despues: cajaSnapshotPre + Number(montoFinal)
             }]);
         }
         cargarTodoDesdeNube();
-        alert("💰 Saldo ingresado al Libro Diario.");
+        alert("💰 Saldo Auditado.");
     }
   };
 // --- NUEVA FUNCIÓN PARA ANULAR CRÉDITOS (Bunker BJ v1.1) ---

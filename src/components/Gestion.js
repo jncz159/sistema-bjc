@@ -8,6 +8,19 @@ export default function GestionSection({
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
+    // 1. PEGA ESTO AQUÍ (Justo al inicio)
+    const [verAuditoria, setVerAuditoria] = useState(false);
+    const [logs, setLogs] = useState([]);
+
+    useEffect(() => {
+        if (verAuditoria) {
+            const fetchLogs = async () => {
+                const { data } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: false }).limit(30);
+                if (data) setLogs(data);
+            };
+            fetchLogs();
+        }
+    }, [verAuditoria]);
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
