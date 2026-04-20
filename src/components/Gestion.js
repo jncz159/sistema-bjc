@@ -1,13 +1,17 @@
 "use client";
+/**
+ * ============================================================================
+ * COMPONENTE: Gestion.js (v1.4.1 MASTER)
+ * PROPIETARIO: Jean - B J Importaciones Chiclayo
+ * FUNCIONALIDAD: Restaurado Formulario de Libro Diario (Ingresos/Egresos)
+ * ============================================================================
+ */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient'; 
 import { getFechaPeru, getHoraPeru, formatForInputDT, handleInputMonto } from '../lib/helpers';
 
 export default function GestionSection({
-    balanceEliteBJ, 
-    valorizacionStockBJ, // RECIBIDO CORRECTAMENTE
-    analiticaProBJ, 
-    finanzas,
+    balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas,
     idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza,
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
@@ -28,7 +32,7 @@ export default function GestionSection({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
-            {/* INDICADORES ESTRATÉGICOS */}
+            {/* --- BLOQUE 1: INDICADORES ESTRATÉGICOS --- */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
                 <div style={styleCrd}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 PUNTO DE EQUILIBRIO</h4>
@@ -41,12 +45,12 @@ export default function GestionSection({
                     </div>
                 </div>
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA PARA RETIRO</h4>
+                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA UTILIDAD NETA</h4>
                     <h3 style={{fontSize:'3.2rem', margin:0}}>S/ {balanceEliteBJ?.bR?.toFixed(2)}</h3>
                 </div>
             </div>
 
-            {/* VALORIZACIÓN DE CAPITAL (AQUÍ ESTABA EL ERROR) */}
+            {/* --- BLOQUE 2: VALORIZACIÓN DE CAPITAL --- */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                 <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN MERCADERÍA</small>
@@ -62,22 +66,63 @@ export default function GestionSection({
                 </div>
             </div>
 
-            {/* TOP 5 MÁS VENDIDOS */}
+            {/* --- BLOQUE 3: FORMULARIO DE REGISTRO (RESTAURADO) --- */}
             <div style={styleCrd}>
-                <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>⭐ Top 5 Más Vendidos (B J Chiclayo)</h4>
-                <div style={{ display: 'grid', gap: '15px' }}>
-                    {analiticaProBJ?.top?.map(([nombre, cantidad], idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 25px', backgroundColor: idx === 0 ? `${FUCSIA_PRINCIPAL}10` : '#F8FAFC', borderRadius: '15px' }}>
-                            <span style={{fontWeight:'900'}}>{idx + 1}. {nombre}</span>
-                            <strong style={{color: FUCSIA_PRINCIPAL}}>{cantidad} Unidades</strong>
-                        </div>
-                    ))}
-                </div>
+                <h3 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900' }}>🖋️ Registrar Movimiento (Libro Diario)</h3>
+                <form onSubmit={handleRegistrarFinanzaBJ} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', alignItems: 'end' }}>
+                    <div>
+                        <label style={{ fontSize: '11px', fontWeight: '900' }}>TIPO DE MOVIMIENTO</label>
+                        <select 
+                            value={formFinanzas.tipo} 
+                            onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} 
+                            style={styleInp}
+                        >
+                            <option value="Gasto Local">📉 Gasto Local (Luz, Alquiler, etc)</option>
+                            <option value="Retiro Personal">👤 Retiro Personal</option>
+                            <option value="Ingreso Adicional">📈 Ingreso Adicional</option>
+                            <option value="Inversión Inicial">💰 Inversión de Capital</option>
+                            <option value="Compra Mercadería">📦 Compra de Mercadería</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '11px', fontWeight: '900' }}>DESCRIPCIÓN</label>
+                        <input 
+                            value={formFinanzas.descripcion} 
+                            onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} 
+                            placeholder="Ej: Pago de luz Marzo" 
+                            style={styleInp} 
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '11px', fontWeight: '900' }}>MONTO (S/)</label>
+                        <input 
+                            value={formFinanzas.monto} 
+                            onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} 
+                            placeholder="0.00" 
+                            style={styleInp} 
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '11px', fontWeight: '900' }}>ORIGEN DEL DINERO</label>
+                        <select 
+                            value={formFinanzas.origen} 
+                            onChange={e => setFormFinanzas({...formFinanzas, origen: e.target.value})} 
+                            style={styleInp}
+                        >
+                            <option value="Caja Global">Efectivo de Caja</option>
+                            <option value="Ganancias">De Utilidades (Bóveda)</option>
+                            <option value="Capital Externo">Inversión Externa</option>
+                        </select>
+                    </div>
+                    <button type="submit" style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>
+                        REGISTRAR MOVIMIENTO
+                    </button>
+                </form>
             </div>
 
-            {/* LIBRO DIARIO ADMINISTRATIVO */}
+            {/* --- BLOQUE 4: TABLA DE HISTORIAL ADMINISTRATIVO --- */}
             <div style={styleCrd}>
-                <h4 style={{ marginTop: 0, marginBottom: '30px', fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro Diario</h4>
+                <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900' }}>📖 Historial de Movimientos</h4>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse' }}>
                         <thead>
@@ -101,8 +146,8 @@ export default function GestionSection({
                                 ) : (
                                     <>
                                         <td style={{ padding: '20px 15px' }}><small>{getFechaPeru(f.created_at)}</small><br/><strong>{getHoraPeru(f.created_at)}</strong></td>
-                                        <td style={{ padding: '20px 15px' }}>{f.tipo}<br/><span style={{fontSize:'11px', opacity:0.6}}>{f.descripcion}</span></td>
-                                        <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', color: ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo) ? VERDE_BJ : ROJO_BJ }}>S/ {f.monto?.toFixed(2)}</td>
+                                        <td style={{ padding: '20px 15px' }}><strong>{f.tipo}</strong><br/><span style={{fontSize:'11px', opacity:0.6}}>{f.descripcion}</span></td>
+                                        <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', color: ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo) ? VERDE_BJ : ROJO_BJ }}>S/ {Number(f.monto).toFixed(2)}</td>
                                         <td style={{ textAlign: 'center' }}><button onClick={() => { setIdEditFinanza(f.id); setFormEditFinanza({...f, created_at: formatForInputDT(f.created_at)}); }} style={{ border: 'none', background: 'none', cursor:'pointer', fontSize:'18px' }}>✏️</button></td>
                                     </>
                                 )}
@@ -113,33 +158,33 @@ export default function GestionSection({
                 </div>
             </div>
 
-            {/* ACTIVADOR OCULTO */}
-            <div onClick={() => setVerAuditoria(!verAuditoria)} style={{ textAlign:'center', opacity: 0.1, cursor:'pointer', fontSize:'10px', marginTop:'100px' }}>AUDITORÍA DE CAJA NEGRA v1.3.1</div>
+            {/* ACTIVADOR OCULTO DE AUDITORÍA */}
+            <div onClick={() => setVerAuditoria(!verAuditoria)} style={{ textAlign:'center', opacity: 0.1, cursor:'pointer', fontSize:'10px', marginTop:'80px' }}>
+                BUNKER BJ SECURITY v1.4.1
+            </div>
 
             {verAuditoria && (
-                <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}`, marginTop: '20px' }}>
-                    <h3 style={{ color: ROJO_BJ }}>🛡️ Bitácora de Seguridad</h3>
+                <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}` }}>
+                    <h3 style={{ color: ROJO_BJ }}>🛡️ Auditoría de Caja Negra</h3>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ background: '#f8f8f8', textAlign: 'left' }}>
-                                    <th style={{ padding: '10px' }}>HORA</th>
-                                    <th style={{ padding: '10px' }}>CLIENTE</th>
-                                    <th style={{ padding: '10px' }}>MOVIMIENTO</th>
-                                    <th style={{ padding: '10px' }}>MONTO</th>
-                                    <th style={{ padding: '10px' }}>CAJA ANTES</th>
-                                    <th style={{ padding: '10px' }}>CAJA POST</th>
+                                <tr style={{ background: '#f8f8f8' }}>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>HORA</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>OPERACIÓN</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>MONTO</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>ANTES</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>DESPUÉS</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {logs.map(l => (
                                     <tr key={l.id} style={{ borderBottom: '1px solid #eee' }}>
                                         <td style={{ padding: '10px' }}>{getHoraPeru(l.created_at)}</td>
-                                        <td style={{ padding: '10px' }}>{l.cliente}</td>
-                                        <td style={{ padding: '10px' }}>{l.operacion}</td>
-                                        <td style={{ padding: '10px', color: VERDE_BJ, fontWeight: '900' }}>+ S/ {l.monto_operacion}</td>
-                                        <td style={{ padding: '10px' }}>S/ {l.caja_antes.toFixed(2)}</td>
-                                        <td style={{ padding: '10px', fontWeight: '900' }}>S/ {l.caja_despues.toFixed(2)}</td>
+                                        <td style={{ padding: '10px' }}>{l.operacion} ({l.cliente})</td>
+                                        <td style={{ padding: '10px', textAlign: 'right', color: l.monto_operacion > 0 ? VERDE_BJ : ROJO_BJ, fontWeight: '900' }}>S/ {l.monto_operacion.toFixed(2)}</td>
+                                        <td style={{ padding: '10px', textAlign: 'right' }}>S/ {l.caja_antes.toFixed(2)}</td>
+                                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: '900' }}>S/ {l.caja_despues.toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
