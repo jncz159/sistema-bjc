@@ -1,6 +1,5 @@
 "use client";
-// 1. ESTA LÍNEA ES LA QUE SOLUCIONA EL ERROR:
-import React, { useState, useEffect } from 'react'; 
+import React from 'react'; // Importación base ultra-estable
 import { supabase } from '../supabaseClient'; 
 import { getFechaPeru, getHoraPeru, formatForInputDT, handleInputMonto } from '../lib/helpers';
 
@@ -10,12 +9,12 @@ export default function GestionSection({
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
-    // ESTADOS PARA LA AUDITORÍA OCULTA
-    const [verAuditoria, setVerAuditoria] = useState(false);
-    const [logs, setLogs] = useState([]);
+    // Usamos React.useState para evitar el error de "Referencia no definida"
+    const [verAuditoria, setVerAuditoria] = React.useState(false);
+    const [logs, setLogs] = React.useState([]);
 
-    // Cargar la bitácora solo si se activa el modo oculto
-    useEffect(() => {
+    // Usamos React.useEffect para máxima compatibilidad
+    React.useEffect(() => {
         if (verAuditoria) {
             const fetchLogs = async () => {
                 const { data } = await supabase
@@ -40,14 +39,14 @@ export default function GestionSection({
                         <div style={{height:'100%', width:`${balanceEliteBJ?.pe_p || 0}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', fontWeight:'600'}}>
-                        <span style={{color: VERDE_BJ}}>Utilidad: S/ {balanceEliteBJ?.pe_g?.toFixed(2)}</span>
-                        <span style={{color: ROJO_BJ}}>Meta: S/ {balanceEliteBJ?.pe_m?.toFixed(2)}</span>
+                        <span style={{color: VERDE_BJ}}>Utilidad: S/ {balanceEliteBJ?.pe_g?.toFixed(2) || "0.00"}</span>
+                        <span style={{color: ROJO_BJ}}>Meta: S/ {balanceEliteBJ?.pe_m?.toFixed(2) || "0.00"}</span>
                     </div>
                 </div>
 
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border:`4px solid ${FUCSIA_PRINCIPAL}` }}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA PARA RETIRO</h4>
-                    <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceEliteBJ?.bR?.toFixed(2)}</h3>
+                    <h3 style={{fontSize:'3.2rem', margin:0, color:'#fff'}}>S/ {balanceEliteBJ?.bR?.toFixed(2) || "0.00"}</h3>
                     <small style={{opacity:0.6}}>Utilidad neta disponible.</small>
                 </div>
             </div>
@@ -56,16 +55,16 @@ export default function GestionSection({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                 <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN MERCADERÍA</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.cost?.toLocaleString('es-PE')}</h4>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.cost?.toLocaleString('es-PE') || "0"}</h4>
                 </div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${AMARILLO_BJ}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>CAJA ACTUAL FÍSICA</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceEliteBJ?.cG?.toFixed(2)}</h4>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceEliteBJ?.cG?.toFixed(2) || "0.00"}</h4>
                     <small style={{opacity:0.5}}>Dinero real en efectivo.</small>
                 </div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${FUCSIA_PRINCIPAL}` }}>
                     <small style={{fontWeight:'900', opacity:0.6}}>VALOR VENTA TOTAL</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.vent?.toLocaleString('es-PE')}</h4>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.vent?.toLocaleString('es-PE') || "0"}</h4>
                 </div>
             </div>
 
@@ -118,12 +117,12 @@ export default function GestionSection({
                 onClick={() => setVerAuditoria(!verAuditoria)} 
                 style={{ textAlign:'center', opacity: 0.05, cursor:'pointer', fontSize:'9px', marginTop:'50px' }}
             >
-                TECNOLOGÍA DE AUDITORÍA BJ v1.0
+                AUDITORÍA DE CAJA NEGRA BJ v1.2
             </div>
 
             {verAuditoria && (
                 <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}`, marginTop: '20px' }}>
-                    <h3 style={{ color: ROJO_BJ, marginTop: 0 }}>🛡️ Bitácora de Caja Negra</h3>
+                    <h3 style={{ color: ROJO_BJ, marginTop: 0 }}>🛡️ Bitácora de Seguridad</h3>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                             <thead>
@@ -143,8 +142,8 @@ export default function GestionSection({
                                         <td style={{ padding: '10px' }}>{l.cliente}</td>
                                         <td style={{ padding: '10px' }}>{l.operacion}</td>
                                         <td style={{ padding: '10px', color: VERDE_BJ, fontWeight: '900' }}>+ S/ {l.monto_operacion}</td>
-                                        <td style={{ padding: '10px' }}>S/ {Number(l.caja_antes).toFixed(2)}</td>
-                                        <td style={{ padding: '10px', fontWeight: '900' }}>S/ {Number(l.caja_despues).toFixed(2)}</td>
+                                        <td style={{ padding: '10px' }}>S/ {Number(l.caja_antes || 0).toFixed(2)}</td>
+                                        <td style={{ padding: '10px', fontWeight: '900' }}>S/ {Number(l.caja_despues || 0).toFixed(2)}</td>
                                     </tr>
                                 ))}
                             </tbody>
