@@ -1,9 +1,11 @@
 "use client";
 /**
  * ============================================================================
- * COMPONENTE: Ventas.js (EXPANDIDO 100%)
+ * COMPONENTE: Ventas.js (EXPANDIDO 100% - v1.9.5)
  * PROPIETARIO: Jean - B J Importaciones Chiclayo
- * AUDITORÍA: Todo el HTML, estilos móviles, y funciones de carrito íntegras.
+ * ACTUALIZACIONES: 
+ * 1. Blindaje Anti-Errores (Confirmaciones al cobrar).
+ * 2. Barra de Estado de Stock Visual restaurada.
  * ============================================================================
  */
 import React, { useState } from 'react';
@@ -115,10 +117,27 @@ export default function VentasSection({
                         <div style={{ maxHeight: '450px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock > 0).map(p => (
                                 <div key={p.id} style={{ backgroundColor: '#F8FAFC', padding: '15px', borderRadius: '20px', border: '1px solid #E2E8F0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                                         <div style={{ fontSize: '14px', fontWeight: '900' }}>{p.nombre}{getBadgeBJ(p.created_at)}</div>
                                         <div style={{ color: VERDE_BJ, fontWeight: '900', fontSize: '14px' }}>S/ {tipoVenta === 'Mayor' ? (p.precio_venta || p.precio_menor) : (p.precio_menor || p.precio_venta)}</div>
                                     </div>
+                                    
+                                    {/* --- BARRA DE STOCK VISUAL (RESTAURADA) --- */}
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: '900', color: p.stock <= 3 ? ROJO_BJ : (p.stock <= 10 ? AMARILLO_BJ : '#64748B') }}>
+                                            <span>STOCK FÍSICO: {p.stock}</span>
+                                            <span>{p.stock <= 3 ? '¡POR AGOTARSE!' : (p.stock <= 10 ? 'ÚLTIMAS UNIDADES' : 'DISPONIBLE')}</span>
+                                        </div>
+                                        <div style={{ width: '100%', height: '6px', backgroundColor: '#E2E8F0', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                                            <div style={{ 
+                                                width: `${Math.min((p.stock / 30) * 100, 100)}%`, 
+                                                height: '100%', 
+                                                backgroundColor: p.stock <= 3 ? ROJO_BJ : (p.stock <= 10 ? AMARILLO_BJ : VERDE_BJ), 
+                                                transition: 'width 0.3s ease' 
+                                            }}></div>
+                                        </div>
+                                    </div>
+
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 50px', gap: '10px' }}>
                                         <select onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...styleInp, padding: '10px', fontSize: '12px' }}>
                                             {p.colores?.split(',').map((c, i) => <option key={i} value={c.trim()}>{c.trim()}</option>)}
@@ -169,12 +188,31 @@ export default function VentasSection({
                         <span style={{ color: FUCSIA_PRINCIPAL }}>S/ {totalCarrito.toFixed(2)}</span>
                     </div>
                     
+                    {/* --- BOTONES BLINDADOS CON CONFIRMACIÓN --- */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <button onClick={() => enviarTicketWA(null, true)} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor: 'pointer' }}>📱 ENVIAR PRESUPUESTO WA</button>
-                        <button onClick={() => handleEjecutarVentaBJ('Entregado')} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', cursor: 'pointer', fontSize: '16px' }}>💰 COBRAR VENTA (CASH)</button>
+                        
+                        <button onClick={() => {
+                            if(window.confirm(`¿Confirmar VENTA AL CONTADO por S/ ${totalCarrito.toFixed(2)} y registrar el ingreso en la caja?`)) {
+                                handleEjecutarVentaBJ('Entregado');
+                            }
+                        }} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', cursor: 'pointer', fontSize: '16px' }}>💰 COBRAR VENTA (CASH)</button>
+                        
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <button onClick={() => handleEjecutarVentaBJ('En Almacén')} style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontSize: '12px', fontWeight: '900', cursor: 'pointer' }}>📦 A ALMACÉN (PAGADO)</button>
-                            <button onClick={() => { const a = prompt("MONTO QUE RECIBES HOY (ADELANTO):"); if(a !== null) handleEjecutarVentaBJ('Pendiente de Pago', a); }} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontSize: '12px', fontWeight: '900', cursor: 'pointer' }}>💳 DEJAR A CRÉDITO</button>
+                            <button onClick={() => {
+                                if(window.confirm(`¿Confirmar PAGO COMPLETO por S/ ${totalCarrito.toFixed(2)} y enviar los productos a ALMACÉN?`)) {
+                                    handleEjecutarVentaBJ('En Almacén');
+                                }
+                            }} style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontSize: '12px', fontWeight: '900', cursor: 'pointer' }}>📦 A ALMACÉN (PAGADO)</button>
+                            
+                            <button onClick={() => { 
+                                const a = prompt(`Venta a CRÉDITO.\n\nEl total es S/ ${totalCarrito.toFixed(2)}.\n¿Ingresa el monto de ADELANTO que estás recibiendo HOY? (Escribe 0 si no deja nada):`); 
+                                if(a !== null) {
+                                    if(window.confirm(`¿Confirmar registro de CRÉDITO con un abono inicial de S/ ${Number(a).toFixed(2)}?`)) {
+                                        handleEjecutarVentaBJ('Pendiente de Pago', a); 
+                                    }
+                                }
+                            }} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontSize: '12px', fontWeight: '900', cursor: 'pointer' }}>💳 DEJAR A CRÉDITO</button>
                         </div>
                     </div>
                 </div>
