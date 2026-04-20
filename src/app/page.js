@@ -99,48 +99,68 @@ export default function SistemaBJCMasterFinal() {
   // 2. Balance Elite: Arqueo de Caja y Punto de Equilibrio
   const balanceEliteBJ = useMemo(() => {
     const s = { cH: 0, gH: 0, cG: 0, bR: 0, pe_p: 0, pe_g: 0, pe_m: 0 };
-    if (!auditoriaLogs.length && !ventas.length) return s;
+    if (!ventas.length && !finanzas.length) return s;
     
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
 
-    // --- REGLA DE ORO BJ: CAJA GLOBAL FÍSICA ---
-    // Sumamos algebraicamente CADA movimiento que dejó huella en la auditoría.
-    // Esto incluye: +Ventas Cash, +Abonos Crédito, +Cobros Deuda, +Ingresos Adm, -Gastos Adm, -Anulaciones.
-    const cajaFisicaReal = auditoriaLogs.reduce((acc, log) => acc + Number(log.monto_operacion || 0), 0);
+    // --- 1. DINERO REAL EN CAJA (INGRESOS FÍSICOS) ---
+    // Sumamos: Todo lo que NO es 'Pendiente de Pago' ni 'Anulado'.
+    // Esto incluye ventas 'Entregadas' (Cash) y 'En Almacén' (Pagadas).
+    const ingresosPorVentas = ventas
+        .filter(v => v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
 
-    // --- CAJA DEL DÍA (Ingresos en efectivo de hoy) ---
-    const ingresosHoy = auditoriaLogs
-        .filter(l => getFechaPeru(l.created_at) === hoyS && l.monto_operacion > 0)
-        .reduce((acc, l) => acc + l.monto_operacion, 0);
+    // Sumamos: Ingresos Administrativos (Inyecciones de capital)
+    const ingresosAdmin = finanzas
+        .filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // --- GANANCIA REAL (Utilidad bruta de lo vendido hoy) ---
-    const gananciaHoy = ventas
-        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-
-    // --- BÓVEDA PARA RETIRO (Utilidad Neta Acumulada) ---
-    // Es la ganancia de todas las ventas menos los Gastos/Retiros administrativos.
-    const utilidadesTotales = ventas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-    const egresosAdmin = finanzas
+    // Restamos: Todos los Gastos o Retiros registrados en el Libro Diario
+    const gastosTotales = finanzas
         .filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
-    const boveda = utilidadesTotales - egresosAdmin;
 
-    // Punto de equilibrio mensual
-    const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-    const exMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
+    const cajaGlobalActual = (ingresosPorVentas + ingresosAdmin) - gastosTotales;
+
+    // --- 2. CAJA DE HOY (EFECTIVO ENTRANTE) ---
+    // Ventas pagadas hoy + Ingresos admin hoy
+    const vHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
+    
+    const iAHoy = finanzas
+        .filter(f => getFechaPeru(f.created_at) === hoyS && ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
+
+    // --- 3. BÓVEDA PARA RETIRO (UTILIDAD NETA) ---
+    // Ganancia real de todas las ventas (Precio Venta - Precio Costo)
+    const utilidadesBrutas = ventas
+        .filter(v => v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    
+    // La Bóveda es la Utilidad Bruta MENOS los Gastos que ya salieron de caja
+    const bovedaReal = utilidadesBrutas - gastosTotales;
+
+    // --- 4. PUNTO DE EQUILIBRIO MENSUAL ---
+    const utMes = ventas
+        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    
+    const gastosMes = finanzas
+        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
 
     return {
-        cH: ingresosHoy,
-        gH: gananciaHoy,
-        cG: cajaFisicaReal, // <--- Este es el valor que ahora será exacto
-        bR: boveda,
-        pe_p: exMes > 0 ? (utMes / exMes) * 100 : (utMes > 0 ? 100 : 0), 
+        cH: vHoy + iAHoy,     // Caja del Día
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), // Utilidad Hoy
+        cG: cajaGlobalActual, // Caja Física Real
+        bR: bovedaReal,       // Bóveda de Utilidad
+        pe_p: gastosMes > 0 ? (utMes / gastosMes) * 100 : (utMes > 0 ? 100 : 0), 
         pe_g: utMes, 
-        pe_m: exMes
+        pe_m: gastosMes
     };
-  }, [auditoriaLogs, ventas, finanzas]);
+  }, [ventas, finanzas]);
 
   // 3. Analítica Táctica
   const analiticaProBJ = useMemo(() => {
