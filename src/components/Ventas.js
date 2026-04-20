@@ -163,12 +163,24 @@ export default function VentasSection({
                         {carrito.length === 0 && <div style={{textAlign: 'center', opacity: 0.4, marginTop: '50px'}}>El carrito está vacío</div>}
                         {carrito.map((item, idx) => (
                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px dashed #ccc', alignItems: 'center' }}>
-                                <span>
-                                    <button onClick={() => quitarDelCarrito(idx)} style={{ color: ROJO_BJ, border: 'none', background: 'none', marginRight: '10px', cursor: 'pointer', fontSize: '14px' }}>✕</button>
-                                    <strong>{item.cantidad}x</strong> {item.nombre}
-                                </span>
-                                <strong style={{fontSize: '15px'}}>S/ {(item.precio_venta * item.cantidad).toFixed(2)}</strong>
-                            </div>
+    <span>
+        <button onClick={() => quitarDelCarrito(idx)} style={{ color: ROJO_BJ, border: 'none', background: 'none', marginRight: '10px', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+        <strong>{item.cantidad}x</strong> {item.nombre}
+    </span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <small style={{ opacity: 0.5, fontWeight: '900' }}>S/</small>
+        <input 
+            type="number" 
+            value={item.precio_venta} 
+            onChange={(e) => {
+                const nuevo = [...carrito];
+                nuevo[idx].precio_venta = Number(e.target.value);
+                setCarrito(nuevo);
+            }} 
+            style={{ width: '65px', textAlign: 'right', border: 'none', borderBottom: `1px dashed ${OSCURO_BJ}`, background: 'none', fontSize: '15px', fontWeight: '900', color: OSCURO_BJ, outline: 'none' }} 
+        />
+    </div>
+</div>
                         ))}
                     </div>
 
@@ -183,10 +195,25 @@ export default function VentasSection({
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2.2rem', fontWeight: '900', margin: '25px 0' }}>
-                        <span>TOTAL:</span>
-                        <span style={{ color: FUCSIA_PRINCIPAL }}>S/ {totalCarrito.toFixed(2)}</span>
-                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', margin: '20px 0' }}>
+    {/* CAMPO DE DESCUENTO */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 15px', backgroundColor: '#FFF0F5', borderRadius: '12px' }}>
+        <span style={{ fontSize: '12px', fontWeight: '900', color: ROJO_BJ }}>DESCUENTO (S/):</span>
+        <input 
+            type="number" 
+            value={descuento} 
+            onChange={e => setDescuento(e.target.value)} 
+            placeholder="0.00" 
+            style={{ width: '80px', textAlign: 'right', border: 'none', borderBottom: `2px solid ${ROJO_BJ}`, background: 'none', fontSize: '16px', fontWeight: '900', color: ROJO_BJ, outline: 'none' }} 
+        />
+    </div>
+
+    {/* TOTAL FINAL */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2.2rem', fontWeight: '900' }}>
+        <span>TOTAL:</span>
+        <span style={{ color: FUCSIA_PRINCIPAL }}>S/ {totalCarrito.toFixed(2)}</span>
+    </div>
+</div>
                     
                     {/* --- BOTONES BLINDADOS CON CONFIRMACIÓN --- */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
