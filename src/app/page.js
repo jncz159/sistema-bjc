@@ -99,30 +99,46 @@ export default function SistemaBJCMasterFinal() {
   // 2. Balance Elite: Arqueo de Caja y Punto de Equilibrio
   const balanceEliteBJ = useMemo(() => {
     const s = { cH: 0, gH: 0, cG: 0, bR: 0, pe_p: 0, pe_g: 0, pe_m: 0 };
-    if (!ventas.length && !finanzas.length) return s;
+    if (!auditoriaLogs.length && !ventas.length) return s;
+    
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
 
-    // Dinero por ventas que ya ingresó (No Anuladas y que no son créditos pendientes)
-    const totalEntranteVentas = ventas.filter(v => v.estado_pedido !== 'Anulado' && v.estado_pedido !== 'Pendiente de Pago')
-                                      .reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
+    // --- REGLA DE ORO BJ: CAJA GLOBAL FÍSICA ---
+    // Sumamos algebraicamente CADA movimiento que dejó huella en la auditoría.
+    // Esto incluye: +Ventas Cash, +Abonos Crédito, +Cobros Deuda, +Ingresos Adm, -Gastos Adm, -Anulaciones.
+    const cajaFisicaReal = auditoriaLogs.reduce((acc, log) => acc + Number(log.monto_operacion || 0), 0);
 
-    // Flujo administrativo (Libro Diario)
-    const inAdmin = finanzas.filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
-    const outAdmin = finanzas.filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
+    // --- CAJA DEL DÍA (Ingresos en efectivo de hoy) ---
+    const ingresosHoy = auditoriaLogs
+        .filter(l => getFechaPeru(l.created_at) === hoyS && l.monto_operacion > 0)
+        .reduce((acc, l) => acc + l.monto_operacion, 0);
 
-    // CAJA GLOBAL ACTUAL
-    const cajaGlobalAuditada = auditoriaLogs.reduce((acc, log) => acc + Number(log.monto_operacion), 0);
+    // --- GANANCIA REAL (Utilidad bruta de lo vendido hoy) ---
+    const gananciaHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
-    const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    // --- BÓVEDA PARA RETIRO (Utilidad Neta Acumulada) ---
+    // Es la ganancia de todas las ventas menos los Gastos/Retiros administrativos.
+    const utilidadesTotales = ventas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    const egresosAdmin = finanzas
+        .filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
+    const boveda = utilidadesTotales - egresosAdmin;
+
+    // Punto de equilibrio mensual
+    const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
     const exMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
 
     return {
-        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (v.precio_venta_unitario*v.cantidad), 0),
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        cG: cajaGlobalAuditada,
-        bR: ventas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0) - finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0),
-        pe_p: exMes > 0 ? (utMes / exMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: exMes
+        cH: ingresosHoy,
+        gH: gananciaHoy,
+        cG: cajaFisicaReal, // <--- Este es el valor que ahora será exacto
+        bR: boveda,
+        pe_p: exMes > 0 ? (utMes / exMes) * 100 : (utMes > 0 ? 100 : 0), 
+        pe_g: utMes, 
+        pe_m: exMes
     };
   }, [auditoriaLogs, ventas, finanzas]);
 
@@ -291,7 +307,7 @@ export default function SistemaBJCMasterFinal() {
         
         // 2. Restamos dinero de auditoría si el estado era 'Entregado' o 'En Almacén' (Pagados)
         if (v.estado_pedido !== 'Pendiente de Pago') {
-            const montoADevolver = v.precio_venta_unitario * v.cantidad;
+            const montoADevolver = -(v.precio_venta_unitario * v.cantidad);
             await supabase.from('auditoria_bj').insert([{ 
                 cliente: v.cliente_nombre, 
                 operacion: 'ANULACIÓN VENTA', 
