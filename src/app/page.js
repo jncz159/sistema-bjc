@@ -112,7 +112,7 @@ export default function SistemaBJCMasterFinal() {
     const outAdmin = finanzas.filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
 
     // CAJA GLOBAL ACTUAL
-    const cajaFisicaBJ = (totalEntranteVentas + inAdmin) - outAdmin;
+    const cajaGlobalAuditada = auditoriaLogs.reduce((acc, log) => acc + Number(log.monto_operacion), 0);
 
     const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
     const exMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
@@ -120,11 +120,11 @@ export default function SistemaBJCMasterFinal() {
     return {
         cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (v.precio_venta_unitario*v.cantidad), 0),
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        cG: cajaFisicaBJ,
+        cG: cajaGlobalAuditada,
         bR: ventas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0) - finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0),
         pe_p: exMes > 0 ? (utMes / exMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: exMes
     };
-  }, [ventas, finanzas]);
+  }, [auditoriaLogs, ventas, finanzas]);
 
   // 3. Analítica Táctica
   const analiticaProBJ = useMemo(() => {
@@ -282,9 +282,25 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleAnularVentaBJ = async (v) => {
-    if (confirm("¿Anular?")) {
+    if (confirm("¿Anular venta? Se devolverá el stock y el dinero de la caja.")) {
+        const snap = balanceEliteBJ.cG;
         const pO = productos.find(p => p.id === v.producto_id);
+        
+        // 1. Devolvemos stock
         if (pO) await supabase.from('productos').update({ stock: pO.stock + v.cantidad }).eq('id', pO.id);
+        
+        // 2. Restamos dinero de auditoría si el estado era 'Entregado' o 'En Almacén' (Pagados)
+        if (v.estado_pedido !== 'Pendiente de Pago') {
+            const montoADevolver = v.precio_venta_unitario * v.cantidad;
+            await supabase.from('auditoria_bj').insert([{ 
+                cliente: v.cliente_nombre, 
+                operacion: 'ANULACIÓN VENTA', 
+                monto_operacion: -montoADevolver, // <--- El signo menos resta el dinero
+                caja_antes: snap, 
+                caja_despues: snap - montoADevolver 
+            }]);
+        }
+        
         await supabase.from('ventas').delete().eq('id', v.id);
         cargarTodoDesdeNube();
     }

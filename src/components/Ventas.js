@@ -58,24 +58,23 @@ export default function VentasSection({
         const cant = Number(cantidades[p.id] || 1);
         const col = coloresElegidos[p.id] || (p.colores?.split(',')[0]?.trim() || 'Único');
         
-        // CORRECCIÓN DE PRECIO 0: Verifica ambos campos para no vender en 0
+        // SEGURIDAD: Si el precio elegido es 0, intenta jalar el otro precio disponible
         let precio = tipoVenta === 'Mayor' ? p.precio_venta : p.precio_menor;
         if (!precio || Number(precio) === 0) {
-            precio = tipoVenta === 'Mayor' ? p.precio_menor : p.precio_venta;
+            precio = (p.precio_venta && p.precio_venta > 0) ? p.precio_venta : p.precio_menor;
         }
 
-        const itemParaCarrito = { 
+        // Si después de eso sigue siendo 0, avisa y no agrega
+        if (!precio || Number(precio) === 0) return alert("Error: El producto no tiene precio configurado.");
+
+        setCarrito([...carrito, { 
             producto_id: p.id, 
             nombre: p.nombre, 
             cantidad: cant, 
             color: col, 
             precio_venta: Number(precio), 
             precio_compra: p.precio_compra 
-        };
-
-        setCarrito([...carrito, itemParaCarrito]);
-        
-        // Limpiar inputs locales del producto
+        }]);
         setCantidades({ ...cantidades, [p.id]: 1 });
     };
 
