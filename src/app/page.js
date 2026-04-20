@@ -17,6 +17,7 @@ import VentasSection from '../components/Ventas';
 import AlmacenSection from '../components/Almacen';
 import LogisticaSection from '../components/Logistica';
 import GestionSection from '../components/Gestion';
+import FinanzasSection from '../components/Finanzas';
 
 export default function SistemaBJCMasterFinal() {
   
@@ -77,14 +78,15 @@ export default function SistemaBJCMasterFinal() {
 
   // --- MATEMÁTICA EXACTA Y SIN DOBLE CONTEO ---
   const valorizacionStockBJ = useMemo(() => {
-    let cost = 0; let vent = 0;
+    let cost = 0; let vent = 0; let pot = 0; // <-- Agregada variable pot
     productos.forEach(p => { 
         if (Number(p.stock) > 0) { 
             cost += (Number(p.precio_compra || 0) * p.stock); 
             vent += (Number(p.precio_venta || 0) * p.stock); 
+            pot += (Number(p.precio_venta || 0) - Number(p.precio_compra || 0)) * p.stock; // <-- Cálculo del potencial
         } 
     });
-    return { cost, vent };
+    return { cost, vent, pot }; // <-- Retorna pot
   }, [productos]);
 
   const balanceEliteBJ = useMemo(() => {
@@ -272,8 +274,11 @@ export default function SistemaBJCMasterFinal() {
             <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>v1.8.0 UNIFICADO</small>
           </div>
           <nav style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '5px', WebkitOverflowScrolling: 'touch' }}>
-            {['ventas', 'stock', 'logistica', 'contabilidad'].map(t => (
-              <button key={t} onClick={() => setVista(t)} style={{ flex: '0 0 auto', backgroundColor: vista === t ? FUCSIA_PRINCIPAL : '#FCA5D415', border: 'none', color: vista === t ? '#fff' : FUCSIA_PRINCIPAL, padding: '12px 18px', borderRadius: '12px', cursor: 'pointer', fontWeight: '900', fontSize: '11px' }}>{t.toUpperCase() === 'CONTABILIDAD' ? 'GESTIÓN' : t.toUpperCase()}</button>
+            {/* AGREGADO 'finanzas' AL ARREGLO */}
+            {['ventas', 'stock', 'logistica', 'finanzas', 'contabilidad'].map(t => (
+              <button key={t} onClick={() => setVista(t)} style={{ flex: '0 0 auto', backgroundColor: vista === t ? FUCSIA_PRINCIPAL : '#FCA5D415', border: 'none', color: vista === t ? '#fff' : FUCSIA_PRINCIPAL, padding: '12px 18px', borderRadius: '12px', cursor: 'pointer', fontWeight: '900', fontSize: '11px' }}>
+                {t === 'contabilidad' ? 'LIBRO DIARIO' : t.toUpperCase()}
+              </button>
             ))}
           </nav>
         </div>
@@ -285,6 +290,8 @@ export default function SistemaBJCMasterFinal() {
         {vista === 'stock' && <AlmacenSection {...{ formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); await supabase.from('productos').insert([formProd]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube();}, handleDeleteProductoBJ: async (id,n)=>{if(confirm(`¿Estás seguro de borrar ${n}?`)){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();}}, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id,s)=>{await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube();}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
 
         {vista === 'logistica' && <LogisticaSection {...{ logisticaInteligente, handleCobrarDeudaBJ: async (g,m)=>{const pre=balanceEliteBJ.cG; for(let id of g.items_ids){await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id',id);} if(Number(m)>0){await supabase.from('auditoria_bj').insert([{cliente:g.cliente,operacion:'COBRO SALDO',monto_operacion:Number(m),caja_antes:pre,caja_despues:pre+Number(m)}]);} cargarTodoDesdeNube();}, handleAnularCreditoBJ: async (g)=>{for(const it of g.items){const pO=productos.find(p=>p.id===it.producto_id); if(pO) await supabase.from('productos').update({stock:pO.stock+it.cantidad}).eq('id',pO.id);} await supabase.from('ventas').delete().in('id',g.items_ids); cargarTodoDesdeNube();}, handleUpdateItemLogistica: async (id,data,idA,cantA)=>{ if(data.producto_id!==idA||data.cantidad!==cantA){const pAnt=productos.find(p=>p.id===idA); if(pAnt) await supabase.from('productos').update({stock:pAnt.stock+Number(cantA)}).eq('id',pAnt.id); const pNue=productos.find(p=>p.id===data.producto_id); if(pNue) await supabase.from('productos').update({stock:pNue.stock-Number(data.cantidad)}).eq('id',pNue.id);} await supabase.from('ventas').update(data).eq('id',id); cargarTodoDesdeNube();}, handleEliminarItemIndividualLogistica: async (v)=>{const pO=productos.find(p=>p.id===v.producto_id); if(pO) await supabase.from('productos').update({stock:pO.stock+v.cantidad}).eq('id',pO.id); await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube();}, productos, finanzas, FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, styleCrd, styleInp }} />}
+
+{vista === 'finanzas' && <FinanzasSection {...{ ventas, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleCrd }} />}
 
         {vista === 'contabilidad' && <GestionSection {...{ balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ: async (id)=>{await supabase.from('finanzas').update(formEditFinanza).eq('id',id); setIdEditFinanza(null); cargarTodoDesdeNube();}, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
       </main>

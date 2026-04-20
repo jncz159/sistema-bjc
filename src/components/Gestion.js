@@ -60,6 +60,10 @@ export default function GestionSection({
                     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>CAJA ACTUAL FÍSICA</small>
                     <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {balanceEliteBJ?.cG?.toFixed(2)}</h4>
                 </div>
+                <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${VERDE_BJ}`, backgroundColor: `${VERDE_BJ}05` }}>
+                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px', color: VERDE_BJ}}>DINERO POTENCIAL A GANAR</small>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0', color: VERDE_BJ}}>S/ {valorizacionStockBJ?.pot?.toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
+                </div>
             </div>
 
             {/* --- BLOQUE 2: FORMULARIO DE REGISTRO (SIN ORIGEN, TODO ES CAJA) --- */}
