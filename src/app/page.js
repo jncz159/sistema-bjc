@@ -1,13 +1,13 @@
 "use client";
 /**
  * ============================================================================
- * SISTEMA: BUNKER BJ - MASTER CONTROL (v1.2.5 FINAL AUDIT)
+ * SISTEMA: BUNKER BJ - MASTER CONTROL (v1.2.6 STABLE)
  * PROPIETARIO: Jean - B J Importaciones Chiclayo
- * CARACTERÍSTICAS: 
- * - Auditoría de Caja Negra (Black Box)
- * - Libro Diario Puramente Administrativo
- * - Sincronización Quirúrgica de Stock
- * - Gestión Detallada de Ítems en Logística
+ * REGLAS INTEGRADAS: 
+ * 1. Libro Diario: Solo Administración (Gastos/Ingresos Externos).
+ * 2. Auditoría (Caja Negra): Registro total de flujo de dinero.
+ * 3. Autocompletado: Relleno automático de datos de clientes frecuentes.
+ * 4. Logística: Edición individual de productos en deudas.
  * ============================================================================
  */
 import React, { useState, useEffect, useMemo } from 'react';
@@ -30,7 +30,7 @@ export default function SistemaBJCMasterFinal() {
   const [vista, setVista] = useState('ventas'); 
   const [cargando, setCargando] = useState(true);
 
-  // [BLOQUE B: ESTADOS DE CONTROL DE INTERFAZ]
+  // [BLOQUE B: ESTADOS DE CONTROL DE INTERFAZ Y VENTA]
   const [busqueda, setBusqueda] = useState(''); 
   const [busquedaStock, setBusquedaStock] = useState(''); 
   const [busquedaHistorial, setBusquedaHistorial] = useState('');
@@ -44,7 +44,7 @@ export default function SistemaBJCMasterFinal() {
   const [carrito, setCarrito] = useState([]);
   const [descuento, setDescuento] = useState(0); 
 
-  // [BLOQUE C: ESTADOS DE FORMULARIOS Y EDICIÓN]
+  // [BLOQUE C: ESTADOS DE FORMULARIOS Y EDICIÓN TÉCNICA]
   const [formProd, setFormProd] = useState({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' });
   const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '', origen: 'Caja Global' });
   const [formEditStockBJ, setFormEditStockBJ] = useState({}); 
@@ -62,7 +62,7 @@ export default function SistemaBJCMasterFinal() {
   const styleInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '15px', boxSizing: 'border-box', backgroundColor: '#fff' };
   const styleCrd = { backgroundColor: '#ffffff', borderRadius: '35px', padding: '35px', boxShadow: `0 20px 40px rgba(247, 134, 193, 0.1)`, border: '1px solid #FFF1F2' };
 
-  // [BLOQUE E: LÓGICA DE PERSISTENCIA Y CARGA]
+  // [BLOQUE E: LÓGICA DE PERSISTENCIA]
   useEffect(() => { setHasMounted(true); cargarTodoDesdeNube(); }, []);
 
   const cargarTodoDesdeNube = async () => {
@@ -71,61 +71,59 @@ export default function SistemaBJCMasterFinal() {
         const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
         const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
         if (p) setProductos(p); if (v) setVentas(v); if (f) setFinanzas(f);
-    } catch (e) { console.error("Error en sincronización:", e); } finally { setCargando(false); }
+    } catch (e) { console.error("Error BJ Sync:", e); } finally { setCargando(false); }
   };
 
-  // [BLOQUE F: EL CEREBRO DE CÁLCULO - INTELIGENCIA DE NEGOCIO]
+  // [BLOQUE F: EL CEREBRO DE CÁLCULO - INTELIGENCIA FINANCIERA]
   
-  // 1. Balance Elite: Cálculo de Caja Real auditada y utilidades
   const balanceEliteBJ = useMemo(() => {
     const s = { cH: 0, gH: 0, cG: 0, bR: 0, pe_p: 0, pe_g: 0, pe_m: 0 };
     if (!ventas.length && !finanzas.length) return s;
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
 
-    // TOTAL VENTAS COBRADAS (Efectivo + Abonos + Deudas saldadas)
-    const totalVentasPagado = ventas.filter(v => v.estado_pedido !== 'Anulado' && v.estado_pedido !== 'Pendiente de Pago')
-                                   .reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
+    // 1. DINERO REAL EN CAJA FÍSICA (AUDITADO)
+    // Sumamos todas las ventas que NO están anuladas y que ya se pagaron (directas o cobros)
+    const totalEntranteVentas = ventas.filter(v => v.estado_pedido !== 'Anulado' && v.estado_pedido !== 'Pendiente de Pago')
+                                      .reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
 
-    // FLUJO ADMINISTRATIVO (Libro Diario puro)
+    // 2. MOVIMIENTOS ADMINISTRATIVOS (Libro Diario)
     const ingresosAdmin = finanzas.filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
     const gastosAdmin = finanzas.filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // CAJA FÍSICA ACTUAL (Fórmula Maestra)
-    const cajaFisica = (totalVentasPagado + ingresosAdmin) - gastosAdmin;
+    // FÓRMULA MAESTRA CAJA BJ
+    const cajaFisicaBJ = (totalEntranteVentas + ingresosAdmin) - gastosAdmin;
 
+    // Utilidad del Mes y Punto de Equilibrio
     const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-    const gastosMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
+    const exMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
 
     return {
         cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (v.precio_venta_unitario*v.cantidad), 0),
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        cG: cajaFisica,
+        cG: cajaFisicaBJ,
         bR: ventas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0) - finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0),
-        pe_p: gastosMes > 0 ? (utMes / gastosMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: gastosMes
+        pe_p: exMes > 0 ? (utMes / exMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: exMes
     };
   }, [ventas, finanzas]);
 
-  // 2. Valorización de Inventario
   const valorizacionStockBJ = useMemo(() => {
     let cost = 0; let vent = 0;
     productos.forEach(p => { if (Number(p.stock) > 0) { cost += (Number(p.precio_compra || 0) * p.stock); vent += (Number(p.precio_venta || 0) * p.stock); } });
     return { cost, vent };
   }, [productos]);
 
-  // 3. Analítica Pro: Top 5 de ventas
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
     ventas.forEach(v => { 
         if(v.estado_pedido !== 'Anulado' && v.estado_pedido !== 'Pendiente de Pago') {
-            const name = productos?.find(p => p.id === v.producto_id)?.nombre || "Modelo Desconocido"; 
+            const name = productos?.find(p => p.id === v.producto_id)?.nombre || "Modelo"; 
             counts[name] = (counts[name] || 0) + v.cantidad; 
         }
     });
     return { top: Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5) };
   }, [ventas, productos]);
 
-  // 4. Logística Inteligente: Agrupación de Deudas y Almacén con detalle de productos
   const logisticaInteligente = useMemo(() => {
     const res = { almacen: [], deudas: [] };
     const mA = {}; const mD = {};
@@ -146,7 +144,6 @@ export default function SistemaBJCMasterFinal() {
     return res;
   }, [ventas, productos]);
 
-  // 5. Historial Grupal del Día
   const historialVentasDiaBJ = useMemo(() => {
     const filt = ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta && v.cliente_nombre?.toLowerCase().includes(busquedaHistorial.toLowerCase()));
     const groups = {};
@@ -159,9 +156,20 @@ export default function SistemaBJCMasterFinal() {
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
 
-  // [BLOQUE G: MANEJADORES DE ACCIONES ESTRATÉGICAS]
+  // [BLOQUE G: MANEJADORES DE ACCIONES TÉCNICAS]
 
-  // 1. Ejecución de Venta con Auditoría (Caja Negra)
+  // 1. AUTOCOMPLETADO INTELIGENTE (RESTAURADO)
+  const handleAutocompleteClienteBJ = (e) => {
+    const valor = e.target.value;
+    setCliente(valor);
+    const m = ventas.find(v => v.cliente_nombre?.toLowerCase() === valor.toLowerCase());
+    if (m) { 
+        setLocalidad(m.localidad || ''); 
+        setTelefono(m.telefono || ''); 
+    }
+  };
+
+  // 2. EJECUTAR VENTA CON AUDITORÍA (No toca finanzas)
   const handleEjecutarVentaBJ = async (estado, abonoInicial = 0) => {
     if (!cliente || !localidad) return alert("Faltan datos de cliente.");
     const snapshotCaja = balanceEliteBJ.cG;
@@ -179,10 +187,9 @@ export default function SistemaBJCMasterFinal() {
         };
     });
 
-    const { error: errV } = await supabase.from('ventas').insert(lista);
-    if (!errorV) {
+    const { error } = await supabase.from('ventas').insert(lista);
+    if (!error) {
         if (montoHoy > 0) {
-            // REGISTRO ÚNICAMENTE EN AUDITORÍA (Caja Negra)
             await supabase.from('auditoria_bj').insert([{ 
                 cliente, operacion: estado === 'Pendiente de Pago' ? 'ABONO CRÉDITO' : 'VENTA DIRECTA', 
                 monto_operacion: montoHoy, caja_antes: snapshotCaja, caja_despues: snapshotCaja + montoHoy 
@@ -194,19 +201,16 @@ export default function SistemaBJCMasterFinal() {
         }
         setCarrito([]); setCliente(''); setLocalidad(''); setTelefono(''); setDescuento(0);
         cargarTodoDesdeNube();
-        alert("✅ Venta Auditada y Registrada.");
+        alert("✅ Venta Auditada.");
     }
   };
 
-  // 2. Cobro de Saldo Deudor
+  // 3. COBRAR SALDO (Auditoría: SÍ | Finanzas: NO)
   const handleCobrarDeudaBJ = async (grupo, montoFinal) => {
     if(confirm(`¿Confirmar cobro de saldo S/ ${Number(montoFinal).toFixed(2)}?`)) {
         const snapshotCaja = balanceEliteBJ.cG;
-        for(let id of grupo.items_ids) { 
-            await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); 
-        }
+        for(let id of grupo.items_ids) { await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); }
         if(Number(montoFinal) > 0) {
-            // REGISTRO ÚNICAMENTE EN AUDITORÍA
             await supabase.from('auditoria_bj').insert([{ 
                 cliente: grupo.cliente, operacion: 'COBRO SALDO', 
                 monto_operacion: Number(montoFinal), caja_antes: snapshotCaja, caja_despues: snapshotCaja + Number(montoFinal) 
@@ -217,10 +221,10 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  // 3. Registro Administrativo (Libro Diario + Auditoría para que cuadre)
+  // 4. REGISTRO ADMINISTRATIVO (Auditoría: SÍ | Finanzas: SÍ)
   const handleRegistrarFinanzaBJ = async (e) => {
     e.preventDefault();
-    const snapshotCaja = balanceEliteBJ.cG;
+    const pre = balanceEliteBJ.cG;
     const mFin = Number(handleInputMonto(formFinanzas.monto));
     const esGasto = !['Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
     const delta = esGasto ? -mFin : mFin;
@@ -229,7 +233,7 @@ export default function SistemaBJCMasterFinal() {
     if (!error) {
         await supabase.from('auditoria_bj').insert([{ 
             cliente: 'ADMINISTRACIÓN', operacion: formFinanzas.tipo.toUpperCase(), 
-            monto_operacion: delta, caja_antes: snapshotCaja, caja_despues: snapshotCaja + delta 
+            monto_operacion: delta, caja_antes: pre, caja_despues: pre + delta 
         }]);
         setFormFinanzas({tipo:'Gasto Local', descripcion:'', monto:'', origen:'Caja Global'});
         cargarTodoDesdeNube();
@@ -237,21 +241,21 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  // 4. Edición Quirúrgica en Logística (Cambio de producto/cantidad con reajuste de stock)
-  const handleUpdateItemLogistica = async (id, dataNueva, idAnt, cantAnt) => {
-      if (dataNueva.producto_id !== idAnt || dataNueva.cantidad !== cantAnt) {
+  // 5. EDICIÓN DE LOGÍSTICA (Stock Sincronizado)
+  const handleUpdateItemLogistica = async (id, data, idAnt, cantAnt) => {
+      if (data.producto_id !== idAnt || data.cantidad !== cantAnt) {
           const pAnt = productos.find(p => p.id === idAnt);
           if (pAnt) await supabase.from('productos').update({ stock: pAnt.stock + Number(cantAnt) }).eq('id', pAnt.id);
-          const pNue = productos.find(p => p.id === dataNueva.producto_id);
-          if (pNue) await supabase.from('productos').update({ stock: pNue.stock - Number(dataNueva.cantidad) }).eq('id', pNue.id);
+          const pNue = productos.find(p => p.id === data.producto_id);
+          if (pNue) await supabase.from('productos').update({ stock: pNue.stock - Number(data.cantidad) }).eq('id', pNue.id);
       }
-      await supabase.from('ventas').update(dataNueva).eq('id', id);
+      await supabase.from('ventas').update(data).eq('id', id);
       cargarTodoDesdeNube();
-      alert("✅ Ítem Actualizado.");
+      alert("✅ Ítem actualizado.");
   };
 
   const handleEliminarItemIndividualLogistica = async (v) => {
-      if (confirm(`¿Borrar ${v.nombre} del pedido? Se devolverá el stock.`)) {
+      if (confirm(`¿Borrar ${v.nombre} del pedido?`)) {
           const pO = productos.find(p => p.id === v.producto_id);
           if (pO) await supabase.from('productos').update({ stock: pO.stock + v.cantidad }).eq('id', pO.id);
           await supabase.from('ventas').delete().eq('id', v.id);
@@ -260,7 +264,7 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleAnularCreditoBJ = async (grupo) => {
-    if (confirm(`⚠️ ¿ANULAR CRÉDITO DE ${grupo.cliente}?\nStock volverá a almacén.`)) {
+    if (confirm(`¿Anular crédito de ${grupo.cliente}?`)) {
       for (const it of grupo.items) {
         const pO = productos.find(p => p.id === it.producto_id);
         if (pO) await supabase.from('productos').update({ stock: pO.stock + it.cantidad }).eq('id', pO.id);
@@ -282,18 +286,18 @@ export default function SistemaBJCMasterFinal() {
 
   // [BLOQUE H: RENDERIZADO FINAL]
   if (!hasMounted) return null;
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ v1.2.5 MASTER - AUDITANDO... 🚀</div>;
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ v1.2.6 - MASTER SYSTEM... 🚀</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
       <header style={{ backgroundColor: '#ffffff', padding: '15px 5%', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>BJ</div>
-          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v1.2.5 MASTER SYSTEM</small></div>
+          <div><h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1><small style={{ color: '#64748B', fontWeight: '900', fontSize: '9px' }}>v1.2.6 MASTER STABLE</small></div>
         </div>
         <nav style={{ display: 'flex', gap: '8px', backgroundColor: `#FCA5D415`, padding: '5px', borderRadius: '15px' }}>
           {['ventas', 'stock', 'logistica', 'contabilidad'].map(t => (
-            <button key={t} onClick={() => setVista(t)} style={{ backgroundColor: vista === t ? (t === 'logistica' ? OSCURO_BJ : FUCSIA_PRINCIPAL) : 'transparent', border: 'none', color: vista === t ? '#fff' : (t === 'logistica' ? OSCURO_BJ : FUCSIA_PRINCIPAL), padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: '900', textTransform: 'uppercase' }}>
+            <button key={t} onClick={() => setVista(t)} style={{ backgroundColor: vista === t ? (t === 'logistica' ? OSCURO_BJ : FUCSIA_PRINCIPAL) : 'transparent', border: 'none', color: vista === t ? '#fff' : (t === 'logistica' ? OSCURO_BJ : FUCSIA_PRINCIPAL), padding: '10px 15px', borderRadius: '10px', cursor: 'pointer', fontWeight: '900', textTransform:'uppercase' }}>
               {t === 'contabilidad' ? 'GESTIÓN' : (t === 'stock' ? 'ALMACÉN' : t)}
             </button>
           ))}
@@ -301,7 +305,7 @@ export default function SistemaBJCMasterFinal() {
       </header>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px 20px' }}>
-        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull: ()=>{}, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: (e)=>setCliente(e.target.value), ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
+        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull: ()=>{}, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
         
         {vista === 'stock' && <AlmacenSection {...{ formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); await supabase.from('productos').insert([formProd]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube();}, handleDeleteProductoBJ: async (id,n)=>{if(confirm(`Borrar ${n}?`)){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();}}, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id,s)=>{await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube();}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
 
