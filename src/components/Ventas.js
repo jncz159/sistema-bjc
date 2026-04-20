@@ -153,8 +153,6 @@ export default function VentasSection({
                             placeholder="🔍 Buscar modelo en stock..." 
                             style={{ ...styleInp, border: `2px solid ${OSCURO_BJ}` }} 
                         />
-
-                        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar modelo en stock..." style={{ ...styleInp, border: `2px solid ${OSCURO_BJ}` }} />
                         
                         <div style={{ maxHeight: '450px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock > 0).map(p => (
