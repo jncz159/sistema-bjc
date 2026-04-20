@@ -196,17 +196,7 @@ export default function VentasSection({
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', margin: '20px 0' }}>
-    {/* CAMPO DE DESCUENTO */}
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 15px', backgroundColor: '#FFF0F5', borderRadius: '12px' }}>
-        <span style={{ fontSize: '12px', fontWeight: '900', color: ROJO_BJ }}>DESCUENTO (S/):</span>
-        <input 
-            type="number" 
-            value={descuento} 
-            onChange={e => setDescuento(e.target.value)} 
-            placeholder="0.00" 
-            style={{ width: '80px', textAlign: 'right', border: 'none', borderBottom: `2px solid ${ROJO_BJ}`, background: 'none', fontSize: '16px', fontWeight: '900', color: ROJO_BJ, outline: 'none' }} 
-        />
-    </div>
+   
 
     {/* TOTAL FINAL */}
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2.2rem', fontWeight: '900' }}>

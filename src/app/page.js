@@ -204,19 +204,46 @@ export default function SistemaBJCMasterFinal() {
   };
 
   const handleAnularVentaBJ = async (v) => {
-    if (confirm("ATENCIÓN: ¿Anular venta? Se devolverá el stock y se descontará el dinero de la caja física.")) {
+    if (confirm("ATENCIÓN: ¿Anular venta? Se devolverá el stock y se ajustará la caja física.")) {
         const snap = balanceEliteBJ.cG;
         const pO = productos.find(p => p.id === v.producto_id);
         
+        // 1. Devolver Stock al Almacén
         if (pO) await supabase.from('productos').update({ stock: pO.stock + v.cantidad }).eq('id', pO.id);
         
+        // 2. Rastrear cuánto dinero entró REALMENTE por esta venta
+        let montoADevolver = 0;
+        
         if (v.estado_pedido !== 'Pendiente de Pago') {
-            const montoADevolver = v.precio_venta_unitario * v.cantidad;
+            // Si fue al contado o almacén, se devuelve el total exacto.
+            montoADevolver = v.precio_venta_unitario * v.cantidad;
+        } else {
+            // Si fue crédito, buscamos en la auditoría si hubo un abono inicial ese mismo día/minuto
+            const { data: logsRelacionados } = await supabase
+                .from('auditoria_bj')
+                .select('*')
+                .eq('cliente', v.cliente_nombre)
+                .eq('operacion', 'ABONO CRÉDITO')
+                .gte('created_at', new Date(new Date(v.created_at).getTime() - 60000).toISOString())
+                .lte('created_at', new Date(new Date(v.created_at).getTime() + 60000).toISOString());
+            
+            if (logsRelacionados && logsRelacionados.length > 0) {
+                montoADevolver = logsRelacionados[0].monto_operacion;
+            }
+        }
+
+        // 3. Ejecutar la devolución en la Caja Negra
+        if (montoADevolver > 0) {
             await supabase.from('auditoria_bj').insert([{ 
-                cliente: v.cliente_nombre, operacion: 'ANULACIÓN VENTA', 
-                monto_operacion: -montoADevolver, caja_antes: snap, caja_despues: snap - montoADevolver 
+                cliente: v.cliente_nombre, 
+                operacion: 'ANULACIÓN VENTA', 
+                monto_operacion: -montoADevolver, 
+                caja_antes: snap, 
+                caja_despues: snap - montoADevolver 
             }]);
         }
+        
+        // 4. Borrar el registro de venta
         await supabase.from('ventas').delete().eq('id', v.id);
         cargarTodoDesdeNube();
     }
