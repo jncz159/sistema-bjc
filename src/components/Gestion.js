@@ -1,9 +1,9 @@
 "use client";
 /**
  * ============================================================================
- * COMPONENTE: Gestion.js (EXPANDIDO 100%)
+ * COMPONENTE: Gestion.js (FONDO ÚNICO)
  * PROPIETARIO: Jean - B J Importaciones Chiclayo
- * AUDITORÍA: El campo "Origen" de finanzas ha sido restaurado y conectado.
+ * CORRECCIÓN: Eliminado "Origen" para evitar confusiones. Todo afecta la caja física.
  * ============================================================================
  */
 import React, { useState, useEffect } from 'react';
@@ -45,8 +45,9 @@ export default function GestionSection({
                     </div>
                 </div>
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'10px'}}>💰 BÓVEDA PARA RETIRO (UTILIDADES)</h4>
+                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'10px'}}>💰 BÓVEDA (UTILIDAD HISTÓRICA)</h4>
                     <h3 style={{fontSize:'3rem', margin:0}}>S/ {balanceEliteBJ?.bR?.toFixed(2)}</h3>
+                    <small style={{opacity: 0.5, fontSize: '10px'}}>Acumulado histórico de márgenes de ganancia pura.</small>
                 </div>
             </div>
 
@@ -61,9 +62,9 @@ export default function GestionSection({
                 </div>
             </div>
 
-            {/* --- BLOQUE 2: FORMULARIO DE REGISTRO CON ORIGEN RESTAURADO --- */}
+            {/* --- BLOQUE 2: FORMULARIO DE REGISTRO (SIN ORIGEN, TODO ES CAJA) --- */}
             <div style={styleCrd}>
-                <h3 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, fontSize:'1.2rem', fontWeight: '900' }}>🖋️ Registrar Movimiento (Libro Diario)</h3>
+                <h3 style={{ marginTop: 0, color: FUCSIA_PRINCIPAL, fontSize:'1.2rem', fontWeight: '900' }}>🖋️ Registrar Movimiento (Afecta Caja Física)</h3>
                 <form onSubmit={handleRegistrarFinanzaBJ} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', alignItems: 'end' }}>
                     
                     <div>
@@ -87,15 +88,6 @@ export default function GestionSection({
                         <input value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} placeholder="0.00" style={styleInp} />
                     </div>
 
-                    {/* ESTE ES EL CAMPO QUE HABÍA SIDO RECORTADO */}
-                    <div>
-                        <label style={{ fontSize: '11px', fontWeight: '900', marginBottom: '5px', display: 'block' }}>¿DE DÓNDE SALE EL DINERO?</label>
-                        <select value={formFinanzas.origen} onChange={e => setFormFinanzas({...formFinanzas, origen: e.target.value})} style={{...styleInp, border: `2px solid ${AMARILLO_BJ}`}}>
-                            <option value="Caja Global">Del Cajón Físico (Afecta Caja Actual)</option>
-                            <option value="Ganancias">De mis Utilidades (Afecta Bóveda)</option>
-                        </select>
-                    </div>
-
                     <button type="submit" style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer', width: '100%' }}>
                         GUARDAR REGISTRO
                     </button>
@@ -110,7 +102,7 @@ export default function GestionSection({
                         <thead>
                             <tr style={{ borderBottom: '2px solid #f1f1f1', color:'#64748B', backgroundColor: '#F8FAFC' }}>
                                 <th style={{textAlign:'left', padding:'15px'}}>FECHA Y HORA</th>
-                                <th style={{textAlign:'left', padding:'15px'}}>MOVIMIENTO / ORIGEN</th>
+                                <th style={{textAlign:'left', padding:'15px'}}>MOVIMIENTO</th>
                                 <th style={{textAlign:'right', padding:'15px'}}>MONTO</th>
                                 <th style={{textAlign:'center', padding:'15px'}}>EDITAR</th>
                             </tr>
@@ -132,10 +124,8 @@ export default function GestionSection({
                                             <strong>{getHoraPeru(f.created_at)}</strong>
                                         </td>
                                         <td style={{ padding: '20px 15px' }}>
-                                            <strong style={{ fontSize: '15px' }}>{f.tipo}</strong> <small style={{ opacity: 0.6 }}>({f.descripcion})</small><br/>
-                                            <span style={{fontSize:'11px', color: f.origen === 'Ganancias' ? FUCSIA_PRINCIPAL : AMARILLO_BJ, fontWeight: '900'}}>
-                                                Origen: {f.origen || 'Caja Global'}
-                                            </span>
+                                            <strong style={{ fontSize: '15px' }}>{f.tipo}</strong><br/>
+                                            <small style={{ opacity: 0.6 }}>{f.descripcion}</small>
                                         </td>
                                         <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo) ? VERDE_BJ : ROJO_BJ }}>
                                             {['Ingreso Adicional','Inversión Inicial'].includes(f.tipo) ? "+" : "-"} S/ {Number(f.monto).toFixed(2)}

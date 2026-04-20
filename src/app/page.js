@@ -1,11 +1,12 @@
 "use client";
 /**
  * ============================================================================
- * SISTEMA: BUNKER BJ - MASTER CONTROL (EXPANDIDO 100%)
+ * SISTEMA: BUNKER BJ - MASTER CONTROL (v1.8.0 FONDO ÚNICO)
  * PROPIETARIO: Jean - B J Importaciones Chiclayo
- * AUDITORÍA: 
- * - Sin líneas recortadas ni simplificadas.
- * - Matemática de "Origen del Dinero" restaurada (Caja vs Ganancias).
+ * CORRECCIÓN CRÍTICA:
+ * - Eliminación del doble conteo de abonos en Caja Global.
+ * - Unificación de Caja (Todo gasto sale de la misma caja física).
+ * - Bóveda 100% informativa (Solo suma utilidades, no resta gastos).
  * ============================================================================
  */
 import React, { useState, useEffect, useMemo } from 'react';
@@ -44,7 +45,7 @@ export default function SistemaBJCMasterFinal() {
 
   // --- ESTADOS DE FORMULARIOS ---
   const [formProd, setFormProd] = useState({ nombre: '', precio_compra: '', precio_venta: '', precio_menor: '', stock: '', colores: '' });
-  const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '', origen: 'Caja Global' });
+  const [formFinanzas, setFormFinanzas] = useState({ tipo: 'Gasto Local', descripcion: '', monto: '' });
   const [idEditFinanza, setIdEditFinanza] = useState(null);
   const [formEditFinanza, setFormEditFinanza] = useState({});
   const [idEditProducto, setIdEditProducto] = useState(null);
@@ -74,7 +75,7 @@ export default function SistemaBJCMasterFinal() {
     } catch (e) { console.error("Error BJ Sync:", e); } finally { setCargando(false); }
   };
 
-  // --- MATEMÁTICA Y LÓGICA DE NEGOCIO ---
+  // --- MATEMÁTICA EXACTA Y SIN DOBLE CONTEO ---
   const valorizacionStockBJ = useMemo(() => {
     let cost = 0; let vent = 0;
     productos.forEach(p => { 
@@ -92,30 +93,39 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
 
-    // 1. CAJA GLOBAL FÍSICA (Solo se afecta si el origen fue "Caja Global")
-    const inV = ventas.filter(v => v.estado_pedido !== 'Anulado' && v.estado_pedido !== 'Pendiente de Pago').reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
-    const abon = auditoriaLogs.filter(l => l.operacion === 'ABONO CRÉDITO' || l.operacion === 'COBRO SALDO').reduce((acc, l) => acc + Number(l.monto_operacion), 0);
-    const cap = finanzas.filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
-    const outCaja = finanzas.filter(f => f.origen === 'Caja Global' && !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
-    const cajaRealFisica = (inV + abon + cap) - outCaja;
+    // 1. CAJA GLOBAL FÍSICA (Tu dinero real en caja / Yape)
+    // Se eliminó la auditoría de aquí para evitar el doble conteo de abonos antiguos.
+    const ventasCompletadas = ventas
+        .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
+        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
 
-    // 2. BÓVEDA DE UTILIDADES (Se afecta si el origen fue "Ganancias")
-    const utilidadBrutaAcumulada = ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-    const retirosDeGanancias = finanzas.filter(f => f.origen === 'Ganancias').reduce((acc, f) => acc + Number(f.monto), 0);
-    const bovedaNeta = utilidadBrutaAcumulada - retirosDeGanancias;
+    const ingresosAdmin = finanzas
+        .filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // Métricas
+    const gastosTotales = finanzas
+        .filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
+
+    const cajaFisicaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
+
+    // 2. BÓVEDA INFORMATIVA (Solo suma tu éxito comercial)
+    const utilidadHistorica = ventas
+        .filter(v => v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+
+    // 3. Métricas
     const utMes = ventas.filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
     const exMes = finanzas.filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local','Retiro Personal'].includes(f.tipo)).reduce((acc, f) => acc + Number(f.monto), 0);
 
     return {
         cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + (v.precio_venta_unitario*v.cantidad), 0),
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        cG: cajaRealFisica,
-        bR: bovedaNeta,
+        cG: cajaFisicaReal,
+        bR: utilidadHistorica,
         pe_p: exMes > 0 ? (utMes / exMes) * 100 : (utMes > 0 ? 100 : 0), pe_g: utMes, pe_m: exMes
     };
-  }, [ventas, finanzas, auditoriaLogs]);
+  }, [ventas, finanzas]);
 
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
@@ -153,7 +163,7 @@ export default function SistemaBJCMasterFinal() {
     return Object.values(groups).reverse();
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
-  // --- HANDLERS COMPLETOS (NO SIMPLIFICADOS) ---
+  // --- HANDLERS COMPLETOS ---
   const handleAutocompleteClienteBJ = (e) => {
     const valor = e.target.value; setCliente(valor);
     const m = ventas.find(v => v.cliente_nombre?.toLowerCase() === valor.toLowerCase());
@@ -196,10 +206,8 @@ export default function SistemaBJCMasterFinal() {
         const snap = balanceEliteBJ.cG;
         const pO = productos.find(p => p.id === v.producto_id);
         
-        // Devolver Stock
         if (pO) await supabase.from('productos').update({ stock: pO.stock + v.cantidad }).eq('id', pO.id);
         
-        // Devolver Dinero a Auditoría si estaba cobrado
         if (v.estado_pedido !== 'Pendiente de Pago') {
             const montoADevolver = v.precio_venta_unitario * v.cantidad;
             await supabase.from('auditoria_bj').insert([{ 
@@ -207,8 +215,6 @@ export default function SistemaBJCMasterFinal() {
                 monto_operacion: -montoADevolver, caja_antes: snap, caja_despues: snap - montoADevolver 
             }]);
         }
-        
-        // Borrar Registro
         await supabase.from('ventas').delete().eq('id', v.id);
         cargarTodoDesdeNube();
     }
@@ -219,37 +225,29 @@ export default function SistemaBJCMasterFinal() {
     const pre = balanceEliteBJ.cG;
     const mF = Number(handleInputMonto(formFinanzas.monto));
     const esGasto = !['Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
-    
-    // Si el origen NO es Caja Global, el dinero no sale de la caja física (ej: sale de la bóveda/banco).
-    // Por lo tanto, el delta en caja física será 0 si es origen Ganancias.
-    const deltaCajaFisica = formFinanzas.origen === 'Caja Global' ? (esGasto ? -mF : mF) : 0;
+    const delta = esGasto ? -mF : mF;
 
     const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
     if (!error) {
-        if (deltaCajaFisica !== 0) {
-            await supabase.from('auditoria_bj').insert([{ 
-                cliente: `ADMIN (${formFinanzas.origen})`, 
-                operacion: formFinanzas.tipo.toUpperCase(), 
-                monto_operacion: deltaCajaFisica, 
-                caja_antes: pre, 
-                caja_despues: pre + deltaCajaFisica 
-            }]);
-        }
-        setFormFinanzas({ tipo: 'Gasto Local', descripcion: '', monto: '', origen: 'Caja Global' });
+        await supabase.from('auditoria_bj').insert([{ 
+            cliente: 'ADMINISTRATIVO', 
+            operacion: formFinanzas.tipo.toUpperCase(), 
+            monto_operacion: delta, 
+            caja_antes: pre, 
+            caja_despues: pre + delta 
+        }]);
+        setFormFinanzas({ tipo: 'Gasto Local', descripcion: '', monto: '' });
         cargarTodoDesdeNube();
     }
   };
 
   const handleExportarExcelCajaFull = () => {
-    let csv = "\uFEFF"; csv += "CLIENTE,HORA,PRODUCTO,CANT,V.UNIT,SUBTOTAL,CAJA DIA,CAJA GLOBAL\n";
-    let acumDia = 0;
+    let csv = "\uFEFF"; csv += "CLIENTE,HORA,PRODUCTO,CANT,V.UNIT,SUBTOTAL\n";
     historialVentasDiaBJ.forEach(g => {
         g.items.forEach(it => {
             const pN = productos.find(p => p.id === it.producto_id)?.nombre || "Modelo Eliminado";
             const sub = it.cantidad * it.precio_venta_unitario;
-            acumDia += sub;
-            const log = auditoriaLogs.find(l => l.cliente === g.cliente_nombre && getHoraPeru(l.created_at) === g.hora);
-            csv += `${g.cliente_nombre},${g.hora},${pN},${it.cantidad},${it.precio_venta_unitario},${sub},${acumDia},${log ? log.caja_despues : balanceEliteBJ.cG}\n`;
+            csv += `${g.cliente_nombre},${g.hora},${pN},${it.cantidad},${it.precio_venta_unitario},${sub}\n`;
         });
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -259,9 +257,8 @@ export default function SistemaBJCMasterFinal() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  // --- RENDER DE INTERFAZ ---
   if (!hasMounted) return null;
-  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ: CARGANDO SISTEMA COMPLETO... 🚀</div>;
+  if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ: CARGANDO SISTEMA CENTRAL... 🚀</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, fontFamily: 'system-ui, sans-serif' }}>
@@ -272,7 +269,7 @@ export default function SistemaBJCMasterFinal() {
               <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '14px' }}>BJ</div>
               <h1 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1>
             </div>
-            <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>v1.7.5 COMPLETA</small>
+            <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>v1.8.0 UNIFICADO</small>
           </div>
           <nav style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '5px', WebkitOverflowScrolling: 'touch' }}>
             {['ventas', 'stock', 'logistica', 'contabilidad'].map(t => (
