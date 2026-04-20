@@ -104,53 +104,51 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
 
-    // --- 1. CAJA FÍSICA ACTUAL (Dinero real en el cajón) ---
-    const ingresosVentas = ventas
+    // --- 1. CAJA FÍSICA ACTUAL (Dinero total en mano) ---
+    const efectivoVentas = ventas
         .filter(v => v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
 
-    const ingresosAdmin = finanzas
+    const ingresosExtra = finanzas
         .filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    const egresosTotales = finanzas
+    const gastosSalientes = finanzas
         .filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    const cajaFisicaBJ = (ingresosVentas + ingresosAdmin) - egresosTotales;
+    const cajaFisicaBJ = (efectivoVentas + ingresosExtra) - gastosSalientes;
 
-    // --- 2. BÓVEDA PARA RETIRO (UTILIDAD PURA) ---
-    // Regla Jean: Suma de todos los márgenes de ganancia de ventas confirmadas.
-    const sumaGananciasBrutas = ventas
+    // --- 2. BÓVEDA PARA RETIRO (LO QUE QUERÍAS RESTAURAR) ---
+    // Suma cruda de la utilidad de cada producto vendido que no esté anulado.
+    // No resta gastos, solo muestra cuánto has ganado por vender.
+    const utilidadGanadaTotal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-    
-    // Solo restamos de la Bóveda los "Retiros Personales". 
-    // Los gastos del local (luz, agua, bolsas) bajan la caja física, pero no eliminan el "éxito" de la ganancia de venta.
-    const retirosEfectuados = finanzas
-        .filter(f => f.tipo === 'Retiro Personal' || f.origen === 'Ganancias')
-        .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    const bovedaUtilidadReal = sumaGananciasBrutas - retirosEfectuados;
-
-    // --- 3. CÁLCULOS TÁCTICOS (HOY Y MES) ---
+    // --- 3. CÁLCULOS DEL DÍA ---
     const vHoy = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
     
+    const utHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+
+    // --- 4. MÉTRICAS MENSUALES ---
     const utMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
     
     const gastosMes = finanzas
-        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local', 'Retiro Personal'].includes(f.tipo))
+        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
 
     return {
         cH: vHoy, 
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+        gH: utHoy,
         cG: cajaFisicaBJ,
-        bR: bovedaUtilidadReal, // <--- Este número ahora solo representa utilidad ganada.
+        bR: utilidadGanadaTotal, // <--- RESTAURADO: Solo utilidad de ventas.
         pe_p: gastosMes > 0 ? (utMes / gastosMes) * 100 : (utMes > 0 ? 100 : 0), 
         pe_g: utMes, 
         pe_m: gastosMes
