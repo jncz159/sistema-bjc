@@ -29,6 +29,11 @@ export default function SistemaBJCMasterFinal() {
   const [auditoriaLogs, setAuditoriaLogs] = useState([]); 
   const [vista, setVista] = useState('ventas'); 
   const [cargando, setCargando] = useState(true);
+  // --- SISTEMA DE SEGURIDAD ---
+  const PIN_MAESTRO = "232310"; // 🔐 CAMBIA ESTE NÚMERO POR TU CLAVE SECRETA
+  const [accesoConcedido, setAccesoConcedido] = useState(false);
+  const [pinIngresado, setPinIngresado] = useState('');
+  const [errorPin, setErrorPin] = useState(false);
 
   // --- ESTADOS OPERATIVOS ---
   const [busqueda, setBusqueda] = useState(''); 
@@ -63,8 +68,41 @@ export default function SistemaBJCMasterFinal() {
   const styleInp = { padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', outline: 'none', fontSize: '16px', boxSizing: 'border-box', backgroundColor: '#fff' };
   const styleCrd = { backgroundColor: '#ffffff', borderRadius: '30px', padding: '25px', boxShadow: `0 15px 35px rgba(240, 16, 151, 0.05)`, border: '1px solid #FFF1F2', boxSizing: 'border-box' };
 
-  // --- CARGA DE DATOS ---
-  useEffect(() => { setHasMounted(true); cargarTodoDesdeNube(); }, []);
+  
+  // --- CARGA DE DATOS Y VERIFICACIÓN ---
+  useEffect(() => { 
+    setHasMounted(true); 
+    const sesion = localStorage.getItem('bj_bunker_auth');
+    if (sesion === 'acceso_total') {
+        setAccesoConcedido(true);
+        cargarTodoDesdeNube();
+    } else {
+        setCargando(false);
+    }
+  }, []);
+
+  const intentarAcceso = (e) => {
+    e.preventDefault();
+    if (pinIngresado === PIN_MAESTRO) {
+        localStorage.setItem('bj_bunker_auth', 'acceso_total');
+        setAccesoConcedido(true);
+        setErrorPin(false);
+        setCargando(true);
+        cargarTodoDesdeNube();
+    } else {
+        setErrorPin(true);
+        setPinIngresado('');
+    }
+  };
+
+  const cerrarSesion = () => {
+    if(confirm("¿Bloquear el Búnker y cerrar sesión?")) {
+        localStorage.removeItem('bj_bunker_auth');
+        setAccesoConcedido(false);
+        setPinIngresado('');
+        setProductos([]); setVentas([]); setFinanzas([]); setAuditoriaLogs([]);
+    }
+  };
 
   const cargarTodoDesdeNube = async () => {
     try {
@@ -287,6 +325,37 @@ export default function SistemaBJCMasterFinal() {
   };
 
   if (!hasMounted) return null;
+  // =========================================================================
+  // PANTALLA DE BLOQUEO
+  // =========================================================================
+  if (!hasMounted) return null;
+  
+  if (!accesoConcedido) {
+      return (
+          <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: OSCURO_BJ, color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
+              <div style={{ backgroundColor: '#ffffff10', padding: '40px', borderRadius: '30px', border: `1px solid ${FUCSIA_PRINCIPAL}50`, textAlign: 'center', maxWidth: '350px', width: '90%' }}>
+                  <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '24px', margin: '0 auto 20px auto' }}>BJ</div>
+                  <h2 style={{ margin: '0 0 10px 0', fontWeight: '900', letterSpacing: '1px' }}>BÚNKER PRIVADO</h2>
+                  <p style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '30px' }}>Ingresa tu código de seguridad.</p>
+                  
+                  <form onSubmit={intentarAcceso} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                      <input 
+                          type="password" 
+                          value={pinIngresado} 
+                          onChange={(e) => setPinIngresado(e.target.value)} 
+                          placeholder="Código PIN" 
+                          autoFocus
+                          style={{ padding: '18px', borderRadius: '15px', border: errorPin ? `2px solid ${ROJO_BJ}` : 'none', outline: 'none', fontSize: '20px', textAlign: 'center', fontWeight: '900', backgroundColor: '#fff', color: OSCURO_BJ, letterSpacing: '5px' }} 
+                      />
+                      {errorPin && <small style={{ color: ROJO_BJ, fontWeight: '900' }}>Código Incorrecto</small>}
+                      <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer', fontSize: '16px', marginTop: '10px' }}>
+                          DESBLOQUEAR 🔓
+                      </button>
+                  </form>
+              </div>
+          </div>
+      );
+  }
   if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#FFF5F7', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>BUNKER BJ: CARGANDO SISTEMA CENTRAL... 🚀</div>;
 
   return (
@@ -298,7 +367,14 @@ export default function SistemaBJCMasterFinal() {
               <div style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '14px' }}>BJ</div>
               <h1 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>BJ IMPORTACIONES</h1>
             </div>
-            <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>v1.8.0 UNIFICADO</small>
+            <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>v1.9.0 UNIFICADO</small>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>v2.0.0</small>
+                {/* BOTÓN DE BLOQUEO MANUAL */}
+                <button onClick={cerrarSesion} style={{ backgroundColor: '#FEF2F2', color: ROJO_BJ, border: `1px solid ${ROJO_BJ}50`, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: '900', fontSize: '11px' }}>
+                    BLOQUEAR 🔒
+                </button>
+            </div>
           </div>
           <nav style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '5px', WebkitOverflowScrolling: 'touch' }}>
             {/* AGREGADO 'finanzas' AL ARREGLO */}
