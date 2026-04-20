@@ -158,68 +158,78 @@ export default function SistemaBJCMasterFinal() {
 
   // [BLOQUE G: MANEJADORES DE OPERACIONES (ACCIÓN)]
 
-  // 1. EJECUTAR VENTA (CON AUDITORÍA DE CAJA NEGRA)
+  // --- 1. EJECUTAR VENTA CON SENSOR DE AUDITORÍA ---
   const handleEjecutarVentaBJ = async (estado, abonoInicial = 0) => {
-    if (!cliente || !localidad) return alert("Faltan datos de cliente o zona.");
-    const snapshotCaja = balanceEliteBJ.cG; // Captura para auditoría
+    if (!cliente || !localidad) return alert("Faltan datos.");
+    
+    const cajaAntes = balanceEliteBJ.cG; // Capturamos la foto de la caja antes de la venta
     const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
-    const montoACaja = estado === 'Pendiente de Pago' ? Number(abonoInicial) : totalV - Number(descuento);
+    const montoOperacion = estado === 'Pendiente de Pago' ? Number(abonoInicial) : totalV - Number(descuento);
     const ts = new Date().toISOString();
 
-    const lista = carrito.map(i => {
-        const ganancia = (Number(i.precio_venta) - Number(i.precio_compra)) * i.cantidad;
-        return { 
-            cliente_nombre: cliente, localidad, telefono, producto_id: i.producto_id, 
-            cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
-            precio_costo_unitario: i.precio_compra, ganancia_total: ganancia, 
-            estado_pedido: estado, created_at: ts 
-        };
-    });
+    const lista = carrito.map(i => ({ 
+        cliente_nombre: cliente, localidad, telefono, producto_id: i.producto_id, 
+        cantidad: i.cantidad, color: i.color, precio_venta_unitario: i.precio_venta, 
+        precio_costo_unitario: i.precio_compra, 
+        ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * i.cantidad, 
+        estado_pedido: estado, created_at: ts 
+    }));
 
-    const { error: errV } = await supabase.from('ventas').insert(lista);
-    if (!errV) {
-        if (montoACaja > 0) {
+    const { error } = await supabase.from('ventas').insert(lista);
+    if (!error) {
+        if (montoOperacion > 0) {
             // Registro en Libro Diario
             await supabase.from('finanzas').insert([{ 
                 tipo: 'Ingreso Adicional', 
                 descripcion: estado === 'Pendiente de Pago' ? `Abono inicial venta crédito: ${cliente}` : `Venta Directa: ${cliente}`, 
-                monto: montoACaja, origen: 'Caja Global', created_at: ts 
+                monto: montoOperacion, origen: 'Caja Global', created_at: ts 
             }]);
-            // Registro secreto en Auditoría
+            
+            // REGISTRO EN CAJA NEGRA (AUDITORÍA)
             await supabase.from('auditoria_bj').insert([{ 
-                cliente, operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO' : 'EFECTIVO', 
-                monto_operacion: montoACaja, caja_antes: snapshotCaja, caja_despues: snapshotCaja + montoACaja 
+                cliente, 
+                operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO' : 'EFECTIVO', 
+                monto_operacion: montoOperacion, 
+                caja_antes: cajaAntes, 
+                caja_despues: cajaAntes + montoOperacion 
             }]);
         }
         for (const it of carrito) {
             const pO = productos.find(p => p.id === it.producto_id);
             if (pO) await supabase.from('productos').update({ stock: pO.stock - it.cantidad }).eq('id', it.producto_id);
         }
-        setCarrito([]); setCliente(''); setLocalidad(''); setTelefono(''); setDescuento(0);
+        setCarrito([]); setCliente(''); setDescuento(0);
         cargarTodoDesdeNube();
-        alert("✅ Venta registrada y auditada correctamente.");
+        alert("✅ Venta Auditada.");
     }
   };
 
-  // 2. COBRAR SALDO DE DEUDOR
+  // --- 2. COBRAR DEUDA CON SENSOR DE AUDITORÍA ---
   const handleCobrarDeudaBJ = async (grupo, montoFinal) => {
     if(confirm(`¿Confirmar cobro de saldo S/ ${Number(montoFinal).toFixed(2)}?`)) {
-        const snapshotCaja = balanceEliteBJ.cG;
+        const cajaAntes = balanceEliteBJ.cG;
+        
         for(let id of grupo.items_ids) { 
             await supabase.from('ventas').update({ estado_pedido: 'Entregado' }).eq('id', id); 
         }
+        
         if(Number(montoFinal) > 0) {
             await supabase.from('finanzas').insert([{ 
                 tipo: 'Ingreso Adicional', descripcion: `Saldo liquidado deuda: ${grupo.cliente}`, 
                 monto: Number(montoFinal), origen: 'Caja Global' 
             }]);
+
+            // REGISTRO EN CAJA NEGRA (AUDITORÍA)
             await supabase.from('auditoria_bj').insert([{ 
-                cliente: grupo.cliente, operacion: 'COBRO SALDO', 
-                monto_operacion: Number(montoFinal), caja_antes: snapshotCaja, caja_despues: snapshotCaja + Number(montoFinal) 
+                cliente: grupo.cliente, 
+                operacion: 'COBRO SALDO', 
+                monto_operacion: Number(montoFinal), 
+                caja_antes: cajaAntes, 
+                caja_despues: cajaAntes + Number(montoFinal) 
             }]);
         }
         cargarTodoDesdeNube();
-        alert("💰 Deuda saldada.");
+        alert("💰 Saldo Auditado.");
     }
   };
 

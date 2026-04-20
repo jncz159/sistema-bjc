@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react'; // IMPORTACIÓN CORRECTA
+import React from 'react';
 import { supabase } from '../supabaseClient'; 
 import { getFechaPeru, getHoraPeru, formatForInputDT, handleInputMonto } from '../lib/helpers';
 
@@ -9,11 +9,11 @@ export default function GestionSection({
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
-    // ESTADOS LOCALES PARA LA AUDITORÍA
-    const [verAuditoria, setVerAuditoria] = useState(false);
-    const [logs, setLogs] = useState([]);
+    // Usamos React.useState directamente para máxima estabilidad en Vercel
+    const [verAuditoria, setVerAuditoria] = React.useState(false);
+    const [logs, setLogs] = React.useState([]);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (verAuditoria) {
             const fetchLogs = async () => {
                 const { data } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: false }).limit(30);
@@ -26,7 +26,7 @@ export default function GestionSection({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
             
-            {/* INDICADORES CLAVE */}
+            {/* ... Aquí van tus tarjetas de Punto de Equilibrio y Bóveda ... */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
                 <div style={styleCrd}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>🏁 PUNTO DE EQUILIBRIO</h4>
@@ -34,30 +34,29 @@ export default function GestionSection({
                         <div style={{height:'100%', width:`${balanceEliteBJ?.pe_p || 0}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', fontWeight:'900'}}>
-                        <span style={{color: VERDE_BJ}}>Ganado: S/ {balanceEliteBJ?.pe_g?.toFixed(2)}</span>
+                        <span style={{color: VERDE_BJ}}>Utilidad: S/ {balanceEliteBJ?.pe_g?.toFixed(2)}</span>
                         <span style={{color: ROJO_BJ}}>Gasto: S/ {balanceEliteBJ?.pe_m?.toFixed(2)}</span>
                     </div>
                 </div>
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'15px'}}>💰 BÓVEDA PARA RETIRO</h4>
                     <h3 style={{fontSize:'3.2rem', margin:0}}>S/ {balanceEliteBJ?.bR?.toFixed(2)}</h3>
-                    <small style={{opacity:0.6}}>Utilidad neta acumulada.</small>
                 </div>
             </div>
 
-            {/* CAPITAL Y VALORIZACIÓN */}
+            {/* ... CAPITAL Y CAJA ... */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}><small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN STOCK</small><h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.cost?.toLocaleString('es-PE')}</h4></div>
+                <div style={{ ...styleCrd, borderLeft:`10px solid #64748B` }}><small style={{fontWeight:'900', opacity:0.6}}>CAPITAL EN MERCADERÍA</small><h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.cost?.toLocaleString('es-PE')}</h4></div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${AMARILLO_BJ}` }}><small style={{fontWeight:'900', opacity:0.6}}>CAJA ACTUAL FÍSICA</small><h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {balanceEliteBJ?.cG?.toFixed(2)}</h4></div>
                 <div style={{ ...styleCrd, borderLeft:`10px solid ${FUCSIA_PRINCIPAL}` }}><small style={{fontWeight:'900', opacity:0.6}}>VALOR VENTA TOTAL</small><h4 style={{fontSize:'2.2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.vent?.toLocaleString('es-PE')}</h4></div>
             </div>
 
-            {/* TOP 5 PRODUCTOS (RESTAURADO) */}
+            {/* TOP 5 PRODUCTOS */}
             <div style={styleCrd}>
-                <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>⭐ Top 5 Más Vendidos (Chiclayo)</h4>
+                <h4 style={{ marginTop: 0, marginBottom: '25px', fontWeight: '900', color: FUCSIA_PRINCIPAL }}>⭐ Top 5 Más Vendidos</h4>
                 <div style={{ display: 'grid', gap: '15px' }}>
                     {analiticaProBJ?.top?.map(([nombre, cantidad], idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 25px', backgroundColor: idx === 0 ? `${FUCSIA_PRINCIPAL}10` : '#F8FAFC', borderRadius: '15px', border: idx === 0 ? `1px solid ${FUCSIA_PRINCIPAL}30` : 'none' }}>
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 25px', backgroundColor: idx === 0 ? `${FUCSIA_PRINCIPAL}10` : '#F8FAFC', borderRadius: '15px' }}>
                             <span style={{fontWeight:'900'}}>{idx + 1}. {nombre}</span>
                             <strong style={{color: FUCSIA_PRINCIPAL}}>{cantidad} Unidades</strong>
                         </div>
@@ -65,7 +64,7 @@ export default function GestionSection({
                 </div>
             </div>
 
-            {/* LIBRO DIARIO EDITABLE */}
+            {/* LIBRO DIARIO */}
             <div style={styleCrd}>
                 <h4 style={{ marginTop: 0, marginBottom: '30px', fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro Diario</h4>
                 <div style={{ overflowX: 'auto' }}>
@@ -103,12 +102,17 @@ export default function GestionSection({
                 </div>
             </div>
 
-            {/* ACTIVADOR DE AUDITORÍA */}
-            <div onClick={() => setVerAuditoria(!verAuditoria)} style={{ textAlign:'center', opacity: 0.1, cursor:'pointer', fontSize:'9px', marginTop:'100px' }}>AUDITORÍA DE CAJA NEGRA BJ v1.2</div>
+            {/* ACTIVADOR OCULTO (Haz clic en este texto casi invisible para ver la auditoría) */}
+            <div 
+                onClick={() => setVerAuditoria(!verAuditoria)} 
+                style={{ textAlign:'center', opacity: 0.1, cursor:'pointer', fontSize:'10px', marginTop:'100px' }}
+            >
+                TECNOLOGÍA DE SEGURIDAD BJ v1.2
+            </div>
 
             {verAuditoria && (
-                <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}` }}>
-                    <h3 style={{ color: ROJO_BJ, marginTop: 0 }}>🛡️ Bitácora de Seguridad</h3>
+                <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}`, marginTop: '20px' }}>
+                    <h3 style={{ color: ROJO_BJ, marginTop: 0 }}>🛡️ Bitácora de Auditoría (Caja Negra)</h3>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                             <thead>
