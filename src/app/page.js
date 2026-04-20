@@ -286,5 +286,5 @@ export default function SistemaBJCMasterFinal() {
         }} />}
       </main>
     </div>
-  );
+  ); 
 }
