@@ -1,5 +1,5 @@
 "use client";
-import React from 'react'; // Importación base ultra-estable
+import React from 'react'; 
 import { supabase } from '../supabaseClient'; 
 import { getFechaPeru, getHoraPeru, formatForInputDT, handleInputMonto } from '../lib/helpers';
 
@@ -9,11 +9,10 @@ export default function GestionSection({
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
-    // Usamos React.useState para evitar el error de "Referencia no definida"
+    // USAMOS LA REFERENCIA DIRECTA DE React. PARA EVITAR EL "NOT DEFINED"
     const [verAuditoria, setVerAuditoria] = React.useState(false);
     const [logs, setLogs] = React.useState([]);
 
-    // Usamos React.useEffect para máxima compatibilidad
     React.useEffect(() => {
         if (verAuditoria) {
             const fetchLogs = async () => {
@@ -117,21 +116,21 @@ export default function GestionSection({
                 onClick={() => setVerAuditoria(!verAuditoria)} 
                 style={{ textAlign:'center', opacity: 0.05, cursor:'pointer', fontSize:'9px', marginTop:'50px' }}
             >
-                AUDITORÍA DE CAJA NEGRA BJ v1.2
+                MODO AUDITORÍA BJ v1.0
             </div>
 
             {verAuditoria && (
                 <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}`, marginTop: '20px' }}>
-                    <h3 style={{ color: ROJO_BJ, marginTop: 0 }}>🛡️ Bitácora de Seguridad</h3>
+                    <h3 style={{ color: ROJO_BJ, marginTop: 0 }}>🛡️ Bitácora de Seguridad de Caja</h3>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ background: '#f8f8f8', textAlign: 'left' }}>
                                     <th style={{ padding: '10px' }}>HORA</th>
                                     <th style={{ padding: '10px' }}>CLIENTE</th>
-                                    <th style={{ padding: '10px' }}>MOVIMIENTO</th>
+                                    <th style={{ padding: '10px' }}>OPERACIÓN</th>
                                     <th style={{ padding: '10px' }}>MONTO</th>
-                                    <th style={{ padding: '10px' }}>CAJA ANTES</th>
+                                    <th style={{ padding: '10px' }}>CAJA PRE</th>
                                     <th style={{ padding: '10px' }}>CAJA POST</th>
                                 </tr>
                             </thead>
