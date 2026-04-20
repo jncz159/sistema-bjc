@@ -104,13 +104,55 @@ export default function VentasSection({
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        <input list="clis-data" value={cliente} onChange={handleAutocompleteCliente} placeholder="Nombre del Cliente" style={styleInp} />
-                        <datalist id="clis-data">{[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}</datalist>
+                        {/* IDENTIFICACIÓN DEL CLIENTE */}
+                        <div>
+                            <label style={{ fontSize: '11px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '5px', display: 'block' }}>
+                                CLIENTE (Default: Tienda) *
+                            </label>
+                            <input 
+                                list="clis-data" 
+                                value={cliente} 
+                                onChange={handleAutocompleteCliente} 
+                                placeholder="Escribe nombre del cliente..." 
+                                style={{ ...styleInp, border: `2px solid ${cliente === 'Tienda' ? '#FCC2E2' : FUCSIA_PRINCIPAL}` }} 
+                            />
+                            <datalist id="clis-data">
+                                {[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}
+                            </datalist>
+                        </div>
                         
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <input value={localidad} onChange={e => setLocalidad(e.target.value)} placeholder="📍 Localidad" style={styleInp} />
-                            <input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="📞 WhatsApp" style={styleInp} />
+                            <div>
+                                <label style={{ fontSize: '11px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '5px', display: 'block' }}>
+                                    LOCALIDAD *
+                                </label>
+                                <input 
+                                    value={localidad} 
+                                    onChange={e => setLocalidad(e.target.value)} 
+                                    placeholder="Chiclayo" 
+                                    style={styleInp} 
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '11px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '5px', display: 'block' }}>
+                                    WHATSAPP (Opcional)
+                                </label>
+                                <input 
+                                    value={telefono} 
+                                    onChange={e => setTelefono(e.target.value)} 
+                                    placeholder="999000XXX" 
+                                    style={styleInp} 
+                                />
+                            </div>
                         </div>
+
+                        {/* BUSCADOR DE PRODUCTOS (Esto ya lo tienes, asegúrate de no borrarlo) */}
+                        <input 
+                            value={busqueda} 
+                            onChange={e => setBusqueda(e.target.value)} 
+                            placeholder="🔍 Buscar modelo en stock..." 
+                            style={{ ...styleInp, border: `2px solid ${OSCURO_BJ}` }} 
+                        />
 
                         <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar modelo en stock..." style={{ ...styleInp, border: `2px solid ${OSCURO_BJ}` }} />
                         

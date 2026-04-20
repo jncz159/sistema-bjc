@@ -40,9 +40,10 @@ export default function SistemaBJCMasterFinal() {
   const [busquedaStock, setBusquedaStock] = useState(''); 
   const [busquedaHistorial, setBusquedaHistorial] = useState('');
   const [fechaConsulta, setFechaConsulta] = useState(getFechaPeru());
-  const [cliente, setCliente] = useState('');
-  const [localidad, setLocalidad] = useState(''); 
-  const [telefono, setTelefono] = useState(''); 
+ // --- ESTADOS OPERATIVOS CON VALORES POR DEFECTO ---
+  const [cliente, setCliente] = useState('Tienda'); 
+  const [localidad, setLocalidad] = useState('Chiclayo'); 
+  const [telefono, setTelefono] = useState('');
   const [tipoVenta, setTipoVenta] = useState('Mayor'); 
   const [cantidades, setCantidades] = useState({}); 
   const [coloresElegidos, setColoresElegidos] = useState({});
@@ -203,13 +204,29 @@ export default function SistemaBJCMasterFinal() {
     return Object.values(groups).reverse();
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
-  // --- HANDLERS COMPLETOS ---
   const handleAutocompleteClienteBJ = (e) => {
-    const valor = e.target.value; setCliente(valor);
-    const m = ventas.find(v => v.cliente_nombre?.toLowerCase() === valor.toLowerCase());
-    if (m) { setLocalidad(m.localidad || ''); setTelefono(m.telefono || ''); }
-  };
+    const valor = e.target.value; 
+    setCliente(valor);
+    
+    // Si el usuario borra todo, regresamos a los valores base
+    if (valor.trim() === '') {
+        setLocalidad('Chiclayo');
+        setTelefono('');
+        return;
+    }
 
+    // Buscamos si este nombre ya nos ha comprado antes (CRM)
+    const clienteFrecuente = ventas.find(v => 
+        v.cliente_nombre?.toLowerCase() === valor.toLowerCase()
+    );
+    
+    if (clienteFrecuente) { 
+        // Si lo encontramos, cargamos su historial
+        setLocalidad(clienteFrecuente.localidad || 'Chiclayo'); 
+        setTelefono(clienteFrecuente.telefono || ''); 
+    }
+    // Si es un nombre nuevo, el usuario simplemente sigue escribiendo
+  };
   const handleEjecutarVentaBJ = async (estado, abonoInicial = 0) => {
     if (!cliente || !localidad || carrito.length === 0) return alert("Faltan datos en el cliente o el carrito está vacío.");
     const snap = balanceEliteBJ.cG;
@@ -236,7 +253,7 @@ export default function SistemaBJCMasterFinal() {
             const pO = productos.find(p => p.id === it.producto_id);
             if (pO) await supabase.from('productos').update({ stock: pO.stock - it.cantidad }).eq('id', it.producto_id);
         }
-        setCarrito([]); setCliente(''); setDescuento(0); setLocalidad(''); setTelefono('');
+        setCarrito([]); setCliente('Tienda'); setDescuento(0); setLocalidad('Chiclayo'); setTelefono('');
         cargarTodoDesdeNube();
     }
   };
