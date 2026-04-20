@@ -104,58 +104,53 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesI = hoyS.substring(0,7);
 
-    // --- 1. DINERO REAL EN CAJA (INGRESOS FÍSICOS) ---
-    // Sumamos: Todo lo que NO es 'Pendiente de Pago' ni 'Anulado'.
-    // Esto incluye ventas 'Entregadas' (Cash) y 'En Almacén' (Pagadas).
-    const ingresosPorVentas = ventas
+    // --- 1. CAJA FÍSICA ACTUAL (Lo que tienes en el cajón) ---
+    const cashEntrante = ventas
         .filter(v => v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
 
-    // Sumamos: Ingresos Administrativos (Inyecciones de capital)
-    const ingresosAdmin = finanzas
+    const capitalInyectado = finanzas
         .filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // Restamos: Todos los Gastos o Retiros registrados en el Libro Diario
-    const gastosTotales = finanzas
+    const todosLosGastos = finanzas
         .filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    const cajaGlobalActual = (ingresosPorVentas + ingresosAdmin) - gastosTotales;
+    const cajaActualReal = (cashEntrante + capitalInyectado) - todosLosGastos;
 
-    // --- 2. CAJA DE HOY (EFECTIVO ENTRANTE) ---
-    // Ventas pagadas hoy + Ingresos admin hoy
-    const vHoy = ventas
-        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
-    
-    const iAHoy = finanzas
-        .filter(f => getFechaPeru(f.created_at) === hoyS && ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
-        .reduce((acc, f) => acc + Number(f.monto), 0);
-
-    // --- 3. BÓVEDA PARA RETIRO (UTILIDAD NETA) ---
-    // Ganancia real de todas las ventas (Precio Venta - Precio Costo)
+    // --- 2. BÓVEDA PARA RETIRO (GANANCIA NETA REAL) ---
+    // Sumamos el margen de utilidad de todas las ventas (Precio Venta - Precio Costo)
     const utilidadesBrutas = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
     
-    // La Bóveda es la Utilidad Bruta MENOS los Gastos que ya salieron de caja
-    const bovedaReal = utilidadesBrutas - gastosTotales;
+    // RESTAURACIÓN: Solo restamos de la utilidad los gastos que marcaste como 
+    // procedentes de "Ganancias" o gastos locales/retiros.
+    const gastosQueAfectanUtilidad = finanzas
+        .filter(f => f.origen === 'Ganancias' || ['Gasto Local', 'Retiro Personal'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
 
-    // --- 4. PUNTO DE EQUILIBRIO MENSUAL ---
+    const utilidadNetaBoveda = utilidadesBrutas - gastosQueAfectanUtilidad;
+
+    // --- 3. CÁLCULOS DEL DÍA Y MES ---
+    const vHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
+    
     const utMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesI && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
     
     const gastosMes = finanzas
-        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
+        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesI && ['Gasto Local', 'Retiro Personal'].includes(f.tipo))
         .reduce((acc, f) => acc + Number(f.monto), 0);
 
     return {
-        cH: vHoy + iAHoy,     // Caja del Día
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), // Utilidad Hoy
-        cG: cajaGlobalActual, // Caja Física Real
-        bR: bovedaReal,       // Bóveda de Utilidad
+        cH: vHoy, // Solo ventas cash de hoy
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+        cG: cajaActualReal,
+        bR: utilidadNetaBoveda, // <--- Este número volverá a la normalidad
         pe_p: gastosMes > 0 ? (utMes / gastosMes) * 100 : (utMes > 0 ? 100 : 0), 
         pe_g: utMes, 
         pe_m: gastosMes
