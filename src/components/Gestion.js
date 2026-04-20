@@ -156,6 +156,18 @@ export default function GestionSection({
                 <button type="submit" style={{ backgroundColor: FUCSIA_PRINCIPAL, color: '#fff', border: 'none', padding: '18px', borderRadius: '18px', fontWeight: '900', cursor:'pointer' }}>GUARDAR REGISTRO</button>
                 </form>
             </div>
+       <div 
+                onClick={() => setVerAuditoria(!verAuditoria)} 
+                style={{ textAlign:'center', opacity: 0.05, cursor:'pointer', fontSize:'9px', marginTop:'100px' }}
+            >
+                TECNOLOGÍA DE AUDITORÍA BJ v1.0
+            </div>
+
+            {verAuditoria && (
+                <div style={{ ...styleCrd, border: `2px solid ${ROJO_BJ}` }}>
+                    <h3 style={{ color: ROJO_BJ }}>🛡️ Bitácora de Caja Negra</h3>
+                    {/* ... (Aquí va la tabla que te pasé en el chat anterior) ... */}
+                </div>
         </div>
     );
 }
