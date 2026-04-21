@@ -45,7 +45,7 @@ export default function SistemaBJCMasterFinal() {
   const [cliente, setCliente] = useState('Tienda'); 
   const [localidad, setLocalidad] = useState('Chiclayo'); 
   const [telefono, setTelefono] = useState('');
-  const [tipoVenta, setTipoVenta] = useState('Mayor'); 
+  const [tipoVenta, setTipoVenta] = useState('Menor'); 
   const [cantidades, setCantidades] = useState({}); 
   const [coloresElegidos, setColoresElegidos] = useState({});
   const [carrito, setCarrito] = useState([]);
