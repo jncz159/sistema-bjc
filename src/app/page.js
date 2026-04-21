@@ -241,7 +241,51 @@ export default function SistemaBJCMasterFinal() {
         precio_costo_unitario: i.precio_compra, ganancia_total: (Number(i.precio_venta)-Number(i.precio_compra))*i.cantidad, 
         estado_pedido: estado, created_at: ts 
     }));
+const handleUpdateItemVentaBJ = async (id, data) => {
+    try {
+        // 1. Obtener el estado actual del ítem antes de editar
+        const { data: itemOriginal } = await supabase.from('ventas').select('*').eq('id', id).single();
+        if (!itemOriginal) return;
 
+        const pO = productos.find(p => p.id === itemOriginal.producto_id);
+        const snap = balanceEliteBJ.localCaja || balanceEliteBJ.cG; // Caja actual
+
+        // 2. Calcular Diferenciales
+        const diffCantidad = itemOriginal.cantidad - data.cantidad; // Si bajaste la cantidad, esto es positivo (vuelve al stock)
+        const totalOriginal = itemOriginal.precio_venta_unitario * itemOriginal.cantidad;
+        const totalNuevo = data.precio_venta_unitario * data.cantidad;
+        const diffCaja = totalOriginal - totalNuevo; // Si el nuevo total es menor, esto es positivo (dinero que sale de caja)
+
+        // 3. Actualizar Venta y Ganancia
+        const nuevaGanancia = (data.precio_venta_unitario - itemOriginal.precio_costo_unitario) * data.cantidad;
+        await supabase.from('ventas').update({ 
+            cantidad: data.cantidad, 
+            precio_venta_unitario: data.precio_venta_unitario, 
+            ganancia_total: nuevaGanancia 
+        }).eq('id', id);
+
+        // 4. Ajustar Stock en Almacén
+        if (pO && diffCantidad !== 0) {
+            await supabase.from('productos').update({ stock: pO.stock + diffCantidad }).eq('id', pO.id);
+        }
+
+        // 5. Ajustar Caja Física si no fue Crédito
+        if (itemOriginal.estado_pedido !== 'Pendiente de Pago' && diffCaja !== 0) {
+            await supabase.from('auditoria_bj').insert([{ 
+                cliente: itemOriginal.cliente_nombre, 
+                operacion: 'CORRECCIÓN VENTA', 
+                monto_operacion: -diffCaja, 
+                caja_antes: snap, 
+                caja_despues: snap - diffCaja 
+            }]);
+        }
+
+        alert("✅ Ítem actualizado. Stock y Caja ajustados.");
+        cargarTodoDesdeNube();
+    } catch (e) {
+        console.error("Error en update individual:", e);
+    }
+  };
     const { error } = await supabase.from('ventas').insert(lista);
     if (!error) {
         if (montoHoy > 0) {
@@ -300,7 +344,7 @@ export default function SistemaBJCMasterFinal() {
         }
         
         // 4. Borrar el registro de venta
-        await supabase.from('ventas').delete().eq('id', v.id);
+        await supabase.from('ventas').update({ estado_pedido: 'Anulado' }).eq('id', v.id);
         cargarTodoDesdeNube();
     }
   };
@@ -325,7 +369,54 @@ export default function SistemaBJCMasterFinal() {
         cargarTodoDesdeNube();
     }
   };
+const handleUpdateItemVentaBJ = async (id, data) => {
+    try {
+        // 1. Buscamos el registro viejo antes de cambiarlo
+        const { data: itemOriginal } = await supabase.from('ventas').select('*').eq('id', id).single();
+        if (!itemOriginal) return;
 
+        const pO = productos.find(p => p.id === itemOriginal.producto_id);
+        const snap = balanceEliteBJ.cG; // Caja actual
+
+        // 2. CÁLCULO DE DIFERENCIALES
+        // Stock: Si antes eran 5 y ahora son 3, devolvemos 2 al stock (+2)
+        const diffCantidad = itemOriginal.cantidad - data.cantidad; 
+        
+        // Dinero: Si antes pagó S/100 y ahora S/60, devolvemos S/40 a la caja
+        const totalOriginal = itemOriginal.precio_venta_unitario * itemOriginal.cantidad;
+        const totalNuevo = data.precio_venta_unitario * data.cantidad;
+        const diffCaja = totalOriginal - totalNuevo;
+
+        // 3. ACTUALIZAR VENTA EN SUPABASE
+        const nuevaGanancia = (data.precio_venta_unitario - itemOriginal.precio_costo_unitario) * data.cantidad;
+        await supabase.from('ventas').update({ 
+            cantidad: data.cantidad, 
+            precio_venta_unitario: data.precio_venta_unitario, 
+            ganancia_total: nuevaGanancia 
+        }).eq('id', id);
+
+        // 4. REVERTIR STOCK SI CAMBIÓ LA CANTIDAD
+        if (pO && diffCantidad !== 0) {
+            await supabase.from('productos').update({ stock: pO.stock + diffCantidad }).eq('id', pO.id);
+        }
+
+        // 5. REVERTIR DINERO SI FUE AL CONTADO/ALMACÉN
+        if (itemOriginal.estado_pedido !== 'Pendiente de Pago' && diffCaja !== 0) {
+            await supabase.from('auditoria_bj').insert([{ 
+                cliente: itemOriginal.cliente_nombre, 
+                operacion: 'CORRECCIÓN DE PRECIO/CANTIDAD', 
+                monto_operacion: -diffCaja, 
+                caja_antes: snap, 
+                caja_despues: snap - diffCaja 
+            }]);
+        }
+
+        alert("✅ Ítem actualizado. Stock y Caja ajustados automáticamente.");
+        cargarTodoDesdeNube();
+    } catch (e) {
+        console.error("Error en la edición individual:", e);
+    }
+};
   const handleExportarExcelCajaFull = () => {
     let csv = "\uFEFF"; csv += "CLIENTE,HORA,PRODUCTO,CANT,V.UNIT,SUBTOTAL\n";
     historialVentasDiaBJ.forEach(g => {
@@ -406,7 +497,7 @@ export default function SistemaBJCMasterFinal() {
       </header>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '15px' }}>
-        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
+        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, handleUpdateItemVentaBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
         
         {vista === 'stock' && <AlmacenSection {...{ formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); await supabase.from('productos').insert([formProd]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube();}, handleDeleteProductoBJ: async (id,n)=>{if(confirm(`¿Estás seguro de borrar ${n}?`)){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();}}, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id,s)=>{await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube();}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
 
