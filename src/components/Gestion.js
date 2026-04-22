@@ -48,8 +48,11 @@ export default function GestionSection({
                     </div>
                 </div>
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'10px'}}>💰 BÓVEDA (UTILIDAD HISTÓRICA)</h4>
-                    <h3 style={{fontSize:'3rem', margin:0}}>S/ {(balanceEliteBJ?.bR || 0).toFixed(2)}</h3>
+                    // Para el título de la Bóveda:
+<small style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', ... }}>💰 BÓVEDA (UTILIDAD HISTÓRICA)</small>
+
+// Para el número grande 
+<div style={{ color: OSCURO_BJ, fontSize: '2.5rem', fontWeight: '900', ... }}>
                     <small style={{opacity: 0.5, fontSize: '10px'}}>Acumulado histórico de márgenes de ganancia pura.</small>
                 </div>
             </div>
