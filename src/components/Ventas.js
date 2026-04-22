@@ -149,21 +149,31 @@ export default function VentasSection({
                         
                         <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar modelo, foco, led..." style={{ ...styleInp, border: `2px solid ${OSCURO_BJ}`, backgroundColor: '#F8FAFC' }} />
 
-                        <div style={{ maxHeight: '550px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', paddingRight: '5px', WebkitOverflowScrolling: 'touch' }}>
-                            {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock > 0).map(p => (
-                                <div key={p.id} style={{ 
+                        <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', paddingRight: '5px' }}>
+                            {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock > 0).map(p => {
+                                
+                                // --- 1. LÓGICA DE AUTOCOMPLETADO DE PRECIOS (EL CEREBRO) ---
+                                const pMayor = Number(p.precio_venta || 0);
+                                const pMenor = Number(p.precio_menor || 0);
+                                const precioFinal = tipoVenta === 'Mayor' 
+                                    ? (pMayor > 0 ? pMayor : pMenor) 
+                                    : (pMenor > 0 ? pMenor : pMayor);
+
+                                // --- 2. RENDERIZADO VISUAL CON MEJORAS ---
+                                return (
+                                    <div key={p.id} style={{ 
                                         padding: '20px', borderRadius: '25px', border: '1px solid #F1F5F9', backgroundColor: '#fff',
-                                        transform: animatingId === p.id ? 'scale(0.95)' : 'scale(1)', // 3. EFECTO TAP VISUAL
+                                        transform: animatingId === p.id ? 'scale(0.95)' : 'scale(1)', // EFECTO TAP VISUAL
                                         transition: 'transform 0.15s ease' 
                                     }}>
                                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                            {/* 4. AVATAR DE PRODUCTO */}
+                                            {/* AVATAR DE PRODUCTO */}
                                             <div style={{ width: '45px', height: '45px', borderRadius: '12px', backgroundColor: `${FUCSIA_PRINCIPAL}15`, color: FUCSIA_PRINCIPAL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '20px', flexShrink: 0 }}>
                                                 {p.nombre.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <strong style={{ fontSize: '15px', lineHeight: '1.2', display: 'block', marginBottom: '4px' }}>{p.nombre}</strong>
-                                                {/* 2. SEMÁFORO DE STOCK VISUAL */}
+                                                {/* SEMÁFORO DE STOCK VISUAL */}
                                                 <small style={{ color: p.stock > 10 ? VERDE_BJ : (p.stock > 0 ? AMARILLO_BJ : ROJO_BJ), fontWeight: '900' }}>
                                                     {p.stock > 10 ? '🟢 ' : (p.stock > 0 ? '🟠 ' : '🔴 ')} Stock: {p.stock}u | S/ {precioFinal.toFixed(2)}
                                                 </small>
@@ -179,7 +189,7 @@ export default function VentasSection({
                                                 <span style={{ fontWeight: '900' }}>{cantidades[p.id] || 1}</span>
                                                 <button onClick={() => modCant(p.id, 1)} style={{ width: '35px', height: '35px', borderRadius: '10px', border: 'none', backgroundColor: '#F1F5F9', fontWeight: '900' }}>+</button>
                                             </div>
-                                            {/* 3. LANZADOR DEL EFECTO TAP */}
+                                            {/* LANZADOR DEL EFECTO TAP */}
                                             <button onClick={() => {
                                                 setAnimatingId(p.id);
                                                 setTimeout(() => setAnimatingId(null), 150); // Apaga la animación en 150ms
@@ -189,7 +199,8 @@ export default function VentasSection({
                                             }} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', height: '45px', borderRadius: '15px', fontWeight: '900', fontSize: '20px', cursor: 'pointer', opacity: p.stock > 0 ? 1 : 0.5 }} disabled={p.stock <= 0}>+</button>
                                         </div>
                                     </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
