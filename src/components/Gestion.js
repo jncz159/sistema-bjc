@@ -47,17 +47,15 @@ export default function GestionSection({
                         <span style={{color: ROJO_BJ}}>Gastos Local: S/ {(balanceEliteBJ?.pe_m || 0).toFixed(2)}</span>
                     </div>
                 </div>
-                <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <small style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', opacity: 0.8, fontSize: '11px', letterSpacing: '1px' }}>💰 BÓVEDA (UTILIDAD HISTÓRICA)</small>
+                {/* TARJETA BÓVEDA (UTILIDAD HISTÓRICA) */}
+                <div style={{ ...styleCrd, background: OSCURO_BJ, color: '#fff', border: 'none', boxShadow: `0 15px 35px ${OSCURO_BJ}40` }}>
+                    <small style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', opacity: 0.9, fontSize: '11px', letterSpacing: '1px' }}>💰 BÓVEDA (UTILIDAD HISTÓRICA)</small>
                     
                     <div style={{ color: '#fff', fontSize: '2.5rem', fontWeight: '900', margin: '5px 0' }}>
                         S/ {(balanceEliteBJ?.bR || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
                     </div>
                     
-                    <small style={{opacity: 0.5, fontSize: '10px'}}>Acumulado histórico de márgenes de ganancia pura.</small>
-                </div>
-                    <small style={{opacity: 0.5, fontSize: '10px'}}>Acumulado histórico de márgenes de ganancia pura.</small>
+                    <small style={{ color: '#fff', opacity: 0.5, fontSize: '10px' }}>Acumulado histórico de márgenes de ganancia pura.</small>
                 </div>
             </div>
 
