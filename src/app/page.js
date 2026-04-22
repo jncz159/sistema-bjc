@@ -23,6 +23,7 @@ import ClientesSection from '../components/Clientes';
 export default function SistemaBJCMasterFinal() {
   
   // --- ESTADOS DE BASE DE DATOS ---
+  const [efectivoRecibido, setEfectivoRecibido] = useState('');
   const [hasMounted, setHasMounted] = useState(false);
   const [productos, setProductos] = useState([]);
   const [ventas, setVentas] = useState([]);
@@ -232,7 +233,9 @@ export default function SistemaBJCMasterFinal() {
     if (!cliente || !localidad || carrito.length === 0) return alert("Faltan datos en el cliente o el carrito está vacío.");
     const snap = balanceEliteBJ.cG;
     const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
-    const montoHoy = estado === 'Pendiente de Pago' ? Number(abonoInicial) : totalV - Number(descuento);
+    const montoHoy = (estado === 'Entregado' || estado === 'En Almacén') 
+        ? (totalV - Number(descuento)) 
+        : Number(abonoInicial);
     const ts = new Date().toISOString();
 
     const lista = carrito.map(i => ({ 
@@ -281,7 +284,9 @@ const handleUpdateItemVentaBJ = async (id, data) => {
         }
 
         alert("✅ Ítem actualizado. Stock y Caja ajustados.");
-        cargarTodoDesdeNube();
+        cargarTodoDesdeNube()
+        setEfectivoRecibido('');
+        ;
     } catch (e) {
         console.error("Error en update individual:", e);
     }
@@ -497,7 +502,7 @@ const handleUpdateItemVentaBJ = async (id, data) => {
       </header>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '15px' }}>
-        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, handleUpdateItemVentaBJ, fechaConsulta, setFechaConsulta, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
+        {vista === 'ventas' && <VentasSection {...{ balanceEliteBJ, handleUpdateItemVentaBJ, fechaConsulta, setFechaConsulta, efectivoRecibido, setEfectivoRecibido, handleExportarExcelCajaFull, tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
         
         {vista === 'stock' && <AlmacenSection {...{ formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); await supabase.from('productos').insert([formProd]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube();}, handleDeleteProductoBJ: async (id,n)=>{if(confirm(`¿Estás seguro de borrar ${n}?`)){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();}}, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id,s)=>{await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube();}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
 

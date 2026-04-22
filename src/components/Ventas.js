@@ -22,12 +22,11 @@ export default function VentasSection({
     carrito, setCarrito, descuento, setDescuento, handleEjecutarVentaBJ,
     busqueda, setBusqueda, productos, coloresElegidos, setColoresElegidos,
     cantidades, setCantidades, busquedaHistorial, setBusquedaHistorial,
-    historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ,
+    historialVentasDiaBJ, handleAnularVentaBJ, analiticaProBJ, efectivoRecibido, setEfectivoRecibido,
     handleUpdateItemVentaBJ, // Prop nueva para edición individual
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
     // --- ESTADOS LOCALES ---
-    const [efectivoRecibido, setEfectivoRecibido] = useState('');
     const [showSuccess, setShowSuccess] = useState(false); // Banner de éxito
     const [idEditItemHistorial, setIdEditItemHistorial] = useState(null);
     const [formEditItemHistorial, setFormEditItemHistorial] = useState({});
@@ -208,7 +207,23 @@ export default function VentasSection({
                             <div style={{ padding: '15px', borderRadius: '20px', backgroundColor: `${VERDE_BJ}10`, border: `2px dashed ${VERDE_BJ}` }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontWeight: '900', fontSize: '12px' }}>EFECTIVO S/</span>
-                                    <input type="number" value={efectivoRecibido} onChange={e => setEfectivoRecibido(e.target.value)} style={{ width: '90px', textAlign: 'right', border: 'none', borderBottom: `2px solid ${VERDE_BJ}`, background: 'none', fontWeight: '900', fontSize: '18px', color: VERDE_BJ }} />
+                                    <input 
+            type="number" 
+            value={efectivoRecibido} 
+            onChange={e => setEfectivoRecibido(e.target.value)} 
+            placeholder="0.00"
+            style={{ 
+                width: '100px', 
+                textAlign: 'right', 
+                border: 'none', 
+                borderBottom: `2px solid ${VERDE_BJ}`, 
+                background: 'none', 
+                fontWeight: '900', 
+                fontSize: '18px', 
+                outline: 'none', 
+                color: VERDE_BJ 
+            }} 
+        />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', fontWeight: '900', fontSize: '14px' }}>
                                     <span>VUELTO: S/ {vuelto.toFixed(2)}</span>
@@ -217,9 +232,9 @@ export default function VentasSection({
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <button onClick={() => ejecutarVentaConAlerta('Entregado')} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CASH 💵</button>
-                                <button onClick={() => ejecutarVentaConAlerta('En Almacén')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>ALMACÉN 📦</button>
-                                <button onClick={() => ejecutarVentaConAlerta('Pendiente de Pago')} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CRÉDITO 💳</button>
+                                <button onClick={() => handleEjecutarVentaBJ('Entregado')} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CASH 💵</button>
+                                <button onClick={() => handleEjecutarVentaBJ('En Almacén')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>ALMACÉN 📦</button>
+                                <button onClick={() => handleEjecutarVentaBJ('Pendiente de Pago')} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CRÉDITO 💳</button>
                                 <button onClick={handleEnviarWhatsAppPresupuesto} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>WSP 📱</button>
                             </div>
                         </div>
