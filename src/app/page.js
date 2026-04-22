@@ -27,6 +27,22 @@ if (typeof window !== 'undefined') {
   link.rel = 'stylesheet';
   document.head.appendChild(link);
 }
+// INYECCIÓN DE ESTILOS GLOBALES (Ocultar Scrollbars)
+if (typeof window !== 'undefined') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    /* Ocultar barra de desplazamiento para Chrome, Safari y Opera */
+    *::-webkit-scrollbar {
+      display: none;
+    }
+    /* Ocultar barra de desplazamiento para IE, Edge y Firefox */
+    * {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+  `;
+  document.head.appendChild(style);
+}
 export default function SistemaBJCMasterFinal() {
   
   // ==========================================
@@ -91,8 +107,17 @@ export default function SistemaBJCMasterFinal() {
   const OSCURO_BJ = '#1E1B1C';
 
   const styleInp = { 
-      padding: '16px', borderRadius: '16px', border: `2px solid #FCC2E2`, width: '100%', 
-      outline: 'none', fontSize: '16px', boxSizing: 'border-box', backgroundColor: '#fff', transition: 'all 0.3s ease' 
+      padding: '16px', 
+      borderRadius: '16px', 
+      border: 'none', /* Eliminamos el borde rosado */
+      backgroundColor: '#F1F5F9', /* Fondo gris ultraclaro */
+      width: '100%', 
+      outline: 'none', 
+      fontSize: '14px', 
+      fontWeight: '600',
+      color: OSCURO_BJ,
+      boxSizing: 'border-box', 
+      transition: 'all 0.3s ease' 
   };
   
   const styleCrd = { 
@@ -564,7 +589,8 @@ export default function SistemaBJCMasterFinal() {
   if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>CARGANDO BÚNKER... 🚀</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, paddingBottom: '100px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, paddingBottom: '100px', fontFamily: "'Poppins', system-ui, sans-serif" }}>
+    
       
       {/* HEADER LIMPIO (ESTILO ORIGINAL) */}
       <header style={{ backgroundColor: '#ffffff', padding: '10px 5%', position: 'sticky', top: 0, zIndex: 1000, boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>

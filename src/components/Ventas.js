@@ -136,6 +136,7 @@ export default function VentasSection({
                     </div>
                 </div>
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '30px' }}>
                 {/* --- BLOQUE 2: CATÁLOGO --- */}
                 <div style={styleCrd}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
