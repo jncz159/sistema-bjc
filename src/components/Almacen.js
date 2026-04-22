@@ -20,8 +20,11 @@ export default function AlmacenSection({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             {/* CABECERA */}
             <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', textAlign: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '2.5rem' }}>📦 Almacén Chiclayo</h2>
-                <p style={{ opacity: 0.7 }}>Control total de inventario y costos.</p>
+                // Para el título:
+<h2 style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', margin: 0, fontSize: '2rem' }}>📦Almacén Chiclayo</h2>
+
+// Para el subtítulo:
+<p style={{ color: OSCURO_BJ, opacity: 0.6, margin: 0 }}>Control total de inventario y costos.</p>
             </div>
 
             {/* FORMULARIO: NUEVO PRODUCTO */}
