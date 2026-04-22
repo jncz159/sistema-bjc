@@ -247,7 +247,11 @@ export default function SistemaBJCMasterFinal() {
   }, [ventas, productos]);
 
   const historialVentasDiaBJ = useMemo(() => {
-    const filt = ventas.filter(v => getFechaPeru(v.created_at) === fechaConsulta && v.cliente_nombre?.toLowerCase().includes(busquedaHistorial.toLowerCase()));
+    const filt = ventas.filter(v => 
+        getFechaPeru(v.created_at) === fechaConsulta && 
+        v.cliente_nombre?.toLowerCase().includes(busquedaHistorial.toLowerCase()) &&
+        v.estado_pedido !== 'Anulado' // 👈 ESTE ES EL ESCUDO QUE FALTABA
+    );
     const groups = {};
     filt.forEach(v => {
         const hId = `${v.cliente_nombre}-${v.created_at?.substring(0,16)}`; 
