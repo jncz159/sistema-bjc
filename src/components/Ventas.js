@@ -24,7 +24,8 @@ export default function VentasSection({
             return () => clearTimeout(timer);
         }
     }, [showSuccess]);
-
+// Calculadora automática del stock total
+    const stockTotalUnidades = productos.reduce((acc, p) => acc + Number(p.stock || 0), 0);
     // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
     const ejecutarVentaConAlerta = async (modo, abono = 0) => {
         // 1. Mensaje personalizado según el tipo de venta
