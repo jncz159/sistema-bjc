@@ -163,7 +163,7 @@ export default function SistemaBJCMasterFinal() {
 
   const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
-    
+    const mesActual = hoyS.substring(0, 7); // NUEVO: Extrae el mes actual (Ej: "2026-04")
     // CAJA REAL
     const ventasCompletadas = ventas
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
@@ -192,7 +192,23 @@ export default function SistemaBJCMasterFinal() {
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
-    return { cH: cajaHoy, gH: gananciaHoy, cG: cajaReal, bR: utilidadHistorica };
+       const gananciaMes = ventas
+        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+        
+    const gastosMes = finanzas
+        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesActual && ['Gasto Local','Retiro Personal'].includes(f.tipo))
+        .reduce((acc, f) => acc + Number(f.monto), 0);
+        
+    const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
+    return { 
+        cH: cajaHoy, 
+        gH: gananciaHoy, 
+        cG: cajaReal, 
+        bR: utilidadHistorica,
+        pe_g: gananciaMes,
+        pe_m: gastosMes,
+        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio };
   }, [ventas, finanzas]);
 
   const analiticaProBJ = useMemo(() => {
