@@ -494,29 +494,35 @@ export default function SistemaBJCMasterFinal() {
   // ==========================================
   const handleRegistrarFinanzaBJ = async (e) => {
     e.preventDefault();
-    const handleUpdateFinanzaBJ = async (id) => { 
+    // 1. FUNCIÓN PARA EDITAR (Afuera e independiente)
+  const handleUpdateFinanzaBJ = async (id) => { 
       await supabase.from('finanzas').update(formEditFinanza).eq('id', id); 
       setIdEditFinanza(null); 
       cargarTodoDesdeNube(); 
   };
-    const mF = Number(handleInputMonto(formFinanzas.monto));
-    const esGasto = !['Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
-    const delta = esGasto ? -mF : mF; // Negativo si sale dinero
-    
-    const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
-    if (!error) {
-        await supabase.from('auditoria_bj').insert([{ 
-            cliente: 'ADMINISTRATIVO', 
-            operacion: formFinanzas.tipo.toUpperCase(), 
-            monto_operacion: delta, 
-            caja_antes: balanceEliteBJ.cG, 
-            caja_despues: balanceEliteBJ.cG + delta 
-        }]);
-        setFormFinanzas({ tipo: 'Gasto Local', descripcion: '', monto: '' });
-        cargarTodoDesdeNube();
-    }
-  };
 
+  // 2. FUNCIÓN PARA REGISTRAR NUEVO (Limpia)
+  const handleRegistrarFinanzaBJ = async (e) => {
+      e.preventDefault();
+      
+      const mF = Number(handleInputMonto(formFinanzas.monto));
+      const esGasto = !['Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
+      const delta = esGasto ? -mF : mF; // Negativo si sale dinero
+      
+      const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
+      
+      if (!error) {
+          await supabase.from('auditoria_bj').insert([{ 
+              cliente: 'ADMINISTRATIVO', 
+              operacion: formFinanzas.tipo.toUpperCase(), 
+              monto_operacion: delta, 
+              caja_antes: balanceEliteBJ.cG, 
+              caja_despues: balanceEliteBJ.cG + delta 
+          }]);
+          setFormFinanzas({ tipo: 'Gasto Local', descripcion: '', monto: '' });
+          cargarTodoDesdeNube(); 
+      }
+  };
   // ==========================================
   // 12. RENDERIZADO VISUAL DEL BÚNKER
   // ==========================================
