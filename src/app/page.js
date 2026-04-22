@@ -492,9 +492,8 @@ export default function SistemaBJCMasterFinal() {
   // ==========================================
   // 11. FUNCIONES: FINANZAS (GASTOS E INGRESOS)
   // ==========================================
-  const handleRegistrarFinanzaBJ = async (e) => {
-    e.preventDefault();
-    // 1. FUNCIÓN PARA EDITAR (Afuera e independiente)
+  
+  // 1. FUNCIÓN PARA EDITAR (Afuera e independiente)
   const handleUpdateFinanzaBJ = async (id) => { 
       await supabase.from('finanzas').update(formEditFinanza).eq('id', id); 
       setIdEditFinanza(null); 
