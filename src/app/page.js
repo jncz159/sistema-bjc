@@ -20,7 +20,13 @@ import LogisticaSection from '../components/Logistica';
 import GestionSection from '../components/Gestion';
 import FinanzasSection from '../components/Finanzas';
 import ClientesSection from '../components/Clientes';
-
+// 1. INYECCIÓN DE FUENTE PREMIUM
+if (typeof window !== 'undefined') {
+  const link = document.createElement('link');
+  link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;900&display=swap';
+  link.rel = 'stylesheet';
+  document.head.appendChild(link);
+}
 export default function SistemaBJCMasterFinal() {
   
   // ==========================================
@@ -90,8 +96,14 @@ export default function SistemaBJCMasterFinal() {
   };
   
   const styleCrd = { 
-      backgroundColor: '#ffffff', borderRadius: '30px', padding: '25px', 
-      boxShadow: `0 15px 35px rgba(240, 16, 151, 0.05)`, border: '1px solid #FFF1F2', boxSizing: 'border-box', overflow: 'hidden' 
+      background: 'linear-gradient(145deg, #ffffff, #fffcfd)', // Micro-degradado
+      borderRadius: '32px', 
+      padding: '28px', 
+      boxShadow: '0 20px 40px rgba(240, 16, 151, 0.06), 0 1px 4px rgba(0,0,0,0.02)', // Sombra flotante
+      border: '1px solid rgba(255, 255, 255, 0.7)', // Brillo en el borde
+      boxSizing: 'border-box', 
+      overflow: 'hidden',
+      fontFamily: "'Poppins', sans-serif" // Aplicamos la nueva letra
   };
 
   // ==========================================

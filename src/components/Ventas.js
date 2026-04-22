@@ -94,30 +94,48 @@ export default function VentasSection({
                 </div>
             )}
 
-            {/* --- BLOQUE 1: INDICADORES SUPERIORES --- */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px' }}>
-                <div style={{ ...styleCrd, padding: '25px', textAlign: 'center', borderBottom: `6px solid ${FUCSIA_PRINCIPAL}` }}>
-                    <small style={{ fontWeight: '900', opacity: 0.5, fontSize: '12px', letterSpacing: '1px' }}>💵 CAJA FÍSICA HOY</small>
-                    <div style={{ fontSize: '2.2rem', fontWeight: '900', marginTop: '5px' }}>S/ {balanceEliteBJ.cH.toFixed(2)}</div>
+            {/* --- BLOQUE 1: DASHBOARD DE MÉTRICAS PREMIUM --- */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', fontFamily: "'Poppins', sans-serif" }}>
+                
+                {/* TARJETA CAJA */}
+                <div style={{ ...styleCrd, display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `8px solid ${AMARILLO_BJ}` }}>
+                    <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: `${AMARILLO_BJ}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                        💵
+                    </div>
+                    <div>
+                        <small style={{ fontWeight: '600', opacity: 0.4, fontSize: '11px', letterSpacing: '1px' }}>CAJA FÍSICA HOY</small>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '900', color: OSCURO_BJ }}>
+                            S/ {(balanceEliteBJ?.cH || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+                        </div>
+                    </div>
                 </div>
-                <div style={{ ...styleCrd, padding: '25px', textAlign: 'center', borderBottom: `6px solid ${VERDE_BJ}` }}>
-                    <small style={{ fontWeight: '900', opacity: 0.5, fontSize: '12px', letterSpacing: '1px' }}>📈 GANANCIA HOY</small>
-                    <div style={{ fontSize: '2.2rem', fontWeight: '900', color: VERDE_BJ, marginTop: '5px' }}>S/ {balanceEliteBJ.gH.toFixed(2)}</div>
+
+                {/* TARJETA GANANCIA */}
+                <div style={{ ...styleCrd, display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `8px solid ${VERDE_BJ}` }}>
+                    <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: `${VERDE_BJ}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                        📈
+                    </div>
+                    <div>
+                        <small style={{ fontWeight: '600', opacity: 0.4, fontSize: '11px', letterSpacing: '1px' }}>GANANCIA NETA</small>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '900', color: VERDE_BJ }}>
+                            S/ {(balanceEliteBJ?.gH || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+                        </div>
+                    </div>
                 </div>
-                <div style={{ ...styleCrd, padding: '20px', gridColumn: 'span 2' }}>
-                    <small style={{ fontWeight: '900', opacity: 0.5, fontSize: '12px', display: 'block', marginBottom: '12px', letterSpacing: '1px' }}>🏆 PRODUCTOS MÁS VENDIDOS</small>
-                    <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
-                        {analiticaProBJ?.top?.map((t, i) => (
-                            <div key={i} style={{ backgroundColor: '#F8FAFC', padding: '10px 18px', borderRadius: '15px', fontSize: '13px', whiteSpace: 'nowrap', border: '1px solid #E2E8F0', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
-                                <strong style={{ color: FUCSIA_PRINCIPAL, fontSize: '15px' }}>{t[1]}u</strong> <span style={{ fontWeight: '600' }}>{t[0]}</span>
-                            </div>
-                        ))}
+
+                {/* TARJETA STOCK */}
+                <div style={{ ...styleCrd, display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `8px solid ${OSCURO_BJ}`, background: '#1E1B1C', color: '#fff' }}>
+                    <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                        📦
+                    </div>
+                    <div>
+                        <small style={{ fontWeight: '600', opacity: 0.5, fontSize: '11px', letterSpacing: '1px' }}>STOCK ALMACÉN</small>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '900' }}>
+                            {stockTotalUnidades} <span style={{ fontSize: '14px', opacity: 0.6 }}>und.</span>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '30px' }}>
-                
                 {/* --- BLOQUE 2: CATÁLOGO --- */}
                 <div style={styleCrd}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
