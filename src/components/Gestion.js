@@ -1,11 +1,12 @@
 "use client";
 /**
  * ============================================================================
- * COMPONENTE: Gestion.js (v2.1.0 SCROLL BOX)
+ * COMPONENTE: Gestion.js (v2.1.1 SCROLL BOX + ESCUDO TOTAL)
  * PROPIETARIO: Jean - B J Importaciones Chiclayo
  * ACTUALIZACIÓN:
  * - Tabla de Libro Diario encapsulada con scroll vertical (max-height).
  * - Encabezados Sticky (fijos) para mejor navegación en celular.
+ * - BLINDAJE: Agregados null-checks (?.) para evitar errores "undefined".
  * ============================================================================
  */
 import React, { useState, useEffect } from 'react';
@@ -42,13 +43,13 @@ export default function GestionSection({
                         <div style={{height:'100%', width:`${balanceEliteBJ?.pe_p || 0}%`, backgroundColor:VERDE_BJ, transition:'1s'}}></div>
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', fontWeight:'900'}}>
-                        <span style={{color: VERDE_BJ}}>Ganancia Venta: S/ {balanceEliteBJ?.pe_g?.toFixed(2)}</span>
-                        <span style={{color: ROJO_BJ}}>Gastos Local: S/ {balanceEliteBJ?.pe_m?.toFixed(2)}</span>
+                        <span style={{color: VERDE_BJ}}>Ganancia Venta: S/ {(balanceEliteBJ?.pe_g || 0).toFixed(2)}</span>
+                        <span style={{color: ROJO_BJ}}>Gastos Local: S/ {(balanceEliteBJ?.pe_m || 0).toFixed(2)}</span>
                     </div>
                 </div>
                 <div style={{ ...styleCrd, backgroundColor: OSCURO_BJ, color: '#fff', border: `3px solid ${FUCSIA_PRINCIPAL}` }}>
                     <h4 style={{margin:0, color:FUCSIA_PRINCIPAL, fontSize:'14px', fontWeight:'900', marginBottom:'10px'}}>💰 BÓVEDA (UTILIDAD HISTÓRICA)</h4>
-                    <h3 style={{fontSize:'3rem', margin:0}}>S/ {balanceEliteBJ?.bR?.toFixed(2)}</h3>
+                    <h3 style={{fontSize:'3rem', margin:0}}>S/ {(balanceEliteBJ?.bR || 0).toFixed(2)}</h3>
                     <small style={{opacity: 0.5, fontSize: '10px'}}>Acumulado histórico de márgenes de ganancia pura.</small>
                 </div>
             </div>
@@ -56,15 +57,15 @@ export default function GestionSection({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid #64748B` }}>
                     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>CAPITAL EN MERCADERÍA</small>
-                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {valorizacionStockBJ?.cost?.toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {(valorizacionStockBJ?.cost || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
                 </div>
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${AMARILLO_BJ}` }}>
                     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>CAJA ACTUAL FÍSICA</small>
-                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {balanceEliteBJ?.cG?.toFixed(2)}</h4>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {(balanceEliteBJ?.cG || 0).toFixed(2)}</h4>
                 </div>
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${VERDE_BJ}`, backgroundColor: `${VERDE_BJ}05` }}>
                     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px', color: VERDE_BJ}}>DINERO POTENCIAL A GANAR</small>
-                    <h4 style={{fontSize:'2rem', margin:'10px 0', color: VERDE_BJ}}>S/ {valorizacionStockBJ?.pot?.toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0', color: VERDE_BJ}}>S/ {(valorizacionStockBJ?.pot || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
                 </div>
             </div>
 
@@ -75,7 +76,7 @@ export default function GestionSection({
                     
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: '900', marginBottom: '5px', display: 'block' }}>TIPO DE MOVIMIENTO</label>
-                        <select value={formFinanzas.tipo} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={styleInp}>
+                        <select value={formFinanzas?.tipo || 'Gasto Local'} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={styleInp}>
                             <option value="Gasto Local">📉 Gasto Operativo Local</option>
                             <option value="Retiro Personal">👤 Retiro Personal (Dueño)</option>
                             <option value="Ingreso Adicional">📈 Ingreso Adicional</option>
@@ -86,12 +87,12 @@ export default function GestionSection({
 
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: '900', marginBottom: '5px', display: 'block' }}>DESCRIPCIÓN</label>
-                        <input value={formFinanzas.descripcion} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} placeholder="Ej: Pago de Luz" style={styleInp} />
+                        <input value={formFinanzas?.descripcion || ''} onChange={e => setFormFinanzas({...formFinanzas, descripcion: e.target.value})} placeholder="Ej: Pago de Luz" style={styleInp} />
                     </div>
 
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: '900', marginBottom: '5px', display: 'block' }}>MONTO (S/)</label>
-                        <input value={formFinanzas.monto} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} placeholder="0.00" style={styleInp} />
+                        <input value={formFinanzas?.monto || ''} onChange={e => setFormFinanzas({...formFinanzas, monto: handleInputMonto(e.target.value)})} placeholder="0.00" style={styleInp} />
                     </div>
 
                     <button type="submit" style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer', width: '100%' }}>
@@ -117,33 +118,33 @@ export default function GestionSection({
                             </tr>
                         </thead>
                         <tbody>
-                        {finanzas?.length === 0 ? (
+                        {finanzas?.filter(f => f != null).length === 0 ? (
                             <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: '#94A3B8' }}>No hay movimientos registrados.</td></tr>
                         ) : (
-                            finanzas?.map(f => (
-                                <tr key={f.id} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                                    {idEditFinanza === f.id ? (
+                            finanzas?.filter(f => f != null).map(f => (
+                                <tr key={f?.id || Math.random()} style={{ borderBottom: '1px solid #f1f1f1' }}>
+                                    {idEditFinanza === f?.id ? (
                                         <>
-                                            <td style={{padding:'10px'}}><input type="datetime-local" value={formEditFinanza.created_at} onChange={e => setFormEditFinanza({...formEditFinanza, created_at: e.target.value})} style={{...styleInp, padding:'10px'}} /></td>
-                                            <td style={{padding:'10px'}}><input value={formEditFinanza.descripcion} onChange={e => setFormEditFinanza({...formEditFinanza, descripcion: e.target.value})} style={{...styleInp, padding:'10px'}} /></td>
-                                            <td style={{padding:'10px'}}><input value={formEditFinanza.monto} onChange={e => setFormEditFinanza({...formEditFinanza, monto: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'10px', textAlign:'right'}} /></td>
-                                            <td style={{padding:'10px', textAlign:'center'}}><button onClick={() => handleUpdateFinanzaBJ(f.id)} style={{background: VERDE_BJ, color: '#fff', border:'none', padding:'10px 15px', borderRadius:'10px', cursor: 'pointer', fontWeight: '900'}}>OK</button></td>
+                                            <td style={{padding:'10px'}}><input type="datetime-local" value={formEditFinanza?.created_at || ''} onChange={e => setFormEditFinanza({...formEditFinanza, created_at: e.target.value})} style={{...styleInp, padding:'10px'}} /></td>
+                                            <td style={{padding:'10px'}}><input value={formEditFinanza?.descripcion || ''} onChange={e => setFormEditFinanza({...formEditFinanza, descripcion: e.target.value})} style={{...styleInp, padding:'10px'}} /></td>
+                                            <td style={{padding:'10px'}}><input value={formEditFinanza?.monto || ''} onChange={e => setFormEditFinanza({...formEditFinanza, monto: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'10px', textAlign:'right'}} /></td>
+                                            <td style={{padding:'10px', textAlign:'center'}}><button onClick={() => handleUpdateFinanzaBJ(f?.id)} style={{background: VERDE_BJ, color: '#fff', border:'none', padding:'10px 15px', borderRadius:'10px', cursor: 'pointer', fontWeight: '900'}}>OK</button></td>
                                         </>
                                     ) : (
                                         <>
                                             <td style={{ padding: '20px 15px' }}>
-                                                <small style={{ color: '#64748B' }}>{getFechaPeru(f.created_at)}</small><br/>
-                                                <strong>{getHoraPeru(f.created_at)}</strong>
+                                                <small style={{ color: '#64748B' }}>{f?.created_at ? getFechaPeru(f.created_at) : ''}</small><br/>
+                                                <strong>{f?.created_at ? getHoraPeru(f.created_at) : ''}</strong>
                                             </td>
                                             <td style={{ padding: '20px 15px' }}>
-                                                <strong style={{ fontSize: '15px' }}>{f.tipo}</strong><br/>
-                                                <small style={{ opacity: 0.6 }}>{f.descripcion}</small>
+                                                <strong style={{ fontSize: '15px' }}>{f?.tipo || 'Sin Tipo'}</strong><br/>
+                                                <small style={{ opacity: 0.6 }}>{f?.descripcion || ''}</small>
                                             </td>
-                                            <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: ['Ingreso Adicional','Inversión Inicial'].includes(f.tipo) ? VERDE_BJ : ROJO_BJ }}>
-                                                {['Ingreso Adicional','Inversión Inicial'].includes(f.tipo) ? "+" : "-"} S/ {Number(f.monto).toFixed(2)}
+                                            <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: ['Ingreso Adicional','Inversión Inicial'].includes(f?.tipo) ? VERDE_BJ : ROJO_BJ }}>
+                                                {['Ingreso Adicional','Inversión Inicial'].includes(f?.tipo) ? "+" : "-"} S/ {Number(f?.monto || 0).toFixed(2)}
                                             </td>
                                             <td style={{ textAlign: 'center', padding: '20px 15px' }}>
-                                                <button onClick={() => { setIdEditFinanza(f.id); setFormEditFinanza({...f, created_at: formatForInputDT(f.created_at)}); }} style={{ border: 'none', background: '#F1F5F9', borderRadius: '10px', padding: '10px', cursor:'pointer', fontSize:'16px' }}>✏️</button>
+                                                <button onClick={() => { setIdEditFinanza(f?.id); setFormEditFinanza({...f, created_at: f?.created_at ? formatForInputDT(f.created_at) : ''}); }} style={{ border: 'none', background: '#F1F5F9', borderRadius: '10px', padding: '10px', cursor:'pointer', fontSize:'16px' }}>✏️</button>
                                             </td>
                                         </>
                                     )}
@@ -180,15 +181,15 @@ export default function GestionSection({
                                 </tr>
                             </thead>
                             <tbody>
-                                {logs.length === 0 ? (
+                                {logs?.filter(l => l != null).length === 0 ? (
                                     <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#94A3B8' }}>No hay registros en auditoría.</td></tr>
                                 ) : (
-                                    logs.map(l => (
-                                        <tr key={l.id} style={{ borderBottom: '1px solid #eee' }}>
-                                            <td style={{ padding: '12px 15px' }}><small>{getFechaPeru(l.created_at)}</small><br/><strong>{getHoraPeru(l.created_at)}</strong></td>
-                                            <td style={{ padding: '12px 15px' }}><span style={{fontWeight: '900'}}>{l.operacion}</span><br/><small>{l.cliente}</small></td>
-                                            <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px', color: l.monto_operacion > 0 ? VERDE_BJ : ROJO_BJ }}>{l.monto_operacion > 0 ? "+" : ""} {l.monto_operacion.toFixed(2)}</td>
-                                            <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px' }}>S/ {l.caja_despues.toFixed(2)}</td>
+                                    logs?.filter(l => l != null).map(l => (
+                                        <tr key={l?.id || Math.random()} style={{ borderBottom: '1px solid #eee' }}>
+                                            <td style={{ padding: '12px 15px' }}><small>{l?.created_at ? getFechaPeru(l.created_at) : ''}</small><br/><strong>{l?.created_at ? getHoraPeru(l.created_at) : ''}</strong></td>
+                                            <td style={{ padding: '12px 15px' }}><span style={{fontWeight: '900'}}>{l?.operacion || 'N/A'}</span><br/><small>{l?.cliente || 'N/A'}</small></td>
+                                            <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px', color: (l?.monto_operacion || 0) > 0 ? VERDE_BJ : ROJO_BJ }}>{(l?.monto_operacion || 0) > 0 ? "+" : ""} {Number(l?.monto_operacion || 0).toFixed(2)}</td>
+                                            <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px' }}>S/ {Number(l?.caja_despues || 0).toFixed(2)}</td>
                                         </tr>
                                     ))
                                 )}
