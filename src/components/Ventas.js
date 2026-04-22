@@ -14,6 +14,9 @@ export default function VentasSection({
     const [showSuccess, setShowSuccess] = useState(false); 
     const [idEditItemHistorial, setIdEditItemHistorial] = useState(null);
     const [formEditItemHistorial, setFormEditItemHistorial] = useState({});
+    // NUEVOS ESTADOS DE UX
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [animatingId, setAnimatingId] = useState(null);
 
     useEffect(() => {
         if (showSuccess) {
@@ -36,6 +39,7 @@ export default function VentasSection({
         
         if (confirmacion) {
             try {
+                setIsProcessing(true); // 🔒 Activa cortina de humo
                 // Proceder con la venta si el usuario acepta
                 await handleEjecutarVentaBJ(modo, abono);
                 
@@ -44,7 +48,7 @@ export default function VentasSection({
                 
                 // Limpiar el campo de efectivo
                 setEfectivoRecibido('');
-                
+                setIsProcessing(false); // 🔓 Desactiva cortina de humo
                 // Desplazar la pantalla hacia arriba para ver el éxito si es necesario
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 
@@ -76,7 +80,14 @@ export default function VentasSection({
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', position: 'relative' }}>
-            
+            {/* 5. CORTINA DE HUMO */}
+            {isProcessing && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)', zIndex: 10000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '20px' }}>⏳</div>
+                    <h2 style={{ fontWeight: '900', letterSpacing: '2px', margin: 0 }}>PROCESANDO...</h2>
+                    <p style={{ opacity: 0.8 }}>Asegurando transacción en el Búnker</p>
+                </div>
+            )}
             {showSuccess && (
                 <div style={{ position: 'fixed', top: '30px', left: '50%', transform: 'translateX(-50%)', backgroundColor: VERDE_BJ, color: '#fff', padding: '18px 40px', borderRadius: '30px', fontWeight: '900', boxShadow: `0 15px 40px ${VERDE_BJ}50`, zIndex: 9999, animation: 'slideDown 0.4s ease-out', fontSize: '16px', letterSpacing: '1px' }}>
                     ✅ VENTA REGISTRADA
@@ -140,35 +151,52 @@ export default function VentasSection({
 
                         <div style={{ maxHeight: '550px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', paddingRight: '5px', WebkitOverflowScrolling: 'touch' }}>
                             {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock > 0).map(p => (
-                                <div key={p.id} style={{ padding: '20px', borderRadius: '25px', border: '1px solid #F1F5F9', backgroundColor: '#fff', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <strong style={{ fontSize: '16px', lineHeight: '1.3' }}>{p.nombre}</strong>
-                                    </div>
-                                    <div style={{ marginTop: '5px', marginBottom: '15px' }}>
-                                        <span style={{ color: VERDE_BJ, fontWeight: '900', backgroundColor: `${VERDE_BJ}10`, padding: '5px 10px', borderRadius: '8px', fontSize: '12px' }}>STOCK: {p.stock}u</span>
-                                        <span style={{ fontWeight: '900', marginLeft: '10px', fontSize: '15px' }}>S/ {tipoVenta === 'Mayor' ? p.precio_venta : p.precio_menor}</span>
-                                    </div>
-                                    
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.6fr', gap: '10px', alignItems: 'center' }}>
-                                        <select value={coloresElegidos[p.id] || 'Único'} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...styleInp, padding: '12px', fontSize: '13px', backgroundColor: '#F8FAFC' }}>
-                                            {p.colores?.split(',').map((c, idx) => <option key={idx} value={c.trim()}>{c.trim()}</option>) || <option>Único</option>}
-                                        </select>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: '15px', padding: '5px' }}>
-                                            <button onClick={() => modCant(p.id, -1)} style={{ width: '35px', height: '35px', borderRadius: '10px', border: 'none', backgroundColor: '#fff', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', cursor: 'pointer' }}>-</button>
-                                            <span style={{ fontWeight: '900', fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{cantidades[p.id] || 1}</span>
-                                            <button onClick={() => modCant(p.id, 1)} style={{ width: '35px', height: '35px', borderRadius: '10px', border: 'none', backgroundColor: '#fff', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', cursor: 'pointer' }}>+</button>
+                                <div key={p.id} style={{ 
+                                        padding: '20px', borderRadius: '25px', border: '1px solid #F1F5F9', backgroundColor: '#fff',
+                                        transform: animatingId === p.id ? 'scale(0.95)' : 'scale(1)', // 3. EFECTO TAP VISUAL
+                                        transition: 'transform 0.15s ease' 
+                                    }}>
+                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                            {/* 4. AVATAR DE PRODUCTO */}
+                                            <div style={{ width: '45px', height: '45px', borderRadius: '12px', backgroundColor: `${FUCSIA_PRINCIPAL}15`, color: FUCSIA_PRINCIPAL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '20px', flexShrink: 0 }}>
+                                                {p.nombre.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <strong style={{ fontSize: '15px', lineHeight: '1.2', display: 'block', marginBottom: '4px' }}>{p.nombre}</strong>
+                                                {/* 2. SEMÁFORO DE STOCK VISUAL */}
+                                                <small style={{ color: p.stock > 10 ? VERDE_BJ : (p.stock > 0 ? AMARILLO_BJ : ROJO_BJ), fontWeight: '900' }}>
+                                                    {p.stock > 10 ? '🟢 ' : (p.stock > 0 ? '🟠 ' : '🔴 ')} Stock: {p.stock}u | S/ {precioFinal.toFixed(2)}
+                                                </small>
+                                            </div>
                                         </div>
-                                        <button onClick={() => setCarrito([...carrito, { producto_id: p.id, nombre: p.nombre, cantidad: Number(cantidades[p.id] || 1), color: coloresElegidos[p.id] || p.colores?.split(',')[0].trim() || 'Único', precio_venta: Number(tipoVenta === 'Mayor' ? p.precio_venta : p.precio_menor), precio_compra: p.precio_compra }])} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', height: '45px', borderRadius: '15px', fontWeight: '900', fontSize: '20px', cursor: 'pointer', boxShadow: `0 5px 15px ${VERDE_BJ}40` }}>+</button>
+                                        
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.6fr', gap: '10px', marginTop: '15px' }}>
+                                            <select value={coloresElegidos[p.id] || 'Único'} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...styleInp, padding: '10px', fontSize: '12px' }}>
+                                                {p.colores?.split(',').map((c, idx) => <option key={idx} value={c.trim()}>{c.trim()}</option>) || <option>Único</option>}
+                                            </select>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                                <button onClick={() => modCant(p.id, -1)} style={{ width: '35px', height: '35px', borderRadius: '10px', border: 'none', backgroundColor: '#F1F5F9', fontWeight: '900' }}>-</button>
+                                                <span style={{ fontWeight: '900' }}>{cantidades[p.id] || 1}</span>
+                                                <button onClick={() => modCant(p.id, 1)} style={{ width: '35px', height: '35px', borderRadius: '10px', border: 'none', backgroundColor: '#F1F5F9', fontWeight: '900' }}>+</button>
+                                            </div>
+                                            {/* 3. LANZADOR DEL EFECTO TAP */}
+                                            <button onClick={() => {
+                                                setAnimatingId(p.id);
+                                                setTimeout(() => setAnimatingId(null), 150); // Apaga la animación en 150ms
+                                                setCarrito([...carrito, { 
+                                                    producto_id: p.id, nombre: p.nombre, cantidad: Number(cantidades[p.id] || 1), color: coloresElegidos[p.id] || p.colores?.split(',')[0].trim() || 'Único', precio_venta: precioFinal, precio_compra: p.precio_compra 
+                                                }]);
+                                            }} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', height: '45px', borderRadius: '15px', fontWeight: '900', fontSize: '20px', cursor: 'pointer', opacity: p.stock > 0 ? 1 : 0.5 }} disabled={p.stock <= 0}>+</button>
+                                        </div>
                                     </div>
-                                </div>
                             ))}
                         </div>
                     </div>
                 </div>
 
                 {/* --- BLOQUE 3: CARRITO MÁSTER --- */}
-                <div style={styleCrd}>
-                    <h3 style={{ marginTop: 0, color: VERDE_BJ, fontWeight: '900', fontSize: '1.4rem' }}>🛒 Carrito</h3>
+                <div style={{ ...styleCrd, position: 'sticky', top: '80px', alignSelf: 'start', height: 'fit-content', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
+                    <h3 style={{ marginTop: 0, color: VERDE_BJ, fontWeight: '900', position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 10, paddingBottom: '10px' }}>🛒 Carrito</h3>
                     {carrito.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94A3B8', border: '2px dashed #E2E8F0', borderRadius: '20px' }}>
                             <div style={{ fontSize: '40px', marginBottom: '10px' }}>📦</div>
