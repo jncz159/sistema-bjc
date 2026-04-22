@@ -22,9 +22,39 @@ export default function VentasSection({
         }
     }, [showSuccess]);
 
-    const ejecutarVentaConAlerta = async (modo) => {
-        await handleEjecutarVentaBJ(modo);
-        setShowSuccess(true);
+    // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
+    const ejecutarVentaConAlerta = async (modo, abono = 0) => {
+        // 1. Mensaje personalizado según el tipo de venta
+        const mensaje = `⚠️ ¿PROCESAR VENTA? ⚠️\n\n` +
+                        `Cliente: ${cliente}\n` +
+                        `Tipo: ${modo.toUpperCase()}\n` +
+                        `Total: S/ ${totalCarrito.toFixed(2)}\n\n` +
+                        `¿Estás seguro de registrar esta operación en el búnker?`;
+
+        // 2. Bloqueo preventivo (Botón de confirmación del sistema)
+        const confirmacion = window.confirm(mensaje);
+        
+        if (confirmacion) {
+            try {
+                // Proceder con la venta si el usuario acepta
+                await handleEjecutarVentaBJ(modo, abono);
+                
+                // Mostrar el cartel verde de éxito (el que ya tienes integrado)
+                setShowSuccess(true);
+                
+                // Limpiar el campo de efectivo
+                setEfectivoRecibido('');
+                
+                // Desplazar la pantalla hacia arriba para ver el éxito si es necesario
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+            } catch (error) {
+                alert("❌ Error al conectar con el búnker. Revisa tu internet.");
+            }
+        } else {
+            // Si cancela, no hace nada y mantiene los productos en el carrito
+            console.log("Operación cancelada por el usuario");
+        }
     };
 
     const modCant = (id, delta) => {
@@ -190,7 +220,7 @@ export default function VentasSection({
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                 <button onClick={() => ejecutarVentaConAlerta('Entregado')} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${VERDE_BJ}40`, transition: 'transform 0.1s' }}>VENTA CASH 💵</button>
                                 <button onClick={() => ejecutarVentaConAlerta('En Almacén')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${AMARILLO_BJ}40` }}>ALMACÉN 📦</button>
-                                <button onClick={() => ejecutarVentaConAlerta('Pendiente de Pago')} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${ROJO_BJ}40` }}>A CRÉDITO 💳</button>
+                                <button onClick={() => ejecutarVentaConAlerta('Pendiente de Pago', efectivoRecibido)} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${ROJO_BJ}40` }}>A CRÉDITO 💳</button>
                                 <button onClick={handleWhatsApp} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px #25D36640` }}>WHATSAPP 📱</button>
                             </div>
                         </div>

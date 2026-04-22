@@ -60,6 +60,9 @@ export default function SistemaBJCMasterFinal() {
   const [formFinanzas, setFormFinanzas] = useState({ 
       tipo: 'Gasto Local', descripcion: '', monto: '' 
   });
+  const [idEditFinanza, setIdEditFinanza] = useState(null);
+  const [formEditFinanza, setFormEditFinanza] = useState({});
+
   const [idEditProducto, setIdEditProducto] = useState(null);
   const [formEditProducto, setFormEditProducto] = useState({});
   const [formEditStockBJ, setFormEditStockBJ] = useState({});
@@ -491,6 +494,11 @@ export default function SistemaBJCMasterFinal() {
   // ==========================================
   const handleRegistrarFinanzaBJ = async (e) => {
     e.preventDefault();
+    const handleUpdateFinanzaBJ = async (id) => { 
+      await supabase.from('finanzas').update(formEditFinanza).eq('id', id); 
+      setIdEditFinanza(null); 
+      cargarTodoDesdeNube(); 
+  };
     const mF = Number(handleInputMonto(formFinanzas.monto));
     const esGasto = !['Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
     const delta = esGasto ? -mF : mF; // Negativo si sale dinero
@@ -634,6 +642,7 @@ export default function SistemaBJCMasterFinal() {
             <GestionSection {...{ 
                 balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
                 auditoriaLogs, handleRegistrarFinanzaBJ, 
+                formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
                 FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
             }} />
         )}
