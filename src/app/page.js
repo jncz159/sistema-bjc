@@ -235,7 +235,7 @@ export default function SistemaBJCMasterFinal() {
     const totalV = carrito.reduce((acc, i) => acc + (Number(i.precio_venta)*i.cantidad), 0);
     const montoHoy = (estado === 'Entregado' || estado === 'En Almacén') 
         ? (totalV - Number(descuento)) 
-        : Number(abonoInicial);
+        : Number(efectivoRecibido);
     const ts = new Date().toISOString();
 
     const lista = carrito.map(i => ({ 
@@ -309,6 +309,7 @@ const handleUpdateItemVentaBJ = async (id, data) => {
   };
 
   const handleAnularVentaBJ = async (v) => {
+   if (v.estado_pedido === 'Anulado') return alert("Este ítem ya fue anulado anteriormente.");
     if (confirm("ATENCIÓN: ¿Anular venta? Se devolverá el stock y se ajustará la caja física.")) {
         const snap = balanceEliteBJ.cG;
         const pO = productos.find(p => p.id === v.producto_id);
@@ -385,7 +386,7 @@ const handleUpdateItemVentaBJ = async (id, data) => {
 
         // 2. CÁLCULO DE DIFERENCIALES
         // Stock: Si antes eran 5 y ahora son 3, devolvemos 2 al stock (+2)
-        const diffCantidad = itemOriginal.cantidad - data.cantidad; 
+        const diffCantidad = Number(itemOriginal.cantidad) - Number(data.cantidad);
         
         // Dinero: Si antes pagó S/100 y ahora S/60, devolvemos S/40 a la caja
         const totalOriginal = itemOriginal.precio_venta_unitario * itemOriginal.cantidad;
@@ -394,11 +395,11 @@ const handleUpdateItemVentaBJ = async (id, data) => {
 
         // 3. ACTUALIZAR VENTA EN SUPABASE
         const nuevaGanancia = (data.precio_venta_unitario - itemOriginal.precio_costo_unitario) * data.cantidad;
-        await supabase.from('ventas').update({ 
-            cantidad: data.cantidad, 
-            precio_venta_unitario: data.precio_venta_unitario, 
-            ganancia_total: nuevaGanancia 
-        }).eq('id', id);
+       await supabase.from('ventas').update({ 
+    cantidad: Number(data.cantidad), 
+    precio_venta_unitario: Number(data.precio_venta_unitario), 
+    ganancia_total: nuevaGananciaTotal // 👈 Esto es lo que mantiene tu KPI de "Ganancia Hoy" exacto
+}).eq('id', id);
 
         // 4. REVERTIR STOCK SI CAMBIÓ LA CANTIDAD
         if (pO && diffCantidad !== 0) {
@@ -506,7 +507,8 @@ const handleUpdateItemVentaBJ = async (id, data) => {
         
         {vista === 'stock' && <AlmacenSection {...{ formProd, setFormProd, handleAddProductoBJ: async (e)=>{e.preventDefault(); await supabase.from('productos').insert([formProd]); setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); cargarTodoDesdeNube();}, busquedaStock, setBusquedaStock, productos, idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, handleUpdateProductoBJ: async (id)=>{await supabase.from('productos').update(formEditProducto).eq('id',id); setIdEditProducto(null); cargarTodoDesdeNube();}, handleDeleteProductoBJ: async (id,n)=>{if(confirm(`¿Estás seguro de borrar ${n}?`)){await supabase.from('productos').delete().eq('id',id); cargarTodoDesdeNube();}}, formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ: async (id,s)=>{await supabase.from('productos').update({stock:Number(s)}).eq('id',id); cargarTodoDesdeNube();}, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
 
-        {vista === 'logistica' && <LogisticaSection {...{ logisticaInteligente, handleCobrarDeudaBJ: async (g,m)=>{const pre=balanceEliteBJ.cG; for(let id of g.items_ids){await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id',id);} if(Number(m)>0){await supabase.from('auditoria_bj').insert([{cliente:g.cliente,operacion:'COBRO SALDO',monto_operacion:Number(m),caja_antes:pre,caja_despues:pre+Number(m)}]);} cargarTodoDesdeNube();}, handleAnularCreditoBJ: async (g)=>{for(const it of g.items){const pO=productos.find(p=>p.id===it.producto_id); if(pO) await supabase.from('productos').update({stock:pO.stock+it.cantidad}).eq('id',pO.id);} await supabase.from('ventas').delete().in('id',g.items_ids); cargarTodoDesdeNube();}, handleUpdateItemLogistica: async (id,data,idA,cantA)=>{ if(data.producto_id!==idA||data.cantidad!==cantA){const pAnt=productos.find(p=>p.id===idA); if(pAnt) await supabase.from('productos').update({stock:pAnt.stock+Number(cantA)}).eq('id',pAnt.id); const pNue=productos.find(p=>p.id===data.producto_id); if(pNue) await supabase.from('productos').update({stock:pNue.stock-Number(data.cantidad)}).eq('id',pNue.id);} await supabase.from('ventas').update(data).eq('id',id); cargarTodoDesdeNube();}, handleEliminarItemIndividualLogistica: async (v)=>{const pO=productos.find(p=>p.id===v.producto_id); if(pO) await supabase.from('productos').update({stock:pO.stock+v.cantidad}).eq('id',pO.id); await supabase.from('ventas').delete().eq('id',v.id); cargarTodoDesdeNube();}, productos, finanzas, FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, styleCrd, styleInp }} />}
+        {vista === 'logistica' && <LogisticaSection {...{ logisticaInteligente, handleCobrarDeudaBJ: async (g,m)=>{const pre=balanceEliteBJ.cG; for(let id of g.items_ids){await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id',id);} if(Number(m)>0){await supabase.from('auditoria_bj').insert([{cliente:g.cliente,operacion:'COBRO SALDO',monto_operacion:Number(m),caja_antes:pre,caja_despues:pre+Number(m)}]);} cargarTodoDesdeNube();}, handleAnularCreditoBJ: async (g)=>{for(const it of g.items){const pO=productos.find(p=>p.id===it.producto_id); if(pO) await supabase.from('productos').update({stock:pO.stock+it.cantidad}).eq('id',pO.id);} await supabase.from('ventas').delete().in('id',g.items_ids); cargarTodoDesdeNube();}, handleUpdateItemLogistica: async (id,data,idA,cantA)=>{ if(data.producto_id!==idA||data.cantidad!==cantA){const pAnt=productos.find(p=>p.id===idA); if(pAnt) await supabase.from('productos').update({stock:pAnt.stock+Number(cantA)}).eq('id',pAnt.id); const pNue=productos.find(p=>p.id===data.producto_id); if(pNue) await supabase.from('productos').update({stock:pNue.stock-Number(data.cantidad)}).eq('id',pNue.id);} await supabase.from('ventas').update(data).eq('id',id); cargarTodoDesdeNube();}, handleEliminarItemIndividualLogistica: async (v)=>{const pO=productos.find(p=>p.id===v.producto_id); if(pO) await supabase.from('productos').update({stock:pO.stock+v.cantidad}).eq('id',pO.id); await supabase.from('ventas').update({ estado_pedido: 'Anulado' }).eq('id', v.id); cargarTodoDesdeNube();}, productos, finanzas, FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, styleCrd, styleInp }} />}
+
 
 {vista === 'finanzas' && <FinanzasSection {...{ ventas, productos, finanzas, balanceEliteBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd }} />}
 
