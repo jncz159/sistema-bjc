@@ -46,7 +46,7 @@ export default function AlmacenSection({
             <div style={styleCrd}>
               <input placeholder="🔍 Buscar modelo en stock..." value={busquedaStock} onChange={e => setBusquedaStock(e.target.value)} style={{ ...styleInp, marginBottom: '30px', border:`2px solid ${OSCURO_BJ}20` }} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px' }}>
-                {productos?.filter(p => p.nombre?.toLowerCase().includes(busquedaStock.toLowerCase())).map((p) => (
+                {productos.filter(p => (p?.nombre || '').toLowerCase().includes((busquedaStock || '').toLowerCase())).map(p => (
                     <div key={p.id} style={{ border: '1px solid #F1F5F9', padding: '25px', borderRadius: '30px', backgroundColor: '#fff', boxShadow: '0 10px 20px rgba(0,0,0,0.02)' }}>
                         
                         {idEditProducto === p.id ? (
