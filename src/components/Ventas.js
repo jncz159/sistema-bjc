@@ -234,7 +234,7 @@ export default function VentasSection({
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                 <button onClick={() => handleEjecutarVentaBJ('Entregado')} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CASH 💵</button>
                                 <button onClick={() => handleEjecutarVentaBJ('En Almacén')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>ALMACÉN 📦</button>
-                                <button onClick={() => handleEjecutarVentaBJ('Pendiente de Pago')} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CRÉDITO 💳</button>
+                                <button onClick={() => handleEjecutarVentaBJ('Pendiente de Pago', efectivoRecibido)} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>CRÉDITO 💳</button>
                                 <button onClick={handleEnviarWhatsAppPresupuesto} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}>WSP 📱</button>
                             </div>
                         </div>
