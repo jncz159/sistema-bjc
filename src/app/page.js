@@ -652,7 +652,8 @@ export default function SistemaBJCMasterFinal() {
         
         {vista === 'stock' && (
             <AlmacenSection {...{ 
-                formProd, setFormProd, handleAddProductoBJ, productos, 
+                formProd, setFormProd, handleAddProductoBJ,productos, 
+                busquedaStock, setBusquedaStock, 
                 idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
                 handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
                 setFormEditStockBJ, handleSincronizarStockBJ, 
