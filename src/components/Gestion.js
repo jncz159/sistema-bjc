@@ -31,7 +31,19 @@ export default function GestionSection({
             fetchLogs();
         }
     }, [verAuditoria]);
-
+// --- LÓGICA DE CONTROL ABSOLUTO ---
+    const finanzasValidas = finanzas?.filter(f => f != null) || [];
+    
+    // Sumamos por categorías específicas
+    const gastoMarketing = finanzasValidas.filter(f => f.tipo === "📢 Marketing Ads").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoLogistica = finanzasValidas.filter(f => f.tipo === "🚚 Logística/Envío").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoLocal = finanzasValidas.filter(f => f.tipo === "🏠 Gastos Local").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoPersonal = finanzasValidas.filter(f => f.tipo === "👤 Retiro Personal").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    
+    const totalGastosOperativos = gastoMarketing + gastoLogistica + gastoLocal;
+    
+    // Utilidad Neta Real: Ganancia de Ventas - Gastos Operativos
+    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativos;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             
@@ -46,6 +58,27 @@ export default function GestionSection({
                         <span style={{color: VERDE_BJ}}>Ganancia Venta: S/ {(balanceEliteBJ?.pe_g || 0).toFixed(2)}</span>
                         <span style={{color: ROJO_BJ}}>Gastos Local: S/ {(balanceEliteBJ?.pe_m || 0).toFixed(2)}</span>
                     </div>
+                </div>
+                {/* TARJETA: UTILIDAD NETA REAL */}
+                <div style={{ ...styleCrd, borderLeft: `10px solid ${utilidadNetaReal > 0 ? VERDE_BJ : ROJO_BJ}` }}>
+                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>💰 UTILIDAD NETA (POST-GASTOS)</small>
+                    <h4 style={{fontSize:'2.2rem', margin:'10px 0', color: utilidadNetaReal > 0 ? VERDE_BJ : ROJO_BJ}}>
+                        S/ {utilidadNetaReal.toLocaleString('es-PE', {minimumFractionDigits: 2})}
+                    </h4>
+                    <div style={{display:'flex', gap:'10px', fontSize:'10px', fontWeight:'700'}}>
+                        <span style={{color:OSCURO_BJ, opacity:0.5}}>Gastos Op: S/ {totalGastosOperativos.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                {/* TARJETA: ANALÍTICA DE ADS */}
+                <div style={{ ...styleCrd, background: '#E0F2FE', border: 'none' }}>
+                    <small style={{fontWeight:'900', color: '#0369A1', fontSize:'11px'}}>📢 INVERSIÓN EN MARKETING</small>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0', color: '#0369A1'}}>
+                        S/ {gastoMarketing.toFixed(2)}
+                    </h4>
+                    <p style={{fontSize:'10px', margin:0, opacity:0.7, color: '#0369A1'}}>
+                        ROI Est: {gastoMarketing > 0 ? ((balanceEliteBJ?.pe_g || 0) / gastoMarketing).toFixed(1) : 0}x veces lo invertido
+                    </p>
                 </div>
                 {/* TARJETA BÓVEDA (UTILIDAD HISTÓRICA) */}
                 <div style={{ ...styleCrd, background: OSCURO_BJ, color: '#fff', border: 'none', boxShadow: `0 15px 35px ${OSCURO_BJ}40` }}>
@@ -81,13 +114,14 @@ export default function GestionSection({
                     
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: '900', marginBottom: '5px', display: 'block' }}>TIPO DE MOVIMIENTO</label>
-                        <select value={formFinanzas?.tipo || 'Gasto Local'} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={styleInp}>
-                            <option value="Gasto Local">📉 Gasto Operativo Local</option>
-                            <option value="Retiro Personal">👤 Retiro Personal (Dueño)</option>
-                            <option value="Ingreso Adicional">📈 Ingreso Adicional</option>
-                            <option value="Inversión Inicial">💰 Inversión de Capital</option>
-                            <option value="Compra Mercadería">📦 Compra de Mercadería</option>
-                        </select>
+                        <select value={formFinanzas?.tipo || '🏠 Gastos Local'} onChange={e => setFormFinanzas({...formFinanzas, tipo: e.target.value})} style={styleInp}>
+    <option value="🏠 Gastos Local">🏠 Gastos Local (Luz, Alquiler, Internet)</option>
+    <option value="📢 Marketing Ads">📢 Marketing Ads (Facebook, Instagram, TikTok)</option>
+    <option value="🚚 Logística/Envío">🚚 Logística/Envío (Gasolina, Olva, Delivery)</option>
+    <option value="📦 Compra Mercadería">📦 Compra Mercadería (Inversión Stock)</option>
+    <option value="👤 Retiro Personal">👤 Retiro Personal (Sueldo Jean)</option>
+    <option value="📈 Ingreso Adicional">📈 Ingreso Adicional (Otros ingresos)</option>
+</select>
                     </div>
 
                     <div>
