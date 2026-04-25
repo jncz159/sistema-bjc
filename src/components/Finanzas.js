@@ -1,13 +1,8 @@
 "use client";
 /**
  * ============================================================================
- * COMPONENTE: Finanzas.js (v3.0.0 ESTRATEGIA TOTAL)
+ * COMPONENTE: Finanzas.js (v3.1.0 - INTEGRACIÓN TOTAL)
  * PROPIETARIO: Jean - B J Importaciones Chiclayo
- * FUNCIONALIDAD: 
- * - Arqueo de Flujo (Físico vs Digital).
- * - Inteligencia ROI & Utilidad Neta Real (Post-Gastos).
- * - Bóveda, Capital en Stock y Caja Global.
- * - Análisis por periodos y Ranking Top 5.
  * ============================================================================
  */
 import React, { useState, useEffect } from 'react';
@@ -16,6 +11,7 @@ export default function FinanzasSection({
     ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
 }) {
+    // --- 1. ESTADO PARA ARQUEO (TU LÓGICA ORIGINAL) ---
     const [efectivoFisico, setEfectivoFisico] = useState('');
 
     useEffect(() => {
@@ -31,10 +27,8 @@ export default function FinanzasSection({
     const cajaTotal = balanceEliteBJ?.cG || 0;
     const dineroDigital = cajaTotal - Number(efectivoFisico || 0);
 
-    // --- 1. CÁLCULOS ESTRATÉGICOS (EL CEREBRO) ---
+    // --- 2. CEREBRO ESTRATÉGICO (LO NUEVO) ---
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
-    
-    // Categorías para ROI y Utilidad
     const gastoMarketing = finanzasValidas.filter(f => f.tipo === "📢 Marketing Ads").reduce((acc, f) => acc + Number(f.monto || 0), 0);
     const gastoLogistica = finanzasValidas.filter(f => f.tipo === "🚚 Logística/Envío").reduce((acc, f) => acc + Number(f.monto || 0), 0);
     const gastoLocal = finanzasValidas.filter(f => f.tipo === "🏠 Gastos Local").reduce((acc, f) => acc + Number(f.monto || 0), 0);
@@ -42,12 +36,10 @@ export default function FinanzasSection({
     const totalGastosOperativos = gastoMarketing + gastoLogistica + gastoLocal;
     const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativos;
 
-    // --- 2. MOTORES DE CÁLCULO PARA PERIODOS ---
+    // --- 3. MOTORES DE CÁLCULO POR PERIODOS (TU ESTRUCTURA ORIGINAL) ---
     const procesarPeriodo = (filtradasVentas, filtradasFinanzas) => {
         const totalVendido = filtradasVentas.reduce((acc, v) => acc + (v.precio_venta_unitario * v.cantidad), 0);
         const utilidadGanada = filtradasVentas.reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-        
-        // Ahora el gasto en el periodo suma LOCAL + MARKETING + LOGÍSTICA
         const gastosOperativos = filtradasFinanzas.reduce((acc, f) => acc + Number(f.monto), 0);
         
         const conteo = {};
@@ -64,24 +56,34 @@ export default function FinanzasSection({
         const limite = new Date();
         limite.setDate(limite.getDate() - dias);
         const vFiltradas = ventas.filter(v => new Date(v.created_at) >= limite && v.estado_pedido !== 'Anulado');
-        const fFiltradas = finanzas.filter(f => new Date(f.created_at) >= limite && ["🏠 Gastos Local", "📢 Marketing Ads", "🚚 Logística/Envío"].includes(f.tipo));
+        const fFiltradas = finanzas.filter(f => new Date(f.created_at) >= limite && f.tipo === '🏠 Gastos Local');
+        return procesarPeriodo(vFiltradas, fFiltradas);
+    };
+
+    const calcularMetricasMes = () => {
+        const mesActual = new Date().getMonth();
+        const anioActual = new Date().getFullYear();
+        const vFiltradas = ventas.filter(v => { const f = new Date(v.created_at); return f.getMonth() === mesActual && f.getFullYear() === anioActual && v.estado_pedido !== 'Anulado'; });
+        const fFiltradas = finanzas.filter(f => { const fz = new Date(f.created_at); return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && f.tipo === '🏠 Gastos Local'; });
         return procesarPeriodo(vFiltradas, fFiltradas);
     };
 
     const periodos = [
         { label: 'ÚLTIMOS 7 DÍAS', data: calcularMetricasDias(7) },
-        { label: 'MES EN CURSO', data: calcularMetricasDias(30) } // Ajustado para ser más exacto
+        { label: 'ÚLTIMOS 14 DÍAS', data: calcularMetricasDias(14) },
+        { label: 'ÚLTIMOS 21 DÍAS', data: calcularMetricasDias(21) },
+        { label: 'MES EN CURSO', data: calcularMetricasMes() }
     ];
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', fontFamily: "'Poppins', sans-serif" }}>
             
-            {/* --- SECCIÓN 1: ARQUEO DE FLUJO --- */}
+            {/* --- 1. ARQUEO DE FLUJO (TAL CUAL LO TENÍAS) --- */}
             <div style={{ ...styleCrd, border: `3px solid ${AMARILLO_BJ}` }}>
-                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', color: OSCURO_BJ, fontWeight: '900' }}>🧮 Arqueo de Caja (Distribución Real)</h3>
+                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', color: OSCURO_BJ, fontWeight: '900' }}>🧮 Arqueo de Caja (Distribución)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
-                    <div style={{ backgroundColor: '#F8FAFC', padding: '20px', borderRadius: '20px' }}>
-                        <small style={{ fontWeight: '900', color: OSCURO_BJ, display: 'block', marginBottom: '10px' }}>💵 EFECTIVO EN MANO (S/)</small>
+                    <div style={{ backgroundColor: '#F8FAFC', padding: '20px', borderRadius: '20px', border: `2px dashed ${OSCURO_BJ}` }}>
+                        <small style={{ fontWeight: '900', color: OSCURO_BJ, display: 'block', marginBottom: '10px' }}>💵 EFECTIVO EN MOSTRADOR (S/)</small>
                         <input type="number" value={efectivoFisico} onChange={(e) => handleInputEfectivo(e.target.value)} placeholder="0.00" 
                                style={{ ...styleInp, border: 'none', borderBottom: `3px solid ${OSCURO_BJ}`, borderRadius: 0, padding: '10px 0', fontSize: '2rem', fontWeight: '900', backgroundColor: 'transparent' }} />
                     </div>
@@ -92,63 +94,66 @@ export default function FinanzasSection({
                 </div>
             </div>
 
-            {/* --- SECCIÓN 2: INDICADORES ESTRATÉGICOS (LO NUEVO) --- */}
+            {/* --- 2. DASHBOARD DE INTELIGENCIA (NUEVO) --- */}
+            <h2 style={{ color: OSCURO_BJ, margin: '10px 0 0 0', fontSize: '1.4rem', fontWeight: '900' }}>📊 Inteligencia y Salud Financiera</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                 <div style={{ ...styleCrd, borderLeft: `10px solid ${utilidadNetaReal > 0 ? VERDE_BJ : ROJO_BJ}` }}>
-                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>💰 UTILIDAD NETA REAL</small>
+                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>💰 UTILIDAD NETA REAL (TOTAL)</small>
                     <h4 style={{fontSize:'2.2rem', margin:'10px 0', color: utilidadNetaReal > 0 ? VERDE_BJ : ROJO_BJ}}>S/ {utilidadNetaReal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
-                    <span style={{fontSize:'10px', opacity:0.5}}>Ganancia bruta menos todos los gastos operativos.</span>
+                    <span style={{fontSize:'10px', opacity:0.5}}>Ganancia bruta menos gastos operativos.</span>
                 </div>
 
                 <div style={{ ...styleCrd, background: '#E0F2FE', border: 'none' }}>
                     <small style={{fontWeight:'900', color: '#0369A1', fontSize:'11px'}}>📢 MARKETING ROI</small>
-                    <h4 style={{fontSize:'2.2rem', margin:'10px 0', color: '#0369A1'}}>S/ {gastoMarketing.toFixed(2)}</h4>
-                    <p style={{fontSize:'11px', color: '#0369A1', fontWeight:'700'}}>Retorno Est: {gastoMarketing > 0 ? ((balanceEliteBJ?.pe_g || 0) / gastoMarketing).toFixed(1) : 0}x</p>
+                    <h4 style={{fontSize:'2rem', margin:'10px 0', color: '#0369A1'}}>S/ {gastoMarketing.toFixed(2)}</h4>
+                    <p style={{fontSize:'11px', color: '#0369A1', fontWeight: '700'}}>Retorno: {gastoMarketing > 0 ? ((balanceEliteBJ?.pe_g || 0) / gastoMarketing).toFixed(1) : 0}x</p>
                 </div>
 
                 <div style={{ ...styleCrd, background: OSCURO_BJ, color: '#fff' }}>
                     <small style={{ color: FUCSIA_PRINCIPAL, fontWeight: '900', opacity: 0.9, fontSize: '11px' }}>🏦 LA BÓVEDA</small>
-                    <div style={{ fontSize: '2.2rem', fontWeight: '900', margin: '10px 0' }}>S/ {(balanceEliteBJ?.bR || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</div>
-                    <small style={{ opacity:0.5, fontSize:'10px' }}>Capital acumulado para reinversión.</small>
+                    <div style={{ fontSize: '2rem', fontWeight: '900', margin: '10px 0' }}>S/ {(balanceEliteBJ?.bR || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</div>
                 </div>
             </div>
 
-            {/* --- SECCIÓN 3: CAPITAL Y CAJA --- */}
+            {/* --- 3. CAPITAL Y STOCK --- */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div style={styleCrd}>
-                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>📦 CAPITAL EN MERCADERÍA</small>
+                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>📦 VALOR DEL ALMACÉN</small>
                     <h4 style={{fontSize:'1.8rem', margin:'5px 0'}}>S/ {(valorizacionStockBJ?.cost || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}</h4>
                 </div>
                 <div style={{ ...styleCrd, borderLeft: `10px solid ${AMARILLO_BJ}` }}>
-                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>🏦 CAJA GLOBAL ACTUAL</small>
+                    <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>🏦 CAJA FÍSICA GLOBAL</small>
                     <h4 style={{fontSize:'1.8rem', margin:'5px 0'}}>S/ {cajaTotal.toFixed(2)}</h4>
                 </div>
             </div>
 
-            {/* --- SECCIÓN 4: HISTÓRICO Y TOP 5 --- */}
-            <h2 style={{ color: OSCURO_BJ, margin: '20px 0 0 0', fontSize: '1.4rem', fontWeight: '900' }}>📈 Histórico y Tendencias</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+            {/* --- 4. PERIODOS COMPARATIVOS (TU ESTRUCTURA ORIGINAL) --- */}
+            <h2 style={{ color: OSCURO_BJ, margin: '10px 0 0 0', fontSize: '1.4rem', fontWeight: '900' }}>📈 Histórico por Periodos</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
                 {periodos.map((p, i) => (
-                    <div key={i} style={{ ...styleCrd, borderTop: `8px solid ${OSCURO_BJ}` }}>
-                        <small style={{ fontWeight: '900', opacity: 0.5 }}>{p.label}</small>
-                        <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    <div key={i} style={{ ...styleCrd, borderTop: `8px solid ${i === 3 ? FUCSIA_PRINCIPAL : OSCURO_BJ}` }}>
+                        <small style={{ fontWeight: '900', opacity: 0.5, letterSpacing: '1px' }}>{p.label}</small>
+                        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <div>
+                                <small style={{ display: 'block', fontSize: '10px', fontWeight: '900', color: '#64748B' }}>TOTAL VENDIDO</small>
+                                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: OSCURO_BJ }}>S/ {p.data.totalVendido.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</div>
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <div style={{ backgroundColor: `${VERDE_BJ}05`, padding: '15px', borderRadius: '15px' }}>
-                                    <small style={{ display: 'block', fontSize: '10px', color: VERDE_BJ, fontWeight:'900' }}>PROFIT</small>
+                                <div style={{ backgroundColor: `${VERDE_BJ}10`, padding: '15px', borderRadius: '15px', border: `1px dashed ${VERDE_BJ}` }}>
+                                    <small style={{ display: 'block', fontSize: '10px', fontWeight: '900', color: VERDE_BJ }}>PROFIT</small>
                                     <div style={{ fontSize: '1.2rem', fontWeight: '900', color: VERDE_BJ }}>S/ {p.data.utilidadGanada.toFixed(2)}</div>
                                 </div>
-                                <div style={{ backgroundColor: `${ROJO_BJ}05`, padding: '15px', borderRadius: '15px' }}>
-                                    <small style={{ display: 'block', fontSize: '10px', color: ROJO_BJ, fontWeight:'900' }}>BURN RATE</small>
+                                <div style={{ backgroundColor: `${ROJO_BJ}10`, padding: '15px', borderRadius: '15px', border: `1px dashed ${ROJO_BJ}` }}>
+                                    <small style={{ display: 'block', fontSize: '10px', fontWeight: '900', color: ROJO_BJ }}>BURN (LOCAL)</small>
                                     <div style={{ fontSize: '1.2rem', fontWeight: '900', color: ROJO_BJ }}>S/ {p.data.gastosOperativos.toFixed(2)}</div>
                                 </div>
                             </div>
-
-                            <div style={{ backgroundColor: '#F8FAFC', padding: '15px', borderRadius: '15px' }}>
-                                <small style={{ display: 'block', fontSize: '11px', fontWeight: '900', marginBottom: '10px' }}>🏆 TOP 5 PRODUCTOS</small>
+                            <div style={{ marginTop: '10px', backgroundColor: '#F8FAFC', padding: '15px', borderRadius: '15px' }}>
+                                <small style={{ display: 'block', fontSize: '11px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '10px' }}>🏆 TOP 5 PRODUCTOS</small>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     {p.data.top5.map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                            <span>{idx + 1}. {item[0]}</span>
+                                            <span style={{ maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idx + 1}. {item[0]}</span>
                                             <strong style={{ color: FUCSIA_PRINCIPAL }}>{item[1]}u</strong>
                                         </div>
                                     ))}
