@@ -56,7 +56,14 @@ export default function FinanzasSection({
         const limite = new Date();
         limite.setDate(limite.getDate() - dias);
         const vFiltradas = ventas.filter(v => new Date(v.created_at) >= limite && v.estado_pedido !== 'Anulado');
-        const fFiltradas = finanzas.filter(f => new Date(f.created_at) >= limite && f.tipo === '🏠 Gastos Local');
+        
+        // REVISIÓN CLAVE: Aquí sumamos todo lo que NO sea Ingreso o Inversión para el Burn Rate
+        const fFiltradas = finanzas.filter(f => {
+            const fecha = new Date(f.created_at);
+            const esGasto = !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión');
+            return fecha >= limite && esGasto;
+        });
+        
         return procesarPeriodo(vFiltradas, fFiltradas);
     };
 

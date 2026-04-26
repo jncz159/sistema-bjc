@@ -671,7 +671,7 @@ export default function SistemaBJCMasterFinal() {
 
         {vista === 'finanzas' && (
             <FinanzasSection {...{ 
-                ventas, productos, finanzas, balanceEliteBJ, 
+                ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ,
                 FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
             }} />
         )}

@@ -179,9 +179,9 @@ export default function GestionSection({
                                                 <strong style={{ fontSize: '15px' }}>{f?.tipo || 'Sin Tipo'}</strong><br/>
                                                 <small style={{ opacity: 0.6 }}>{f?.descripcion || ''}</small>
                                             </td>
-                                            <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: ['Ingreso Adicional','Inversión Inicial'].includes(f?.tipo) ? VERDE_BJ : ROJO_BJ }}>
-                                                {['Ingreso Adicional','Inversión Inicial'].includes(f?.tipo) ? "+" : "-"} S/ {Number(f?.monto || 0).toFixed(2)}
-                                            </td>
+                                            <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: f?.tipo?.includes('Ingreso') || f?.tipo?.includes('Inversión') ? VERDE_BJ : ROJO_BJ }}>
+    {f?.tipo?.includes('Ingreso') || f?.tipo?.includes('Inversión') ? "+" : "-"} S/ {Number(f?.monto || 0).toFixed(2)}
+</td>
                                             <td style={{ textAlign: 'center', padding: '20px 15px' }}>
                                                 <button onClick={() => { setIdEditFinanza(f?.id); setFormEditFinanza({...f, created_at: f?.created_at ? formatForInputDT(f.created_at) : ''}); }} style={{ border: 'none', background: '#F1F5F9', borderRadius: '10px', padding: '10px', cursor:'pointer', fontSize:'16px' }}>✏️</button>
                                             </td>
