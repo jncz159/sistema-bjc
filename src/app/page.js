@@ -203,23 +203,23 @@ export default function SistemaBJCMasterFinal() {
 
   const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
-    const mesActual = hoyS.substring(0, 7); // NUEVO: Extrae el mes actual (Ej: "2026-04")
-    // CAJA REAL
-    const ventasCompletadas = ventas
-        .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
-        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
-        
-    const ingresosAdmin = finanzas
-    .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
-    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    
-const gastosTotales = finanzas
-    .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
-    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-        
-    const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
+    const mesActual = hoyS.substring(0, 7);
 
-    // MÉTRICAS DEL DÍA
+    // 1. CAJA FÍSICA REAL (La "Verdad Absoluta" del efectivo)
+    // Sumamos todo el rastro forense: Ventas en efectivo, Gastos e Ingresos extra.
+    const cajaReal = auditoriaLogs.reduce((acc, log) => acc + Number(log.monto_operacion || 0), 0);
+
+    // 2. MÉTRICAS DE DESEMPEÑO (Para saber cuánto vas ganando en el mes)
+    const gananciaMes = ventas
+        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+        
+    const gastosMes = finanzas
+        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesActual && 
+                (f.tipo?.includes('Local') || f.tipo?.includes('Personal')))
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+
+    // 3. MÉTRICAS DEL DÍA
     const cajaHoy = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0);
@@ -232,24 +232,18 @@ const gastosTotales = finanzas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
-       const gananciaMes = ventas
-        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-        
-    const gastosMes = finanzas
-        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesActual && ['Gasto Local','Retiro Personal'].includes(f.tipo))
-        .reduce((acc, f) => acc + Number(f.monto), 0);
-        
     const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
+
     return { 
         cH: cajaHoy, 
         gH: gananciaHoy, 
-        cG: cajaReal, 
+        cG: cajaReal, // Aquí es donde verás los ~34 soles si tu auditoría está al día
         bR: utilidadHistorica,
         pe_g: gananciaMes,
         pe_m: gastosMes,
-        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio };
-  }, [ventas, finanzas]);
+        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
+    };
+  }, [ventas, finanzas, auditoriaLogs]); // ✅ Agregamos auditoriaLogs como dependencia
 
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
