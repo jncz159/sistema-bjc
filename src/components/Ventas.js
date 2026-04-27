@@ -330,7 +330,7 @@ const enviarComprobanteWA_Historial = (venta) => {
     >💳 {esCredito ? 'ES CRÉDITO' : 'A CRÉDITO?'}</button>
 </div>
 
-{/* Indicador visual de Yape o Saldo */}
+        /* Indicador visual de Yape o Saldo */
 {montoYape > 0 && <div style={{ color: '#0369A1', fontWeight: '900', fontSize: '12px' }}>📱 Diferencia por Yape: S/ {montoYape.toFixed(2)}</div>}
 {esCredito && <div style={{ color: ROJO_BJ, fontWeight: '900', fontSize: '12px' }}>📝 Saldo por Cobrar: S/ {saldoPendiente.toFixed(2)}</div>}
                                     <input type="number" value={efectivoRecibido} onChange={e => setEfectivoRecibido(e.target.value)} placeholder="0.00" style={{ width: '120px', border: 'none', borderBottom: `3px solid ${VERDE_BJ}`, background: 'none', textAlign: 'right', fontWeight: '900', fontSize: '24px', outline: 'none', color: VERDE_BJ }} />
@@ -384,29 +384,28 @@ const enviarComprobanteWA_Historial = (venta) => {
 
                 <input value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} placeholder="🔍 Buscar cliente en historial..." style={{ ...styleInp, marginBottom: '25px', backgroundColor: '#F8FAFC' }} />
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {historialVentasDiaBJ.map((g, i) => (
-                        <div key={i} style={{ border: '1px solid #F1F5F9', borderRadius: '30px', padding: '25px', backgroundColor: '#fff', boxShadow: '0 5px 20px rgba(0,0,0,0.02)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-    <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <span style={{ fontSize: '16px', fontWeight: '900' }}>{g.cliente_nombre}</span>
     <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
-    {/* --- INDICADORES DE COBRO --- */}
-<div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-    {g.monto_efectivo > 0 && (
-        <span style={{ background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: OSCURO_BJ, border: '1px solid #E2E8F0' }}>
-            💵 S/ {Number(g.monto_efectivo).toFixed(2)}
-        </span>
-    )}
-    {g.monto_yape > 0 && (
-        <span style={{ background: '#E0F2FE', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: '#0369A1', border: '1px solid #BAE6FD' }}>
-            📱 S/ {Number(g.monto_yape).toFixed(2)}
-        </span>
-    )}
-    {g.saldo_pendiente > 0 && (
-        <span style={{ background: '#FEF2F2', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: ROJO_BJ, border: '1px solid #FECACA' }}>
-            💳 DEUDA: S/ {Number(g.saldo_pendiente).toFixed(2)}
-        </span>
-    )}
+
+    {/* --- ETIQUETAS DE PAGO INTEGRADAS (SOLO UNA VEZ) --- */}
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+        {Number(g.monto_efectivo) > 0 && (
+            <span style={{ background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: OSCURO_BJ, border: '1px solid #E2E8F0' }}>
+                💵 S/ {Number(g.monto_efectivo).toFixed(2)}
+            </span>
+        )}
+        {Number(g.monto_yape) > 0 && (
+            <span style={{ background: '#E0F2FE', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: '#0369A1', border: '1px solid #BAE6FD' }}>
+                📱 S/ {Number(g.monto_yape).toFixed(2)}
+            </span>
+        )}
+        {Number(g.saldo_pendiente) > 0 && (
+            <span style={{ background: '#FEF2F2', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: ROJO_BJ, border: '1px solid #FECACA' }}>
+                💳 DEUDA: S/ {Number(g.saldo_pendiente).toFixed(2)}
+            </span>
+        )}
+    </div>
 </div>
     {/* --- ETIQUETAS DE FLUJO DE CAJA --- */}
     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
