@@ -384,7 +384,7 @@ const enviarComprobanteWA_Historial = (venta) => {
 
                 <input value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} placeholder="🔍 Buscar cliente en historial..." style={{ ...styleInp, marginBottom: '25px', backgroundColor: '#F8FAFC' }} />
                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {historialVentasDiaBJ.map((g, i) => (
+                    {historialVentasDiaBJ.map((g, i) => (   
                         <div key={i} style={{ border: '1px solid #F1F5F9', borderRadius: '30px', padding: '25px', backgroundColor: '#fff', boxShadow: '0 5px 20px rgba(0,0,0,0.02)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -406,16 +406,22 @@ const enviarComprobanteWA_Historial = (venta) => {
 
                             {/* LISTA DE ITEMS */}
                             <div style={{ borderTop: '1px dashed #eee', paddingTop: '10px' }}>
-                                {g.items.map((it, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0' }}>
-                                        <span>{it.cantidad}x {it.nombre} <small style={{ opacity: 0.5 }}>({it.color})</small></span>
-                                        <div style={{ display: 'flex', gap: '15px' }}>
-                                            <span style={{ fontWeight: '900' }}>S/ {(it.cantidad * it.precio_venta_unitario).toFixed(2)}</span>
-                                            <button onClick={() => { setIdEditItemHistorial(it.id); setFormEditItemHistorial({ cantidad: it.cantidad, precio_venta_unitario: it.precio_venta_unitario }); }} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>✏️</button>
-                                            <button onClick={() => handleAnularVentaBJ(it)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
+                                {g.items.map((it, idx) => {
+    // Buscamos el producto comparando los IDs como Strings para evitar errores de tipo
+    const pEncontrado = productos.find(p => String(p.id) === String(it.producto_id));
+    const nombreReal = pEncontrado ? pEncontrado.nombre : "Modelo";
+
+    return (
+        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', padding: '4px 0' }}>
+            <span>{it.cantidad}x <strong>{nombreReal}</strong> <small style={{ opacity: 0.5 }}>({it.color})</small></span>
+            <div style={{ display: 'flex', gap: '15px' }}>
+                <span style={{ fontWeight: '900' }}>S/ {(it.cantidad * it.precio_venta_unitario).toFixed(2)}</span>
+                <button title="Editar" onClick={() => { setIdEditItemHistorial(it.id); setFormEditItemHistorial({ cantidad: it.cantidad, precio_venta_unitario: it.precio_venta_unitario }); }} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>✏️</button>
+                <button title="Eliminar" onClick={() => handleAnularVentaBJ(it)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
+            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}

@@ -205,38 +205,43 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. VENTAS COMPLETADAS (Tu lógica histórica)
+    // 1. SUMA DE VENTAS (Tu lógica original)
     const ventasCompletadas = ventas
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    // 2. INGRESOS ADMIN (Corregido para leer emojis 📈)
-    const ingresosAdmin = finanzas
-        .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    // ✅ REEMPLAZO 1: Ingresos (Detecta la palabra aunque tenga emoji 📈)
+const ingresosAdmin = finanzas
+    .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
+    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+
+// ✅ REEMPLAZO 2: Gastos (Resta todo lo que NO sea ingreso o inversión)
+const gastosTotales = finanzas
+    .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
+    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 3. GASTOS TOTALES (Corregido para leer emojis 🏠 🚚 📢 👤)
-    // Esto es lo que hará que tus 19 mil bajen a los 34 soles reales
-    const gastosTotales = finanzas
-        .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-        
-    // FÓRMULA MAESTRA (La que tú tenías)
     const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
-    // 4. GASTOS DEL MES (Para el cuadro "BURN" de Finanzas)
-    // Antes fallaba porque buscaba "Gasto Local", ahora busca la palabra "Local" o "Personal"
-    const gastosMes = finanzas
-        .filter(f => 
-            getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-            (f.tipo?.includes('Local') || f.tipo?.includes('Personal') || f.tipo?.includes('Marketing') || f.tipo?.includes('Logística'))
-        )
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    // 4. CORRECCIÓN DEL CUADRO "BURN" (Mes en curso)
+  const gastosMes = finanzas
+    .filter(f => 
+        getFechaPeru(f.created_at).substring(0,7) === mesActual && 
+        (f.tipo?.includes('Local') || f.tipo?.includes('Personal') || f.tipo?.includes('Marketing') || f.tipo?.includes('Logística'))
+    )
+    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 
     const gananciaMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
         
+    const gananciaHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+
+    const cajaHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0);
+
     const utilidadHistorica = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
@@ -244,7 +249,7 @@ export default function SistemaBJCMasterFinal() {
     const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
     return { 
-        cH: cajaHoy, // (Asegúrate de que cajaHoy esté definido arriba)
+        cH: cajaHoy, 
         gH: gananciaHoy, 
         cG: cajaReal, // Aquí volverán tus 34 soles
         bR: utilidadHistorica,
