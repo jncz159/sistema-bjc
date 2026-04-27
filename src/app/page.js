@@ -205,21 +205,25 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. CAJA FÍSICA REAL (La "Verdad Absoluta" del efectivo)
-    // Sumamos todo el rastro forense: Ventas en efectivo, Gastos e Ingresos extra.
-    const cajaReal = auditoriaLogs.reduce((acc, log) => acc + Number(log.monto_operacion || 0), 0);
-
-    // 2. MÉTRICAS DE DESEMPEÑO (Para saber cuánto vas ganando en el mes)
-    const gananciaMes = ventas
-        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    // 1. VENTAS QUE SUMAN (Efectivo real)
+    const ventasCompletadas = ventas
+        .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
+        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    const gastosMes = finanzas
-        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-                (f.tipo?.includes('Local') || f.tipo?.includes('Personal')))
+    // 2. INGRESOS EXTRA (Detecta "Ingreso" o "Inversión" aunque tenga emojis)
+    const ingresosAdmin = finanzas
+        .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+        
+    // 3. GASTOS QUE RESTAN (Todo lo que NO sea ingreso o inversión)
+    const gastosTotales = finanzas
+        .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+        
+    // FÓRMULA FINAL DE CAJA FÍSICA
+    const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
-    // 3. MÉTRICAS DEL DÍA
+    // --- EL RESTO DE TUS CÁLCULOS SE MANTIENE IGUAL ---
     const cajaHoy = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0);
@@ -232,18 +236,26 @@ export default function SistemaBJCMasterFinal() {
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
+    const gananciaMes = ventas
+        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+        
+    const gastosMes = finanzas
+        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesActual && (f.tipo?.includes('Local') || f.tipo?.includes('Personal')))
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+        
     const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
     return { 
         cH: cajaHoy, 
         gH: gananciaHoy, 
-        cG: cajaReal, // Aquí es donde verás los ~34 soles si tu auditoría está al día
+        cG: cajaReal, 
         bR: utilidadHistorica,
         pe_g: gananciaMes,
         pe_m: gastosMes,
         pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
     };
-  }, [ventas, finanzas, auditoriaLogs]); // ✅ Agregamos auditoriaLogs como dependencia
+  }, [ventas, finanzas]);
 
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
@@ -565,27 +577,27 @@ export default function SistemaBJCMasterFinal() {
 
   // 2. FUNCIÓN PARA REGISTRAR NUEVO (Limpia)
 const handleRegistrarFinanzaBJ = async (e) => {
-    e.preventDefault();
-    const mF = Number(handleInputMonto(formFinanzas.monto));
-    
-    // ✅ Si incluye la palabra Ingreso o Inversión, es positivo
-    const esIngreso = formFinanzas.tipo?.includes('Ingreso') || formFinanzas.tipo?.includes('Inversión');
-    const delta = esIngreso ? mF : -mF; 
-    
-    const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
-    
-    if (!error) {
-        await supabase.from('auditoria_bj').insert([{ 
-            cliente: 'ADMINISTRATIVO', 
-            operacion: formFinanzas.tipo.toUpperCase(), 
-            monto_operacion: delta, 
-            caja_antes: balanceEliteBJ.cG, 
-            caja_despues: balanceEliteBJ.cG + delta 
-        }]);
-        setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' });
-        cargarTodoDesdeNube(); 
-    }
-};
+      e.preventDefault();
+      const mF = Number(handleInputMonto(formFinanzas.monto));
+      
+      // FIX: Buscamos si la palabra "Ingreso" o "Inversión" está en el tipo elegido
+      const esIngreso = formFinanzas.tipo?.includes('Ingreso') || formFinanzas.tipo?.includes('Inversión');
+      const delta = esIngreso ? mF : -mF; 
+      
+      const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
+      
+      if (!error) {
+          await supabase.from('auditoria_bj').insert([{ 
+              cliente: 'ADMINISTRATIVO', 
+              operacion: formFinanzas.tipo.toUpperCase(), 
+              monto_operacion: delta, 
+              caja_antes: balanceEliteBJ.cG, 
+              caja_despues: balanceEliteBJ.cG + delta 
+          }]);
+          setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' });
+          cargarTodoDesdeNube(); 
+      }
+  };
   // ==========================================
   // 12. RENDERIZADO VISUAL DEL BÚNKER
   // ==========================================
