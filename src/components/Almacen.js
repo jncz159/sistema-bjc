@@ -5,7 +5,7 @@
  * ESTADO: FULL CRUD (Nombre, Costo, Stock, Mayor, Menor)
  * ============================================================================
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { handleInputMonto } from '../lib/helpers';
 
 export default function AlmacenSection({
@@ -18,7 +18,7 @@ export default function AlmacenSection({
 }) {
     // --- 📍 PEGAR AQUÍ LOS ESTADOS ---
     const [metodoPagoStock, setMetodoPagoStock] = useState('📱 Caja Digital');
-    
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             {/* CABECERA */}
