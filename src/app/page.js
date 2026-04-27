@@ -205,30 +205,32 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. SUMA DE VENTAS (Tu lógica original)
+    // 1. VENTAS COMPLETADAS (Tu lógica original)
     const ventasCompletadas = ventas
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    // ✅ REEMPLAZO 1: Ingresos (Detecta la palabra aunque tenga emoji 📈)
-const ingresosAdmin = finanzas
-    .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
-    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-
-// ✅ REEMPLAZO 2: Gastos (Resta todo lo que NO sea ingreso o inversión)
-const gastosTotales = finanzas
-    .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
-    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    // 2. INGRESOS ADMIN (Detecta la palabra aunque tenga emoji 📈)
+    const ingresosAdmin = finanzas
+        .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+        
+    // 3. GASTOS TOTALES (Detecta todo lo que NO sea ingreso o inversión)
+    // Esto es vital para que la caja vuelva a tus 34 soles reales
+    const gastosTotales = finanzas
+        .filter(f => !f.tipo?.toLowerCase().includes('ingreso') && !f.tipo?.toLowerCase().includes('inversión'))
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
     const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
-    // 4. CORRECCIÓN DEL CUADRO "BURN" (Mes en curso)
-  const gastosMes = finanzas
-    .filter(f => 
-        getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-        (f.tipo?.includes('Local') || f.tipo?.includes('Personal') || f.tipo?.includes('Marketing') || f.tipo?.includes('Logística'))
-    )
-    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    // 4. GASTOS DEL MES (Para el cuadro "BURN" en Finanzas)
+    // Filtramos TODO lo que se gastó en el mes actual
+    const gastosMes = finanzas
+        .filter(f => 
+            getFechaPeru(f.created_at).substring(0,7) === mesActual && 
+            !f.tipo?.toLowerCase().includes('ingreso') && !f.tipo?.toLowerCase().includes('inversión')
+        )
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 
     const gananciaMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
@@ -251,10 +253,11 @@ const gastosTotales = finanzas
     return { 
         cH: cajaHoy, 
         gH: gananciaHoy, 
-        cG: cajaReal, // Aquí volverán tus 34 soles
+        cG: cajaReal, 
         bR: utilidadHistorica,
-        pe_g: gananciaMes,
-        pe_m: gastosMes, // Esto llenará el BURN que estaba en 0
+        pe_g: gananciaMes,      // Ganancia Bruta de Ventas
+        pe_m: gastosMes,       // Gasto Real del Mes (Cuadro Rojo)
+        pe_n: gananciaMes - gastosMes, // 👈 NUEVO: Utilidad Neta del Mes (Ganancia - Gastos)
         pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
     };
   }, [ventas, finanzas]);
@@ -581,8 +584,8 @@ const handleRegistrarFinanzaBJ = async (e) => {
       e.preventDefault();
       const mF = Number(handleInputMonto(formFinanzas.monto));
       
-      // FIX: Buscamos si la palabra "Ingreso" o "Inversión" está en el tipo elegido
-      const esIngreso = formFinanzas.tipo?.includes('Ingreso') || formFinanzas.tipo?.includes('Inversión');
+      // FIX: Detectamos si es ingreso por la palabra, no por el emoji
+      const esIngreso = formFinanzas.tipo?.toLowerCase().includes('ingreso') || formFinanzas.tipo?.toLowerCase().includes('inversión');
       const delta = esIngreso ? mF : -mF; 
       
       const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
@@ -595,6 +598,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
               caja_antes: balanceEliteBJ.cG, 
               caja_despues: balanceEliteBJ.cG + delta 
           }]);
+          // IMPORTANTE: Resetear con el nombre exacto que usas en el select
           setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' });
           cargarTodoDesdeNube(); 
       }
