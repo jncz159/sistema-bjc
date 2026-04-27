@@ -201,29 +201,29 @@ export default function SistemaBJCMasterFinal() {
     return { cost, vent, pot };
   }, [productos]);
 
-  const balanceEliteBJ = useMemo(() => {
+ const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. VENTAS QUE SUMAN (Efectivo real)
+    // 1. VENTAS (Tu lógica original de siempre)
     const ventasCompletadas = ventas
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    // 2. INGRESOS EXTRA (Detecta "Ingreso" o "Inversión" aunque tenga emojis)
+    // 2. INGRESOS (Ahora detecta la palabra aunque tenga el emoji 📈)
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 3. GASTOS QUE RESTAN (Todo lo que NO sea ingreso o inversión)
+    // 3. GASTOS (Ahora detecta la palabra aunque tenga los emojis 🏠 🚚 📢 👤)
     const gastosTotales = finanzas
         .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // FÓRMULA FINAL DE CAJA FÍSICA
+    // FÓRMULA ORIGINAL RESTAURADA
     const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
-    // --- EL RESTO DE TUS CÁLCULOS SE MANTIENE IGUAL ---
+    // --- EL RESTO DE TUS MÉTRICAS SE MANTIENE IGUAL ---
     const cajaHoy = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0);
