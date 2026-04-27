@@ -17,7 +17,8 @@ export default function VentasSection({
     // NUEVOS ESTADOS DE UX
     const [isProcessing, setIsProcessing] = useState(false);
     const [animatingId, setAnimatingId] = useState(null);
-
+// Agrega esta línea junto a los otros useState al inicio del componente
+const [esCredito, setEsCredito] = useState(false);
     useEffect(() => {
         if (showSuccess) {
             const timer = setTimeout(() => setShowSuccess(false), 3000);
