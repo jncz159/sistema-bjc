@@ -210,12 +210,12 @@ export default function SistemaBJCMasterFinal() {
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
     const ingresosAdmin = finanzas
-    .filter(f => ['📈 Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)) // 👈 AGREGA EL EMOJI AQUÍ
-    .reduce((acc, f) => acc + Number(f.monto), 0);
+    .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
+    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
     
 const gastosTotales = finanzas
-    .filter(f => !['📈 Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)) // 👈 AGREGA EL EMOJI AQUÍ
-    .reduce((acc, f) => acc + Number(f.monto), 0);
+    .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
+    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
     const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
