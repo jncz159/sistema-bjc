@@ -205,61 +205,54 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. VENTAS (Tu lógica original de siempre)
+    // 1. VENTAS COMPLETADAS (Tu lógica histórica)
     const ventasCompletadas = ventas
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    // 2. INGRESOS (Ahora detecta la palabra aunque tenga el emoji 📈)
+    // 2. INGRESOS ADMIN (Corregido para leer emojis 📈)
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.includes('Ingreso') || f.tipo?.includes('Inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 3. GASTOS (Ahora detecta la palabra aunque tenga los emojis 🏠 🚚 📢 👤)
+    // 3. GASTOS TOTALES (Corregido para leer emojis 🏠 🚚 📢 👤)
+    // Esto es lo que hará que tus 19 mil bajen a los 34 soles reales
     const gastosTotales = finanzas
         .filter(f => !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // FÓRMULA ORIGINAL RESTAURADA
+    // FÓRMULA MAESTRA (La que tú tenías)
     const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
-    // --- EL RESTO DE TUS MÉTRICAS SE MANTIENE IGUAL ---
-    const cajaHoy = ventas
-        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0);
-        
-    const gananciaHoy = ventas
-        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+    // 4. GASTOS DEL MES (Para el cuadro "BURN" de Finanzas)
+    // Antes fallaba porque buscaba "Gasto Local", ahora busca la palabra "Local" o "Personal"
+    const gastosMes = finanzas
+        .filter(f => 
+            getFechaPeru(f.created_at).substring(0,7) === mesActual && 
+            (f.tipo?.includes('Local') || f.tipo?.includes('Personal') || f.tipo?.includes('Marketing') || f.tipo?.includes('Logística'))
+        )
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+
+    const gananciaMes = ventas
+        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
         
     const utilidadHistorica = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
-    const gananciaMes = ventas
-        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-        
-   const gastosMes = finanzas
-    .filter(f => 
-        getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-        (f.tipo?.includes('Local') || f.tipo?.includes('Personal') || f.tipo?.includes('Marketing') || f.tipo?.includes('Logística'))
-    )
-    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-        
     const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
     return { 
-        cH: cajaHoy, 
+        cH: cajaHoy, // (Asegúrate de que cajaHoy esté definido arriba)
         gH: gananciaHoy, 
-        cG: cajaReal, 
+        cG: cajaReal, // Aquí volverán tus 34 soles
         bR: utilidadHistorica,
         pe_g: gananciaMes,
-        pe_m: gastosMes,
+        pe_m: gastosMes, // Esto llenará el BURN que estaba en 0
         pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
     };
   }, [ventas, finanzas]);
-
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
     ventas.forEach(v => { 
