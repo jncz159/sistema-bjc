@@ -47,9 +47,18 @@ const [esCredito, setEsCredito] = useState(false);
                 
                 // Mostrar el cartel verde de éxito (el que ya tienes integrado)
                 setShowSuccess(true);
-                
+                // Enviamos un objeto con el desglose del pago
+            const desglosePago = {
+                efectivo: esCredito ? Number(efectivoRecibido) : (Number(efectivoRecibido) - vuelto),
+                yape: montoYape,
+                saldo: saldoPendiente,
+                metodo: esCredito ? 'Crédito' : (montoYape > 0 && efectivoRecibido > 0 ? 'Múltiple' : (montoYape > 0 ? 'Yape' : 'Efectivo'))
+            };
+
+            await handleEjecutarVentaBJ(modo, desglosePago); // 👈 Pasamos el desglose completo
                 // Limpiar el campo de efectivo
                 setEfectivoRecibido('');
+                setEsCredito(false); // Reiniciamos el modo crédito
                 setIsProcessing(false); // 🔓 Desactiva cortina de humo
                 // Desplazar la pantalla hacia arriba para ver el éxito si es necesario
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -356,6 +365,25 @@ const enviarComprobanteWA_Historial = (venta) => {
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
                                     <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
+                                    <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
+<div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+    {/* Etiquetas de método de pago */}
+    {g.monto_efectivo > 0 && (
+        <small style={{ background: '#F1F5F9', padding: '2px 8px', borderRadius: '5px', fontWeight: '900', color: OSCURO_BJ }}>
+            💵 S/ {g.monto_efectivo.toFixed(2)}
+        </small>
+    )}
+    {g.monto_yape > 0 && (
+        <small style={{ background: '#E0F2FE', padding: '2px 8px', borderRadius: '5px', fontWeight: '900', color: '#0369A1' }}>
+            📱 S/ {g.monto_yape.toFixed(2)}
+        </small>
+    )}
+    {g.saldo_pendiente > 0 && (
+        <small style={{ background: '#FEF2F2', padding: '2px 8px', borderRadius: '5px', fontWeight: '900', color: ROJO_BJ }}>
+            💳 DEBE: S/ {g.saldo_pendiente.toFixed(2)}
+        </small>
+    )}
+</div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
     <span style={{ color: FUCSIA_PRINCIPAL, fontSize: '1.6rem' }}>S/ {g.total.toFixed(2)}</span>
