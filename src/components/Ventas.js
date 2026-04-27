@@ -30,12 +30,11 @@ const [esCredito, setEsCredito] = useState(false);
     // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
     // --- FUNCIÓN DE EJECUCIÓN ACTUALIZADA ---
     const ejecutarVentaConAlerta = async (modo) => {
-        // 1. Mensaje personalizado
         const mensaje = `⚠️ ¿PROCESAR VENTA? ⚠️\n\n` +
                         `Cliente: ${cliente}\n` +
-                        `Tipo: ${modo.toUpperCase()}\n` +
-                        `Total: S/ ${totalCarrito.toFixed(2)}\n\n` +
-                        `¿Estás seguro de registrar esta operación?`;
+                        `Total: S/ ${totalCarrito.toFixed(2)}\n` +
+                        `Recibido: S/ ${Number(efectivoRecibido || 0).toFixed(2)}\n\n` +
+                        `¿Confirmar registro?`;
 
         const confirmacion = window.confirm(mensaje);
         
@@ -43,30 +42,37 @@ const [esCredito, setEsCredito] = useState(false);
             try {
                 setIsProcessing(true);
 
-                // PREPARACIÓN DEL DESGLOSE (Lo que irá a Supabase)
-                const montoRealEfectivo = esCredito 
-                    ? Number(efectivoRecibido || 0) 
-                    : (Number(efectivoRecibido || 0) > totalCarrito ? totalCarrito : Number(efectivoRecibido || 0));
+                // --- EL CEREBRO DEL COBRO ---
+                const efectivoLimpio = Number(efectivoRecibido || 0);
+                
+                // Si es crédito, el saldo es el Total - lo que dejó de inicial
+                // Si no es crédito, el saldo es 0
+                const deudaReal = esCredito ? (totalCarrito - efectivoLimpio) : 0;
+                
+                // Si no es crédito y pagó menos del total, el resto es Yape
+                const yapeReal = (!esCredito && efectivoLimpio < totalCarrito) ? (totalCarrito - efectivoLimpio) : 0;
+                
+                // Si pagó de más, el efectivo que entra a caja es solo el total de la venta (el resto es vuelto)
+                const efectivoParaCaja = (!esCredito && efectivoLimpio > totalCarrito) ? totalCarrito : efectivoLimpio;
 
                 const desglosePago = {
-                    efectivo: montoRealEfectivo,
-                    yape: montoYape,
-                    saldo: saldoPendiente,
-                    metodo: esCredito ? 'Crédito' : (montoYape > 0 && efectivoRecibido > 0 ? 'Múltiple' : (montoYape > 0 ? 'Yape' : 'Efectivo'))
+                    monto_efectivo: efectivoParaCaja,
+                    monto_yape: yapeReal,
+                    saldo_pendiente: deudaReal,
+                    metodo_pago: esCredito ? 'Crédito' : (yapeReal > 0 ? 'Múltiple/Yape' : 'Efectivo')
                 };
 
-                // Enviamos el objeto 'desglosePago' en lugar de solo el abono
+                // Enviamos el objeto con todo el detalle
                 await handleEjecutarVentaBJ(modo, desglosePago);
                 
                 setShowSuccess(true);
                 setEfectivoRecibido('');
-                setEsCredito(false); // Importante: Reiniciar el modo crédito tras vender
+                setEsCredito(false); 
                 setIsProcessing(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 
             } catch (error) {
-                console.error(error);
-                alert("❌ Error al conectar con el búnker.");
+                alert("❌ Error en el búnker.");
                 setIsProcessing(false);
             }
         } else {
@@ -339,11 +345,28 @@ const enviarComprobanteWA_Historial = (venta) => {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                <button onClick={() => ejecutarVentaConAlerta('Entregado')} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${VERDE_BJ}40`, transition: 'transform 0.1s' }}>VENTA CASH 💵</button>
-                                <button onClick={() => ejecutarVentaConAlerta('En Almacén')} style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${AMARILLO_BJ}40` }}>ALMACÉN 📦</button>
-                                <button onClick={() => ejecutarVentaConAlerta('Pendiente de Pago', efectivoRecibido)} style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${ROJO_BJ}40` }}>A CRÉDITO 💳</button>
-                                <button onClick={handleWhatsApp} style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px #25D36640` }}>WHATSAPP 📱</button>
-                            </div>
+    {/* Botón Cash: Procesa la venta asumiendo que el resto es Yape si no completaste el total */}
+    <button 
+        onClick={() => ejecutarVentaConAlerta('Entregado')} 
+        style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${VERDE_BJ}40` }}
+    >VENTA CASH 💵</button>
+
+    <button 
+        onClick={() => ejecutarVentaConAlerta('En Almacén')} 
+        style={{ backgroundColor: AMARILLO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${AMARILLO_BJ}40` }}
+    >ALMACÉN 📦</button>
+
+    {/* FIX CRÍTICO: Aquí ya NO pasamos 'efectivoRecibido'. La función lo toma sola del estado */}
+    <button 
+        onClick={() => ejecutarVentaConAlerta('Pendiente de Pago')} 
+        style={{ backgroundColor: ROJO_BJ, color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px ${ROJO_BJ}40` }}
+    >A CRÉDITO 💳</button>
+
+    <button 
+        onClick={handleWhatsApp} 
+        style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '14px', cursor: 'pointer', boxShadow: `0 8px 20px #25D36640` }}
+    >WHATSAPP 📱</button>
+</div>
                         </div>
                     )}
                 </div>
@@ -367,7 +390,24 @@ const enviarComprobanteWA_Historial = (venta) => {
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
     <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
     <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
-    
+    {/* --- INDICADORES DE COBRO --- */}
+<div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+    {g.monto_efectivo > 0 && (
+        <span style={{ background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: OSCURO_BJ, border: '1px solid #E2E8F0' }}>
+            💵 S/ {Number(g.monto_efectivo).toFixed(2)}
+        </span>
+    )}
+    {g.monto_yape > 0 && (
+        <span style={{ background: '#E0F2FE', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: '#0369A1', border: '1px solid #BAE6FD' }}>
+            📱 S/ {Number(g.monto_yape).toFixed(2)}
+        </span>
+    )}
+    {g.saldo_pendiente > 0 && (
+        <span style={{ background: '#FEF2F2', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: ROJO_BJ, border: '1px solid #FECACA' }}>
+            💳 DEUDA: S/ {Number(g.saldo_pendiente).toFixed(2)}
+        </span>
+    )}
+</div>
     {/* --- ETIQUETAS DE FLUJO DE CAJA --- */}
     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
         {g.monto_efectivo > 0 && (
