@@ -571,30 +571,27 @@ const gastosTotales = finanzas
 
   // 2. FUNCIÓN PARA REGISTRAR NUEVO (Limpia)
 const handleRegistrarFinanzaBJ = async (e) => {
-      e.preventDefault();
-      
-      const mF = Number(handleInputMonto(formFinanzas.monto));
-      
-      // FIX: Ahora comparamos incluyendo el emoji que viene del select
-      const esGasto = !['📈 Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
-      
-      // Si es gasto, el delta es negativo (resta), si es ingreso es positivo (suma)
-      const delta = esGasto ? -mF : mF; 
-      
-      const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
-      
-      if (!error) {
-          await supabase.from('auditoria_bj').insert([{ 
-              cliente: 'ADMINISTRATIVO', 
-              operacion: formFinanzas.tipo.toUpperCase(), 
-              monto_operacion: delta, 
-              caja_antes: balanceEliteBJ.cG, 
-              caja_despues: balanceEliteBJ.cG + delta 
-          }]);
-          setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' }); // Reset con emoji por defecto
-          cargarTodoDesdeNube(); 
-      }
-  };
+    e.preventDefault();
+    const mF = Number(handleInputMonto(formFinanzas.monto));
+    
+    // ✅ Si incluye la palabra Ingreso o Inversión, es positivo
+    const esIngreso = formFinanzas.tipo?.includes('Ingreso') || formFinanzas.tipo?.includes('Inversión');
+    const delta = esIngreso ? mF : -mF; 
+    
+    const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
+    
+    if (!error) {
+        await supabase.from('auditoria_bj').insert([{ 
+            cliente: 'ADMINISTRATIVO', 
+            operacion: formFinanzas.tipo.toUpperCase(), 
+            monto_operacion: delta, 
+            caja_antes: balanceEliteBJ.cG, 
+            caja_despues: balanceEliteBJ.cG + delta 
+        }]);
+        setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' });
+        cargarTodoDesdeNube(); 
+    }
+};
   // ==========================================
   // 12. RENDERIZADO VISUAL DEL BÚNKER
   // ==========================================
