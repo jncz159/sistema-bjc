@@ -68,8 +68,17 @@ export default function VentasSection({
         setCantidades({ ...cantidades, [id]: nueva });
     };
 
+   // --- CÁLCULOS DE COBRO INTELIGENTE ---
     const totalCarrito = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * i.cantidad), 0);
-    const vuelto = efectivoRecibido ? (Number(efectivoRecibido) - totalCarrito) : 0;
+    
+    // Si no es crédito y recibes más de lo que cuesta -> hay vuelto
+    const vuelto = (!esCredito && Number(efectivoRecibido) > totalCarrito) ? (Number(efectivoRecibido) - totalCarrito) : 0;
+    
+    // Si no es crédito y recibes menos -> el sistema asume que el resto es YAPE
+    const montoYape = (!esCredito && Number(efectivoRecibido) < totalCarrito && efectivoRecibido > 0) ? (totalCarrito - Number(efectivoRecibido)) : 0;
+    
+    // Si es crédito -> calculamos cuánto falta pagar
+    const saldoPendiente = esCredito ? (totalCarrito - Number(efectivoRecibido)) : 0;
 
     const handleWhatsApp = () => {
         let msg = `*BJ IMPORTACIONES - PRESUPUESTO*%0A`;
@@ -78,7 +87,27 @@ export default function VentasSection({
         msg += `----------------------------%0A*TOTAL: S/ ${totalCarrito.toFixed(2)}*%0A`;
         window.open(`https://wa.me/51${telefono}?text=${msg}`, '_blank');
     };
+const enviarComprobanteWA_Historial = (venta) => {
+        let msg = `*B J IMPORTACIONES CHICLAYO* 💎%0A`;
+        msg += `*COMPROBANTE DE VENTA*%0A`;
+        msg += `----------------------------%0A`;
+        msg += `👤 Cliente: ${venta.cliente_nombre}%0A`;
+        msg += `📍 Ciudad: ${venta.localidad}%0A`;
+        msg += `🕒 Hora: ${venta.hora}%0A`;
+        msg += `----------------------------%0A`;
+        
+        venta.items.forEach(it => {
+            msg += `• ${it.cantidad}x ${it.nombre} (${it.color}) - S/ ${(it.cantidad * it.precio_venta_unitario).toFixed(2)}%0A`;
+        });
+        
+        msg += `----------------------------%0A`;
+        msg += `*TOTAL PAGADO: S/ ${venta.total.toFixed(2)}*%0A%0A`;
+        msg += `¡Gracias por tu confianza! 🚀`;
 
+        // Usamos el teléfono que viene en la venta o pedimos uno si no existe
+        const nro = venta.telefono || telefono || "";
+        window.open(`https://wa.me/51${nro}?text=${msg}`, '_blank');
+    };
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', position: 'relative' }}>
             {/* 5. CORTINA DE HUMO */}
@@ -265,6 +294,26 @@ export default function VentasSection({
                                         <span style={{ fontWeight: '900', fontSize: '14px' }}>ABONO / EFECTIVO $</span>
                                         <small style={{ fontSize: '10px', opacity: 0.6 }}>(Llenar solo si es crédito)</small>
                                     </div>
+                                    <div style={{ display: 'flex', gap: '10px', margin: '10px 0' }}>
+    <button 
+        onClick={() => { setEfectivoRecibido(totalCarrito); setEsCredito(false); }}
+        style={{ flex: 1, padding: '10px', background: OSCURO_BJ, color: '#fff', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+    >💵 TODO CASH</button>
+
+    <button 
+        onClick={() => { setEfectivoRecibido(0); setEsCredito(false); }}
+        style={{ flex: 1, padding: '10px', background: '#73029c', color: '#fff', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+    >📱 TODO YAPE</button>
+    
+    <button 
+        onClick={() => setEsCredito(!esCredito)}
+        style={{ flex: 1, padding: '10px', background: esCredito ? AMARILLO_BJ : '#f1f1f1', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+    >💳 {esCredito ? 'ES CRÉDITO' : 'A CRÉDITO?'}</button>
+</div>
+
+{/* Indicador visual de Yape o Saldo */}
+{montoYape > 0 && <div style={{ color: '#0369A1', fontWeight: '900', fontSize: '12px' }}>📱 Diferencia por Yape: S/ {montoYape.toFixed(2)}</div>}
+{esCredito && <div style={{ color: ROJO_BJ, fontWeight: '900', fontSize: '12px' }}>📝 Saldo por Cobrar: S/ {saldoPendiente.toFixed(2)}</div>}
                                     <input type="number" value={efectivoRecibido} onChange={e => setEfectivoRecibido(e.target.value)} placeholder="0.00" style={{ width: '120px', border: 'none', borderBottom: `3px solid ${VERDE_BJ}`, background: 'none', textAlign: 'right', fontWeight: '900', fontSize: '24px', outline: 'none', color: VERDE_BJ }} />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '10px' }}>
@@ -307,7 +356,27 @@ export default function VentasSection({
                                     <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
                                     <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
                                 </div>
-                                <span style={{ color: FUCSIA_PRINCIPAL, fontSize: '1.6rem' }}>S/ {g.total.toFixed(2)}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+    <span style={{ color: FUCSIA_PRINCIPAL, fontSize: '1.6rem' }}>S/ {g.total.toFixed(2)}</span>
+    <button 
+        onClick={() => enviarComprobanteWA_Historial(g)} 
+        title="Enviar comprobante por WhatsApp"
+        style={{ 
+            border: 'none', 
+            background: '#25D36620', 
+            color: '#25D366', 
+            borderRadius: '12px', 
+            padding: '8px 12px', 
+            cursor: 'pointer', 
+            fontSize: '18px',
+            transition: '0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.background = '#25D36640'}
+        onMouseOut={(e) => e.currentTarget.style.background = '#25D36620'}
+    >
+        📲
+    </button>
+</div>
                             </div>
                             
                             {g.items.map((it, idx) => {

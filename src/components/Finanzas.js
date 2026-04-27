@@ -28,13 +28,19 @@ export default function FinanzasSection({
     const dineroDigital = cajaTotal - Number(efectivoFisico || 0);
 
     // --- 2. CEREBRO ESTRATÉGICO (LO NUEVO) ---
+    // --- FILTROS DE PRECISIÓN ---
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
-    const gastoMarketing = finanzasValidas.filter(f => f.tipo === "📢 Marketing Ads").reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    const gastoLogistica = finanzasValidas.filter(f => f.tipo === "🚚 Logística/Envío").reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    const gastoLocal = finanzasValidas.filter(f => f.tipo === "🏠 Gastos Local").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+
+    // 1. Solo lo que es GASTO REAL (Local, Marketing, Logística)
+    const esGastoOperativo = (tipo) => 
+        tipo?.includes("Local") || tipo?.includes("Marketing") || tipo?.includes("Logística");
+
+    // 2. Calculamos los totales globales para las tarjetas de arriba
+    const gastoMarketing = finanzasValidas.filter(f => f.tipo?.includes("Marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const totalGastosOperativosGlobal = finanzasValidas.filter(f => esGastoOperativo(f.tipo)).reduce((acc, f) => acc + Number(f.monto || 0), 0);
     
-    const totalGastosOperativos = gastoMarketing + gastoLogistica + gastoLocal;
-    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativos;
+    // Utilidad Neta Real (Ahora sí restará solo lo operativo, sin tocar tu inversión en mercadería)
+    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativosGlobal;
 
     // --- 3. MOTORES DE CÁLCULO POR PERIODOS (TU ESTRUCTURA ORIGINAL) ---
     const procesarPeriodo = (filtradasVentas, filtradasFinanzas) => {
@@ -57,11 +63,10 @@ export default function FinanzasSection({
         limite.setDate(limite.getDate() - dias);
         const vFiltradas = ventas.filter(v => new Date(v.created_at) >= limite && v.estado_pedido !== 'Anulado');
         
-        // REVISIÓN CLAVE: Aquí sumamos todo lo que NO sea Ingreso o Inversión para el Burn Rate
+        // CORRECCIÓN AQUÍ: El filtro ahora usa la función 'esGastoOperativo'
         const fFiltradas = finanzas.filter(f => {
             const fecha = new Date(f.created_at);
-            const esGasto = !f.tipo?.includes('Ingreso') && !f.tipo?.includes('Inversión');
-            return fecha >= limite && esGasto;
+            return fecha >= limite && esGastoOperativo(f.tipo);
         });
         
         return procesarPeriodo(vFiltradas, fFiltradas);

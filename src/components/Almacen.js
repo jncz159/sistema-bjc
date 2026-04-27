@@ -109,6 +109,17 @@ export default function AlmacenSection({
                                     <input type="number" placeholder="Sincronizar" value={formEditStockBJ[p.id] || ''} onChange={(e) => setFormEditStockBJ({...formEditStockBJ, [p.id]: e.target.value})} style={{ ...styleInp, padding: '10px', flex: 1, fontSize:'13px' }} />
                                     <button onClick={() => handleSincronizarStockBJ(p.id, formEditStockBJ[p.id])} style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '0 15px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer', fontSize:'12px' }}>SYNC</button>
                                 </div>
+                                <div>
+    <label style={{ fontSize: '11px', fontWeight: '900' }}>🏦 ORIGEN DEL PAGO</label>
+    <select 
+        value={metodoPagoStock} 
+        onChange={(e) => setMetodoPagoStock(e.target.value)} 
+        style={styleInp}
+    >
+        <option value="🏠 Gastos Local">💵 Efectivo (Caja Física)</option>
+        <option value="📱 Caja Digital">📱 Yape / Plin (Caja Digital)</option>
+    </select>
+</div>
                             </>
                         )}
                     </div>
