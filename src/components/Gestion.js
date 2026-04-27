@@ -47,7 +47,8 @@ export default function GestionSection({
     const totalGastosOperativos = gastoMarketing + gastoLogistica + gastoLocal;
     
     // CORRECCIÓN: Utilidad = (Ganancia Ventas + Ingresos Extra) - Gastos
-    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) + ingresosExtra - totalGastosOperativos;
+    // Volvemos a tu lógica: Solo ganancia acumulada por ventas
+const utilidadNetaReal = balanceEliteBJ?.bR || 0;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             
