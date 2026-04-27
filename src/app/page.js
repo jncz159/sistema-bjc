@@ -210,12 +210,12 @@ export default function SistemaBJCMasterFinal() {
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
     const ingresosAdmin = finanzas
-        .filter(f => ['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
-        .reduce((acc, f) => acc + Number(f.monto), 0);
-        
-    const gastosTotales = finanzas
-        .filter(f => !['Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo))
-        .reduce((acc, f) => acc + Number(f.monto), 0);
+    .filter(f => ['📈 Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)) // 👈 AGREGA EL EMOJI AQUÍ
+    .reduce((acc, f) => acc + Number(f.monto), 0);
+    
+const gastosTotales = finanzas
+    .filter(f => !['📈 Ingreso Adicional', 'Inversión Inicial'].includes(f.tipo)) // 👈 AGREGA EL EMOJI AQUÍ
+    .reduce((acc, f) => acc + Number(f.monto), 0);
         
     const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
 
@@ -570,12 +570,16 @@ export default function SistemaBJCMasterFinal() {
   };
 
   // 2. FUNCIÓN PARA REGISTRAR NUEVO (Limpia)
-  const handleRegistrarFinanzaBJ = async (e) => {
+const handleRegistrarFinanzaBJ = async (e) => {
       e.preventDefault();
       
       const mF = Number(handleInputMonto(formFinanzas.monto));
-      const esGasto = !['Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
-      const delta = esGasto ? -mF : mF; // Negativo si sale dinero
+      
+      // FIX: Ahora comparamos incluyendo el emoji que viene del select
+      const esGasto = !['📈 Ingreso Adicional', 'Inversión Inicial'].includes(formFinanzas.tipo);
+      
+      // Si es gasto, el delta es negativo (resta), si es ingreso es positivo (suma)
+      const delta = esGasto ? -mF : mF; 
       
       const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
       
@@ -587,7 +591,7 @@ export default function SistemaBJCMasterFinal() {
               caja_antes: balanceEliteBJ.cG, 
               caja_despues: balanceEliteBJ.cG + delta 
           }]);
-          setFormFinanzas({ tipo: 'Gasto Local', descripcion: '', monto: '' });
+          setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' }); // Reset con emoji por defecto
           cargarTodoDesdeNube(); 
       }
   };
@@ -716,11 +720,12 @@ export default function SistemaBJCMasterFinal() {
 
         {vista === 'contabilidad' && (
             <GestionSection {...{ 
-                balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
-                auditoriaLogs, handleRegistrarFinanzaBJ, 
-                formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
-                FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
-            }} />
+        balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
+        auditoriaLogs, handleRegistrarFinanzaBJ, 
+        formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, 
+        formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
+        FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
+    }} />
         )}
 
       </main>

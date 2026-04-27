@@ -35,15 +35,20 @@ export default function GestionSection({
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
     
     // Sumamos por categorías específicas
+  // --- LÓGICA DE CONTROL ABSOLUTO ACTUALIZADA ---
+    const finanzasValidas = finanzas?.filter(f => f != null) || [];
+    
     const gastoMarketing = finanzasValidas.filter(f => f.tipo === "📢 Marketing Ads").reduce((acc, f) => acc + Number(f.monto || 0), 0);
     const gastoLogistica = finanzasValidas.filter(f => f.tipo === "🚚 Logística/Envío").reduce((acc, f) => acc + Number(f.monto || 0), 0);
     const gastoLocal = finanzasValidas.filter(f => f.tipo === "🏠 Gastos Local").reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    const gastoPersonal = finanzasValidas.filter(f => f.tipo === "👤 Retiro Personal").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    
+    // NUEVO: Capturamos los ingresos adicionales
+    const ingresosExtra = finanzasValidas.filter(f => f.tipo?.includes("Ingreso")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
     
     const totalGastosOperativos = gastoMarketing + gastoLogistica + gastoLocal;
     
-    // Utilidad Neta Real: Ganancia de Ventas - Gastos Operativos
-    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativos;
+    // CORRECCIÓN: Utilidad = (Ganancia Ventas + Ingresos Extra) - Gastos
+    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) + ingresosExtra - totalGastosOperativos;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             
@@ -179,8 +184,8 @@ export default function GestionSection({
                                                 <strong style={{ fontSize: '15px' }}>{f?.tipo || 'Sin Tipo'}</strong><br/>
                                                 <small style={{ opacity: 0.6 }}>{f?.descripcion || ''}</small>
                                             </td>
-                                            <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: f?.tipo?.includes('Ingreso') || f?.tipo?.includes('Inversión') ? VERDE_BJ : ROJO_BJ }}>
-    {f?.tipo?.includes('Ingreso') || f?.tipo?.includes('Inversión') ? "+" : "-"} S/ {Number(f?.monto || 0).toFixed(2)}
+                                            <td style={{ textAlign: 'right', padding: '20px 15px', fontWeight: '900', fontSize: '16px', color: f?.tipo?.includes('Ingreso') ? VERDE_BJ : ROJO_BJ }}>
+    {f?.tipo?.includes('Ingreso') ? "+" : "-"} S/ {Number(f?.monto || 0).toFixed(2)}
 </td>
                                             <td style={{ textAlign: 'center', padding: '20px 15px' }}>
                                                 <button onClick={() => { setIdEditFinanza(f?.id); setFormEditFinanza({...f, created_at: f?.created_at ? formatForInputDT(f.created_at) : ''}); }} style={{ border: 'none', background: '#F1F5F9', borderRadius: '10px', padding: '10px', cursor:'pointer', fontSize:'16px' }}>✏️</button>
