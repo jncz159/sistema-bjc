@@ -485,9 +485,41 @@ export default function SistemaBJCMasterFinal() {
   };
   
   const handleSincronizarStockBJ = async (id, s) => { 
-      await supabase.from('productos').update({stock: Number(s)}).eq('id',id); 
-      cargarTodoDesdeNube(); 
-  };
+    try {
+        // 1. Buscamos el nombre del producto en el estado local para el historial
+        const productoEncontrado = productos.find(p => p.id === id);
+        const nombreParaRegistro = productoEncontrado ? productoEncontrado.nombre : 'Producto Sin Nombre';
+
+        // 2. Actualizamos el stock en la tabla principal (lo que ya hacías)
+        const { error: errorUpdate } = await supabase
+            .from('productos')
+            .update({ stock: Number(s) })
+            .eq('id', id);
+
+        if (errorUpdate) throw errorUpdate;
+
+        // 3. PASO NUEVO: Insertamos el registro en la bitácora de movimientos
+        // Esto alimentará el Box de "Entradas" en tu Almacén
+        const { error: errorMov } = await supabase
+            .from('movimientos_stock_bj')
+            .insert([
+                {
+                    producto_nombre: nombreParaRegistro,
+                    cantidad_agregada: Number(s), // Registra el valor que ingresaste en el cuadro
+                    tipo_movimiento: 'ENTRADA / AJUSTE'
+                }
+            ]);
+
+        if (errorMov) throw errorMov;
+
+        // 4. Refrescamos la vista para ver los cambios reflejados
+        cargarTodoDesdeNube();
+
+    } catch (error) {
+        console.error("Error completo en sincronización:", error);
+        alert("❌ Error al registrar el movimiento en el Búnker");
+    }
+};
 
   // ==========================================
   // 10. FUNCIONES: LOGÍSTICA (COBRANZAS)

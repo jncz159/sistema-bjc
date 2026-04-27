@@ -330,7 +330,7 @@ const enviarComprobanteWA_Historial = (venta) => {
     >💳 {esCredito ? 'ES CRÉDITO' : 'A CRÉDITO?'}</button>
 </div>
 
-        /* Indicador visual de Yape o Saldo */
+       {/* Indicador visual de Yape o Saldo */}
 {montoYape > 0 && <div style={{ color: '#0369A1', fontWeight: '900', fontSize: '12px' }}>📱 Diferencia por Yape: S/ {montoYape.toFixed(2)}</div>}
 {esCredito && <div style={{ color: ROJO_BJ, fontWeight: '900', fontSize: '12px' }}>📝 Saldo por Cobrar: S/ {saldoPendiente.toFixed(2)}</div>}
                                     <input type="number" value={efectivoRecibido} onChange={e => setEfectivoRecibido(e.target.value)} placeholder="0.00" style={{ width: '120px', border: 'none', borderBottom: `3px solid ${VERDE_BJ}`, background: 'none', textAlign: 'right', fontWeight: '900', fontSize: '24px', outline: 'none', color: VERDE_BJ }} />
@@ -383,121 +383,40 @@ const enviarComprobanteWA_Historial = (venta) => {
                 </div>
 
                 <input value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} placeholder="🔍 Buscar cliente en historial..." style={{ ...styleInp, marginBottom: '25px', backgroundColor: '#F8FAFC' }} />
-                
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-    <span style={{ fontSize: '16px', fontWeight: '900' }}>{g.cliente_nombre}</span>
-    <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {historialVentasDiaBJ.map((g, i) => (
+                        <div key={i} style={{ border: '1px solid #F1F5F9', borderRadius: '30px', padding: '25px', backgroundColor: '#fff', boxShadow: '0 5px 20px rgba(0,0,0,0.02)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '16px', fontWeight: '900' }}>{g.cliente_nombre}</span>
+                                    <small style={{ opacity: 0.5 }}>📍 {g.localidad} • 🕒 {g.hora}</small>
 
-    {/* --- ETIQUETAS DE PAGO INTEGRADAS (SOLO UNA VEZ) --- */}
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-        {Number(g.monto_efectivo) > 0 && (
-            <span style={{ background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: OSCURO_BJ, border: '1px solid #E2E8F0' }}>
-                💵 S/ {Number(g.monto_efectivo).toFixed(2)}
-            </span>
-        )}
-        {Number(g.monto_yape) > 0 && (
-            <span style={{ background: '#E0F2FE', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: '#0369A1', border: '1px solid #BAE6FD' }}>
-                📱 S/ {Number(g.monto_yape).toFixed(2)}
-            </span>
-        )}
-        {Number(g.saldo_pendiente) > 0 && (
-            <span style={{ background: '#FEF2F2', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: ROJO_BJ, border: '1px solid #FECACA' }}>
-                💳 DEUDA: S/ {Number(g.saldo_pendiente).toFixed(2)}
-            </span>
-        )}
-    </div>
-</div>
-    {/* --- ETIQUETAS DE FLUJO DE CAJA --- */}
-    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-        {g.monto_efectivo > 0 && (
-            <small style={{ background: '#F1F5F9', padding: '3px 10px', borderRadius: '8px', fontWeight: '900', color: OSCURO_BJ, fontSize: '10px', border: '1px solid #E2E8F0' }}>
-                💵 S/ {Number(g.monto_efectivo).toFixed(2)}
-            </small>
-        )}
-        {g.monto_yape > 0 && (
-            <small style={{ background: '#E0F2FE', padding: '3px 10px', borderRadius: '8px', fontWeight: '900', color: '#0369A1', fontSize: '10px', border: '1px solid #BAE6FD' }}>
-                📱 S/ {Number(g.monto_yape).toFixed(2)}
-            </small>
-        )}
-        {g.saldo_pendiente > 0 && (
-            <small style={{ background: '#FEF2F2', padding: '3px 10px', borderRadius: '8px', fontWeight: '900', color: ROJO_BJ, fontSize: '10px', border: '1px solid #FECACA' }}>
-                💳 DEBE: S/ {Number(g.saldo_pendiente).toFixed(2)}
-            </small>
-        )}
-    
-<div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-    {/* Etiquetas de método de pago */}
-    {g.monto_efectivo > 0 && (
-        <small style={{ background: '#F1F5F9', padding: '2px 8px', borderRadius: '5px', fontWeight: '900', color: OSCURO_BJ }}>
-            💵 S/ {g.monto_efectivo.toFixed(2)}
-        </small>
-    )}
-    {g.monto_yape > 0 && (
-        <small style={{ background: '#E0F2FE', padding: '2px 8px', borderRadius: '5px', fontWeight: '900', color: '#0369A1' }}>
-            📱 S/ {g.monto_yape.toFixed(2)}
-        </small>
-    )}
-    {g.saldo_pendiente > 0 && (
-        <small style={{ background: '#FEF2F2', padding: '2px 8px', borderRadius: '5px', fontWeight: '900', color: ROJO_BJ }}>
-            💳 DEBE: S/ {g.saldo_pendiente.toFixed(2)}
-        </small>
-    )}
-</div>
+                                    {/* ETIQUETAS DE PAGO */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                                        {Number(g.monto_efectivo) > 0 && <span style={{ background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: OSCURO_BJ }}>💵 S/ {Number(g.monto_efectivo).toFixed(2)}</span>}
+                                        {Number(g.monto_yape) > 0 && <span style={{ background: '#E0F2FE', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: '#0369A1' }}>📱 S/ {Number(g.monto_yape).toFixed(2)}</span>}
+                                        {Number(g.saldo_pendiente) > 0 && <span style={{ background: '#FEF2F2', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: ROJO_BJ }}>💳 DEUDA: S/ {Number(g.saldo_pendiente).toFixed(2)}</span>}
+                                    </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-    <span style={{ color: FUCSIA_PRINCIPAL, fontSize: '1.6rem' }}>S/ {g.total.toFixed(2)}</span>
-    <button 
-        onClick={() => enviarComprobanteWA_Historial(g)} 
-        title="Enviar comprobante por WhatsApp"
-        style={{ 
-            border: 'none', 
-            background: '#25D36620', 
-            color: '#25D366', 
-            borderRadius: '12px', 
-            padding: '8px 12px', 
-            cursor: 'pointer', 
-            fontSize: '18px',
-            transition: '0.2s'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.background = '#25D36640'}
-        onMouseOut={(e) => e.currentTarget.style.background = '#25D36620'}
-    >
-        📲
-    </button>
-</div>
+                                    <span style={{ color: FUCSIA_PRINCIPAL, fontSize: '1.6rem', fontWeight: '900' }}>S/ {g.total.toFixed(2)}</span>
+                                    <button onClick={() => enviarComprobanteWA_Historial(g)} style={{ border: 'none', background: '#25D36620', color: '#25D366', borderRadius: '12px', padding: '10px', cursor: 'pointer', fontSize: '20px' }}>📲</button>
+                                </div>
                             </div>
-                            
-                            {g.items.map((it, idx) => {
-                                const pM = productos.find(p => p.id === it.producto_id);
-                                const isEditing = idEditItemHistorial === it.id;
-                                return (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px dashed #F1F5F9' }}>
-                                        {isEditing ? (
-                                            <div style={{ display: 'flex', gap: '10px', flex: 1, flexWrap: 'wrap' }}>
-                                                <input type="number" value={formEditItemHistorial.cantidad} onChange={e => setFormEditItemHistorial({...formEditItemHistorial, cantidad: Number(e.target.value)})} style={{ ...styleInp, width: '60px', padding: '8px', textAlign: 'center' }} />
-                                                <strong style={{ fontSize: '12px', display: 'flex', alignItems: 'center' }}>{pM?.nombre}</strong>
-                                                <input type="number" value={formEditItemHistorial.precio_venta_unitario} onChange={e => setFormEditItemHistorial({...formEditItemHistorial, precio_venta_unitario: Number(e.target.value)})} style={{ ...styleInp, width: '90px', padding: '8px', textAlign: 'center' }} />
-                                                <button onClick={() => { handleUpdateItemVentaBJ(it.id, formEditItemHistorial); setIdEditItemHistorial(null); }} style={{ backgroundColor: VERDE_BJ, color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 15px', fontWeight: '900', cursor: 'pointer' }}>💾</button>
-                                                <button onClick={() => setIdEditItemHistorial(null)} style={{ backgroundColor: '#E2E8F0', border: 'none', borderRadius: '10px', padding: '10px 15px', fontWeight: '900', cursor: 'pointer' }}>✕</button>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div style={{ flex: 1 }}>
-                                                    <span style={{ fontSize: '14px' }}>{it.cantidad}x <strong>{pM?.nombre || "Ítem Eliminado"}</strong> <small style={{ color: '#94A3B8' }}>({it.color})</small></span>
-                                                    <br/><small style={{ opacity: 0.5, fontSize: '11px' }}>Unidad: S/ {Number(it.precio_venta_unitario).toFixed(2)}</small>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                    <span style={{ fontWeight: '900', fontSize: '15px' }}>S/ {(Number(it.cantidad) * Number(it.precio_venta_unitario)).toFixed(2)}</span>
-                                                    <div style={{ display: 'flex', gap: '15px' }}>
-                                                        <button title="Editar Cantidad/Precio" onClick={() => { setIdEditItemHistorial(it.id); setFormEditItemHistorial({ cantidad: it.cantidad, precio_venta_unitario: it.precio_venta_unitario }); }} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✏️</button>
-                                                        <button title="Devolver Ítem al Stock" onClick={() => handleAnularVentaBJ(it)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>🗑️</button>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
+
+                            {/* LISTA DE ITEMS */}
+                            <div style={{ borderTop: '1px dashed #eee', paddingTop: '10px' }}>
+                                {g.items.map((it, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0' }}>
+                                        <span>{it.cantidad}x {it.nombre} <small style={{ opacity: 0.5 }}>({it.color})</small></span>
+                                        <div style={{ display: 'flex', gap: '15px' }}>
+                                            <span style={{ fontWeight: '900' }}>S/ {(it.cantidad * it.precio_venta_unitario).toFixed(2)}</span>
+                                            <button onClick={() => { setIdEditItemHistorial(it.id); setFormEditItemHistorial({ cantidad: it.cantidad, precio_venta_unitario: it.precio_venta_unitario }); }} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>✏️</button>
+                                            <button onClick={() => handleAnularVentaBJ(it)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
+                                        </div>
                                     </div>
-                                );
-                            })}
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </div>
