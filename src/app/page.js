@@ -240,9 +240,12 @@ export default function SistemaBJCMasterFinal() {
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
         
-    const gastosMes = finanzas
-        .filter(f => getFechaPeru(f.created_at).substring(0,7) === mesActual && (f.tipo?.includes('Local') || f.tipo?.includes('Personal')))
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+   const gastosMes = finanzas
+    .filter(f => 
+        getFechaPeru(f.created_at).substring(0,7) === mesActual && 
+        (f.tipo?.includes('Local') || f.tipo?.includes('Personal') || f.tipo?.includes('Marketing') || f.tipo?.includes('Logística'))
+    )
+    .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
     const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
