@@ -16,6 +16,9 @@ export default function AlmacenSection({
     formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
+    // --- 📍 PEGAR AQUÍ LOS ESTADOS ---
+    const [metodoPagoStock, setMetodoPagoStock] = useState('📱 Caja Digital');
+    
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             {/* CABECERA */}
