@@ -31,8 +31,7 @@ export default function GestionSection({
             fetchLogs();
         }
     }, [verAuditoria]);
-// --- LÓGICA DE CONTROL ABSOLUTO ---
-    const finanzasValidas = finanzas?.filter(f => f != null) || [];
+
     
     // Sumamos por categorías específicas
   // --- LÓGICA DE CONTROL ABSOLUTO ACTUALIZADA ---

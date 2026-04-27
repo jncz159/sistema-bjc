@@ -113,7 +113,7 @@ export default function AlmacenSection({
     <div style={{ ...styleCrd, borderTop: `5px solid ${ROJO_BJ}` }}>
         <h4 style={{ color: ROJO_BJ, marginTop: 0, fontWeight: '900' }}>📤 Salidas (Ventas en Tiempo Real)</h4>
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {historialVentasDiaBJ.length === 0 ? <p style={{opacity:0.5, fontSize:'12px'}}>No hay ventas hoy.</p> : (
+            {historialVentasDiaBJ?.length === 0 ? <p style={{opacity:0.5, fontSize:'12px'}}>No hay ventas hoy.</p> : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                         <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>

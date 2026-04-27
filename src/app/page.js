@@ -687,14 +687,15 @@ const handleRegistrarFinanzaBJ = async (e) => {
         )}
         
         {vista === 'stock' && (
-            <AlmacenSection {...{ 
-                formProd, setFormProd, handleAddProductoBJ,productos, 
-                busquedaStock, setBusquedaStock, 
-                idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
-                handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
-                setFormEditStockBJ, handleSincronizarStockBJ, 
-                FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd 
-            }} />
+          <AlmacenSection {...{ 
+        formProd, setFormProd, handleAddProductoBJ, productos, 
+        busquedaStock, setBusquedaStock, 
+        idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
+        handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
+        setFormEditStockBJ, handleSincronizarStockBJ, 
+        historialVentasDiaBJ, // 👈 AGREGA ESTA LÍNEA AQUÍ
+        FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd 
+    }} />
         )}
         
         {vista === 'logistica' && (
