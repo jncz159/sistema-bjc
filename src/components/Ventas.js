@@ -28,43 +28,46 @@ const [esCredito, setEsCredito] = useState(false);
 // Calculadora automática del stock total
     const stockTotalUnidades = productos.reduce((acc, p) => acc + Number(p.stock || 0), 0);
     // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
-    const ejecutarVentaConAlerta = async (modo, abono = 0) => {
-        // 1. Mensaje personalizado según el tipo de venta
+    // --- FUNCIÓN DE EJECUCIÓN ACTUALIZADA ---
+    const ejecutarVentaConAlerta = async (modo) => {
+        // 1. Mensaje personalizado
         const mensaje = `⚠️ ¿PROCESAR VENTA? ⚠️\n\n` +
                         `Cliente: ${cliente}\n` +
                         `Tipo: ${modo.toUpperCase()}\n` +
                         `Total: S/ ${totalCarrito.toFixed(2)}\n\n` +
-                        `¿Estás seguro de registrar esta operación en el búnker?`;
+                        `¿Estás seguro de registrar esta operación?`;
 
-        // 2. Bloqueo preventivo (Botón de confirmación del sistema)
         const confirmacion = window.confirm(mensaje);
         
         if (confirmacion) {
             try {
-                setIsProcessing(true); // 🔒 Activa cortina de humo
-                // Proceder con la venta si el usuario acepta
-                await handleEjecutarVentaBJ(modo, abono);
-                
-                // Mostrar el cartel verde de éxito (el que ya tienes integrado)
-                setShowSuccess(true);
-                // Enviamos un objeto con el desglose del pago
-            const desglosePago = {
-                efectivo: esCredito ? Number(efectivoRecibido) : (Number(efectivoRecibido) - vuelto),
-                yape: montoYape,
-                saldo: saldoPendiente,
-                metodo: esCredito ? 'Crédito' : (montoYape > 0 && efectivoRecibido > 0 ? 'Múltiple' : (montoYape > 0 ? 'Yape' : 'Efectivo'))
-            };
+                setIsProcessing(true);
 
-            await handleEjecutarVentaBJ(modo, desglosePago); // 👈 Pasamos el desglose completo
-                // Limpiar el campo de efectivo
+                // PREPARACIÓN DEL DESGLOSE (Lo que irá a Supabase)
+                const montoRealEfectivo = esCredito 
+                    ? Number(efectivoRecibido || 0) 
+                    : (Number(efectivoRecibido || 0) > totalCarrito ? totalCarrito : Number(efectivoRecibido || 0));
+
+                const desglosePago = {
+                    efectivo: montoRealEfectivo,
+                    yape: montoYape,
+                    saldo: saldoPendiente,
+                    metodo: esCredito ? 'Crédito' : (montoYape > 0 && efectivoRecibido > 0 ? 'Múltiple' : (montoYape > 0 ? 'Yape' : 'Efectivo'))
+                };
+
+                // Enviamos el objeto 'desglosePago' en lugar de solo el abono
+                await handleEjecutarVentaBJ(modo, desglosePago);
+                
+                setShowSuccess(true);
                 setEfectivoRecibido('');
-                setEsCredito(false); // Reiniciamos el modo crédito
-                setIsProcessing(false); // 🔓 Desactiva cortina de humo
-                // Desplazar la pantalla hacia arriba para ver el éxito si es necesario
+                setEsCredito(false); // Importante: Reiniciar el modo crédito tras vender
+                setIsProcessing(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 
             } catch (error) {
-                alert("❌ Error al conectar con el búnker. Revisa tu internet.");
+                console.error(error);
+                alert("❌ Error al conectar con el búnker.");
+                setIsProcessing(false);
             }
         } else {
             // Si cancela, no hace nada y mantiene los productos en el carrito
@@ -361,11 +364,28 @@ const enviarComprobanteWA_Historial = (venta) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {historialVentasDiaBJ.map((g, i) => (
                         <div key={i} style={{ border: '1px solid #F1F5F9', borderRadius: '30px', padding: '25px', backgroundColor: '#fff', boxShadow: '0 5px 20px rgba(0,0,0,0.02)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', marginBottom: '15px', borderBottom: '2px solid #F8FAFC', paddingBottom: '15px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
-                                    <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
-                                    <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <span style={{ fontSize: '16px' }}>{g.cliente_nombre}</span>
+    <small style={{ fontWeight: 'normal', opacity: 0.5, marginTop: '4px' }}>📍 {g.localidad} • 🕒 {g.hora}</small>
+    
+    {/* --- ETIQUETAS DE FLUJO DE CAJA --- */}
+    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+        {g.monto_efectivo > 0 && (
+            <small style={{ background: '#F1F5F9', padding: '3px 10px', borderRadius: '8px', fontWeight: '900', color: OSCURO_BJ, fontSize: '10px', border: '1px solid #E2E8F0' }}>
+                💵 S/ {Number(g.monto_efectivo).toFixed(2)}
+            </small>
+        )}
+        {g.monto_yape > 0 && (
+            <small style={{ background: '#E0F2FE', padding: '3px 10px', borderRadius: '8px', fontWeight: '900', color: '#0369A1', fontSize: '10px', border: '1px solid #BAE6FD' }}>
+                📱 S/ {Number(g.monto_yape).toFixed(2)}
+            </small>
+        )}
+        {g.saldo_pendiente > 0 && (
+            <small style={{ background: '#FEF2F2', padding: '3px 10px', borderRadius: '8px', fontWeight: '900', color: ROJO_BJ, fontSize: '10px', border: '1px solid #FECACA' }}>
+                💳 DEBE: S/ {Number(g.saldo_pendiente).toFixed(2)}
+            </small>
+        )}
+    
 <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
     {/* Etiquetas de método de pago */}
     {g.monto_efectivo > 0 && (
