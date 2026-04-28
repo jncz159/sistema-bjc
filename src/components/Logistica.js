@@ -86,31 +86,43 @@ export default function LogisticaSection({
             <div style={{ ...styleCrd, borderLeft: `15px solid ${AMARILLO_BJ}` }}>
                 <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: AMARILLO_BJ, marginBottom:'25px' }}>💸 Cuentas Deudoras (Créditos)</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
-                    {logisticaInteligente?.deudas?.map((grupo, idx) => {
-                        const abonoReal = finanzas?.filter(f => f.descripcion?.includes(`Abono inicial venta crédito: ${grupo.cliente}`)).reduce((acc, f) => acc + Number(f.monto), 0) || 0;
-                        const saldoPendienteBJ = grupo.total - abonoReal;
-
-                        return (
-                            <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '35px', border: '1px solid #FEF3C7' }}>
-                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
-                                    <div><strong>{grupo.cliente}</strong><br/><small>📍 {grupo.localidad}</small></div>
-                                    <button onClick={() => handleAnularCreditoBJ(grupo)} style={{ border:'none', background:`${ROJO_BJ}15`, color:ROJO_BJ, padding:'8px', borderRadius:'10px', cursor:'pointer', fontWeight:'900', fontSize:'11px' }}>ANULAR TODO</button>
-                                </div>
-
-                                <div style={{ background: 'rgba(255, 255, 255, 0.6)', padding: '15px', borderRadius: '18px', margin: '15px 0', border: '1px dashed #FEF3C7' }}>
-                                    {grupo.items?.map(it => renderItem(it))}
-                                </div>
-
-                                <div style={{ background: '#fff', padding: '15px', borderRadius: '20px', margin: '15px 0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize:'13px' }}><span>Venta Total:</span><strong>S/ {grupo.total.toFixed(2)}</strong></div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize:'13px', color: VERDE_BJ }}><span>Abono:</span><strong>S/ {abonoReal.toFixed(2)}</strong></div>
-                                    <hr style={{ border:'0.5px solid #eee', margin:'10px 0' }} />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: ROJO_BJ, fontSize: '1.2rem', fontWeight:'900' }}><span>RESTA PAGAR:</span><span>S/ {saldoPendienteBJ.toFixed(2)}</span></div>
-                                </div>
-                                <button onClick={() => handleCobrarDeudaBJ(grupo, saldoPendienteBJ)} style={{ width: '100%', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>💰 COBRAR SALDO</button>
+                    {logisticaInteligente?.deudas?.map((grupo, idx) => (
+                        <div key={idx} style={{ padding: '25px', backgroundColor: '#FFFBEB', borderRadius: '35px', border: '1px solid #FEF3C7' }}>
+                            
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+                                <div><strong>{grupo.cliente}</strong><br/><small>📍 {grupo.localidad}</small></div>
+                                <button onClick={() => handleAnularCreditoBJ(grupo)} style={{ border:'none', background:`${ROJO_BJ}15`, color:ROJO_BJ, padding:'8px', borderRadius:'10px', cursor:'pointer', fontWeight:'900', fontSize:'11px' }}>ANULAR TODO</button>
                             </div>
-                        );
-                    })}
+
+                            <div style={{ background: 'rgba(255, 255, 255, 0.6)', padding: '15px', borderRadius: '18px', margin: '15px 0', border: '1px dashed #FEF3C7' }}>
+                                {grupo.items?.map(it => renderItem(it))}
+                            </div>
+
+                            {/* --- CAJA DE INFORMACIÓN FINANCIERA (CORREGIDA) --- */}
+                            <div style={{ backgroundColor: '#F1F5F9', padding: '15px', borderRadius: '20px', marginTop: '10px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
+                                    <span style={{ opacity: 0.6 }}>VALOR TOTAL VENTA:</span>
+                                    <strong style={{ color: OSCURO_BJ }}>S/ {grupo.total.toFixed(2)}</strong>
+                                </div>
+                                
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
+                                    <span style={{ opacity: 0.6 }}>ABONO YA RECIBIDO:</span>
+                                    <strong style={{ color: VERDE_BJ }}>S/ {grupo.totalAbonado.toFixed(2)}</strong>
+                                </div>
+
+                                <div style={{ borderTop: '1px dashed #cbd5e1', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: '900', color: ROJO_BJ, fontSize: '12px' }}>SALDO PENDIENTE:</span>
+                                    <span style={{ fontWeight: '900', color: ROJO_BJ, fontSize: '1.3rem' }}>S/ {grupo.totalPendiente.toFixed(2)}</span>
+                                </div>
+                            </div>
+
+                            {/* BOTÓN DE COBRO: Envía el saldo pendiente real al motor de caja */}
+                            <button 
+                                onClick={() => handleCobrarDeudaBJ(grupo, grupo.totalPendiente)} 
+                                style={{ width: '100%', marginTop:'15px', backgroundColor: VERDE_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}
+                            >💰 COBRAR SALDO</button>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

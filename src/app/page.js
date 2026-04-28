@@ -205,20 +205,22 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    const ventasCompletadas = ventas
-        .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
-        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
+    // 💰 DINERO REAL ENTRADO (Suma de abonos y pagos totales de toda venta no anulada)
+    // Esto hace que la Caja Física suba aunque la venta sea "A Crédito" (usa el abono).
+    const ingresosVentasReal = ventas
+        .filter(v => v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
         
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 🏦 CAJA FÍSICA: Resta ABSOLUTAMENTE TODO (incluyendo el ajuste de cuadre)
     const todosLosGastosParaCaja = finanzas
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const cajaReal = (ventasCompletadas + ingresosAdmin) - todosLosGastosParaCaja;
+    // 🏦 CAJA FÍSICA GLOBAL (Sincronizada con Bitácora)
+    const cajaReal = (ingresosVentasReal + ingresosAdmin) - todosLosGastosParaCaja; 
 
     // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): 
     // Sumamos Personal SIEMPRE Y CUANDO la descripción no diga "CUADRE"
@@ -265,7 +267,7 @@ export default function SistemaBJCMasterFinal() {
     return { top: Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5) };
   }, [ventas, productos]);
 
-  const logisticaInteligente = useMemo(() => {
+ const logisticaInteligente = useMemo(() => {
     const mA = {}; const mD = {};
     ventas.forEach(v => {
         const key = `${v.cliente_nombre}-${v.localidad}`;
@@ -275,9 +277,10 @@ export default function SistemaBJCMasterFinal() {
             cantidad: v.cantidad, color: v.color, 
             subtotal: (Number(v.precio_venta_unitario) * Number(v.cantidad)), 
             precio: v.precio_venta_unitario,
-            // 👈 IMPORTANTE: Pasamos estos valores a los items
-            saldo_pendiente: Number(v.saldo_pendiente || 0),
-            monto_efectivo: Number(v.monto_efectivo || 0)
+            // 👈 IMPORTANTE: Pasamos los valores de pago de cada ítem
+            monto_efectivo: Number(v.monto_efectivo || 0),
+            monto_yape: Number(v.monto_yape || 0),
+            saldo_pendiente: Number(v.saldo_pendiente || 0)
         };
         
         if (v.estado_pedido === 'En Almacén') { 
@@ -285,11 +288,12 @@ export default function SistemaBJCMasterFinal() {
             mA[key].items.push(it); mA[key].items_ids.push(v.id); mA[key].total += it.subtotal; 
         }
         if (v.estado_pedido === 'Pendiente de Pago') { 
-            if(!mD[key]) mD[key]={cliente:v.cliente_nombre, localidad:v.localidad, items:[], items_ids:[], total:0}; 
-            mD[key].items.push(it); mD[key].items_ids.push(v.id); 
-            // 🚀 AHORA SÍ: Sumamos el saldo pendiente real, no el subtotal bruto
-            mD[key].total += it.saldo_pendiente > 0 ? it.saldo_pendiente : (mA[key] ? 0 : it.subtotal);
-            // Nota: Si por error un registro viejo no tiene saldo_pendiente, usará el subtotal.
+            if(!mD[key]) mD[key]={cliente:v.cliente_nombre, localidad:v.localidad, items:[], items_ids:[], total:0, totalAbonado:0, totalPendiente:0}; 
+            mD[key].items.push(it); 
+            mD[key].items_ids.push(v.id); 
+            mD[key].total += it.subtotal; // El valor total original de la venta
+            mD[key].totalAbonado += (it.monto_efectivo + it.monto_yape); // Lo que ya entró a caja
+            mD[key].totalPendiente += it.saldo_pendiente; // Lo que falta cobrar
         }
     });
     return { almacen: Object.values(mA), deudas: Object.values(mD) };
@@ -540,27 +544,34 @@ export default function SistemaBJCMasterFinal() {
   // ==========================================
   // 10. FUNCIONES: LOGÍSTICA (COBRANZAS)
   // ==========================================
-  const handleCobrarDeudaBJ = async (g, m) => { 
+ const handleCobrarDeudaBJ = async (g, montoCobrado) => { 
       const pre = balanceEliteBJ.cG; 
-      
-      // Pasar todos los ítems de este grupo a "Entregado"
-      for(let id of g.items_ids) {
-          await supabase.from('ventas').update({estado_pedido:'Entregado'}).eq('id',id);
+      const saldoACobrar = Number(montoCobrado);
+
+      // Usamos un bucle para actualizar cada ítem, pero solo el primero lleva el dinero
+      for(let i = 0; i < g.items_ids.length; i++) {
+          const idActual = g.items_ids[i];
+          const itemData = g.items[i];
+
+          await supabase.from('ventas').update({
+              estado_pedido: 'Entregado',
+              saldo_pendiente: 0,
+              // Solo al primer ítem le sumamos el saldo al abono anterior
+              monto_efectivo: i === 0 ? (Number(itemData.monto_efectivo || 0) + saldoACobrar) : Number(itemData.monto_efectivo || 0)
+          }).eq('id', idActual);
       } 
       
-      // Registrar ingreso de dinero a la caja global si hubo abono
-      if(Number(m) > 0) {
+      if(saldoACobrar > 0) {
           await supabase.from('auditoria_bj').insert([{
               cliente: g.cliente,
-              operacion: 'COBRO SALDO CREDITO',
-              monto_operacion: Number(m),
+              operacion: 'COBRO SALDO CRÉDITO',
+              monto_operacion: saldoACobrar,
               caja_antes: pre,
-              caja_despues: pre + Number(m)
+              caja_despues: pre + saldoACobrar 
           }]);
       } 
       cargarTodoDesdeNube(); 
   };
-  
   const handleAnularCreditoBJ = async (g) => { 
       // Devolver stock de todos los ítems de la deuda
       for(const it of g.items) {
