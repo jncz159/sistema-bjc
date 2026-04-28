@@ -73,19 +73,21 @@ export default function FinanzasSection({
     };
 
    const calcularMetricasMes = () => {
-        const mesActual = new Date().getMonth();
-        const anioActual = new Date().getFullYear();
+        const hoy = new Date();
+        const mesActual = hoy.getMonth();
+        const anioActual = hoy.getFullYear();
+
         const vFiltradas = ventas.filter(v => { 
             const f = new Date(v.created_at); 
             return f.getMonth() === mesActual && f.getFullYear() === anioActual && v.estado_pedido !== 'Anulado'; 
         });
-        
-        // FIX: Ahora usa la función esGastoOperativo para sumar TODOS los gastos del mes
+
+        // FIX CRÍTICO: Ahora busca Local, Marketing y Logística igual que el Punto de Equilibrio
         const fFiltradas = finanzas.filter(f => { 
             const fz = new Date(f.created_at); 
             return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && esGastoOperativo(f.tipo); 
         });
-        
+
         return procesarPeriodo(vFiltradas, fFiltradas);
     };
 
