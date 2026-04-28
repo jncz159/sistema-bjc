@@ -44,6 +44,7 @@ export default function FinanzasSection({
     };
 
     // 2. Calculamos los totales globales pasando descripción al filtro
+   const gastoMarketing = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
     const totalGastosOperativosGlobal = finanzasValidas
         .filter(f => esGastoOperativo(f.tipo, f.descripcion))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
