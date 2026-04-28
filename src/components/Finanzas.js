@@ -72,11 +72,20 @@ export default function FinanzasSection({
         return procesarPeriodo(vFiltradas, fFiltradas);
     };
 
-    const calcularMetricasMes = () => {
+   const calcularMetricasMes = () => {
         const mesActual = new Date().getMonth();
         const anioActual = new Date().getFullYear();
-        const vFiltradas = ventas.filter(v => { const f = new Date(v.created_at); return f.getMonth() === mesActual && f.getFullYear() === anioActual && v.estado_pedido !== 'Anulado'; });
-        const fFiltradas = finanzas.filter(f => { const fz = new Date(f.created_at); return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && f.tipo === '🏠 Gastos Local'; });
+        const vFiltradas = ventas.filter(v => { 
+            const f = new Date(v.created_at); 
+            return f.getMonth() === mesActual && f.getFullYear() === anioActual && v.estado_pedido !== 'Anulado'; 
+        });
+        
+        // FIX: Ahora usa la función esGastoOperativo para sumar TODOS los gastos del mes
+        const fFiltradas = finanzas.filter(f => { 
+            const fz = new Date(f.created_at); 
+            return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && esGastoOperativo(f.tipo); 
+        });
+        
         return procesarPeriodo(vFiltradas, fFiltradas);
     };
 
