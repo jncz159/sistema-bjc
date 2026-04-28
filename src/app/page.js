@@ -222,14 +222,20 @@ export default function SistemaBJCMasterFinal() {
 
     // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): 
     // Sumamos Personal SIEMPRE Y CUANDO la descripción no diga "CUADRE"
+    // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): Local + Logística + Personal + Marketing
+    // EXCLUIMOS: "Compra Mercadería" y cualquier descripción que diga "CUADRE"
     const gastosOperativosMes = finanzas
-        .filter(f => 
-            getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-            (f.tipo?.toLowerCase().includes('local') || 
-             f.tipo?.toLowerCase().includes('logística') || 
-             f.tipo?.toLowerCase().includes('marketing') ||
-             (f.tipo?.toLowerCase().includes('personal') && !f.descripcion?.toUpperCase().includes('CUADRE')))
-        )
+        .filter(f => {
+            const fechaValida = getFechaPeru(f.created_at).substring(0,7) === mesActual;
+            const t = f.tipo?.toLowerCase() || "";
+            const d = f.descripcion?.toUpperCase() || "";
+            
+            const esTipoOperativo = t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing');
+            const noEsMercaderia = !t.includes('mercadería');
+            const noEsCuadre = !d.includes('CUADRE');
+
+            return fechaValida && esTipoOperativo && noEsMercaderia && noEsCuadre;
+        })
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 
     const gananciaMes = ventas
@@ -244,8 +250,8 @@ export default function SistemaBJCMasterFinal() {
         cG: cajaReal, 
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         pe_g: gananciaMes, 
-        pe_m: gastosOperativosMes, 
-        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
+        pe_m: gastosOperativosMes, // 👈 Este valor será el mismo en ambas pantallas
+        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio
     };
   }, [ventas, finanzas]);
   const analiticaProBJ = useMemo(() => {
