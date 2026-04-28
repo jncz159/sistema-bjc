@@ -391,11 +391,35 @@ const enviarComprobanteWA_Historial = (venta) => {
                                     <span style={{ fontSize: '16px', fontWeight: '900' }}>{g.cliente_nombre}</span>
                                     <small style={{ opacity: 0.5 }}>📍 {g.localidad} • 🕒 {g.hora}</small>
 
-                                    {/* ETIQUETAS DE PAGO */}
+                                    {/* ETIQUETAS DE PAGO MEJORADAS */}
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                                        {Number(g.monto_efectivo) > 0 && <span style={{ background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: OSCURO_BJ }}>💵 S/ {Number(g.monto_efectivo).toFixed(2)}</span>}
-                                        {Number(g.monto_yape) > 0 && <span style={{ background: '#E0F2FE', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: '#0369A1' }}>📱 S/ {Number(g.monto_yape).toFixed(2)}</span>}
-                                        {Number(g.saldo_pendiente) > 0 && <span style={{ background: '#FEF2F2', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900', color: ROJO_BJ }}>💳 DEUDA: S/ {Number(g.saldo_pendiente).toFixed(2)}</span>}
+                                        {/* ETIQUETA: EFECTIVO */}
+                                        {Number(g.items[0]?.monto_efectivo || 0) > 0 && (
+                                            <span style={{ background: '#DCFCE7', padding: '5px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: '900', color: '#166534', border: '1px solid #16653430' }}>
+                                                💵 EFECTIVO: S/ {Number(g.items[0].monto_efectivo).toFixed(2)}
+                                            </span>
+                                        )}
+
+                                        {/* ETIQUETA: YAPE / PLIN */}
+                                        {Number(g.items[0]?.monto_yape || 0) > 0 && (
+                                            <span style={{ background: '#F0E7FF', padding: '5px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: '900', color: '#6B21A8', border: '1px solid #6B21A830' }}>
+                                                📱 YAPE: S/ {Number(g.items[0].monto_yape).toFixed(2)}
+                                            </span>
+                                        )}
+
+                                        {/* ETIQUETA: CRÉDITO / DEUDA */}
+                                        {Number(g.items[0]?.saldo_pendiente || 0) > 0 && (
+                                            <span style={{ background: '#FFE4E6', padding: '5px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: '900', color: '#9F1239', border: '1px solid #9F123930' }}>
+                                                💳 CRÉDITO: S/ {Number(g.items[0].saldo_pendiente).toFixed(2)}
+                                            </span>
+                                        )}
+                                        
+                                        {/* INDICADOR DE PAGO TOTAL O PARCIAL */}
+                                        {Number(g.items[0]?.saldo_pendiente || 0) === 0 ? (
+                                            <span style={{ background: '#F1F5F9', padding: '5px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: '900', color: '#475569' }}>✅ PAGADO</span>
+                                        ) : (
+                                            <span style={{ background: AMARILLO_BJ, padding: '5px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: '900', color: '#fff' }}>⏳ PENDIENTE</span>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
