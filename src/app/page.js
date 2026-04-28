@@ -274,7 +274,10 @@ export default function SistemaBJCMasterFinal() {
             id: v.id, producto_id: v.producto_id, nombre: pM?.nombre, 
             cantidad: v.cantidad, color: v.color, 
             subtotal: (Number(v.precio_venta_unitario) * Number(v.cantidad)), 
-            precio: v.precio_venta_unitario 
+            precio: v.precio_venta_unitario,
+            // 👈 IMPORTANTE: Pasamos estos valores a los items
+            saldo_pendiente: Number(v.saldo_pendiente || 0),
+            monto_efectivo: Number(v.monto_efectivo || 0)
         };
         
         if (v.estado_pedido === 'En Almacén') { 
@@ -283,7 +286,10 @@ export default function SistemaBJCMasterFinal() {
         }
         if (v.estado_pedido === 'Pendiente de Pago') { 
             if(!mD[key]) mD[key]={cliente:v.cliente_nombre, localidad:v.localidad, items:[], items_ids:[], total:0}; 
-            mD[key].items.push(it); mD[key].items_ids.push(v.id); mD[key].total += it.subtotal; 
+            mD[key].items.push(it); mD[key].items_ids.push(v.id); 
+            // 🚀 AHORA SÍ: Sumamos el saldo pendiente real, no el subtotal bruto
+            mD[key].total += it.saldo_pendiente > 0 ? it.saldo_pendiente : (mA[key] ? 0 : it.subtotal);
+            // Nota: Si por error un registro viejo no tiene saldo_pendiente, usará el subtotal.
         }
     });
     return { almacen: Object.values(mA), deudas: Object.values(mD) };
@@ -323,17 +329,18 @@ export default function SistemaBJCMasterFinal() {
     }
   };
 
-  const handleEjecutarVentaBJ = async (estado) => {
+  const handleEjecutarVentaBJ = async (estado, desglose) => {
     if (!cliente || carrito.length === 0) {
         return alert("Faltan datos del cliente o el carrito está vacío.");
     }
     
     const snap = balanceEliteBJ.cG;
-    const totalVenta = carrito.reduce((acc, i) => acc + (Number(i.precio_venta) * Number(i.cantidad)), 0);
-    const montoHoy = (estado === 'Entregado' || estado === 'En Almacén') ? (totalVenta - Number(descuento)) : Number(efectivoRecibido);
     const ts = new Date().toISOString();
 
-    const lista = carrito.map(i => ({ 
+    // 🚀 LÓGICA DE DISTRIBUCIÓN:
+    // Guardamos el desglose (Efectivo, Yape, Deuda) solo en el primer ítem
+    // para que al sumar en Logística no se dupliquen los montos.
+    const lista = carrito.map((i, index) => ({ 
         cliente_nombre: cliente, 
         localidad: localidad, 
         telefono: telefono, 
@@ -344,12 +351,19 @@ export default function SistemaBJCMasterFinal() {
         precio_costo_unitario: Number(i.precio_compra), 
         ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad), 
         estado_pedido: estado, 
-        created_at: ts 
+        created_at: ts,
+        // Solo el primer ítem lleva los montos de pago
+        monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
+        monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
+        saldo_pendiente: index === 0 ? Number(desglose.saldo_pendiente || 0) : 0,
+        metodo_pago: index === 0 ? desglose.metodo_pago : ''
     }));
 
     const { error } = await supabase.from('ventas').insert(lista);
     
     if (!error) {
+        // En Auditoría registramos el abono real que entró hoy (montoHoy)
+        const montoHoy = Number(desglose.monto_efectivo || 0);
         if (montoHoy > 0) {
             await supabase.from('auditoria_bj').insert([{ 
                 cliente: cliente, 
@@ -367,7 +381,6 @@ export default function SistemaBJCMasterFinal() {
             }
         }
         
-        // Limpieza de estados tras venta exitosa
         setCarrito([]); 
         setEfectivoRecibido(''); 
         setCliente('Tienda'); 
