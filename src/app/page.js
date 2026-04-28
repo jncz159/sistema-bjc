@@ -200,7 +200,7 @@ export default function SistemaBJCMasterFinal() {
     });
     return { cost, vent, pot };
   }, [productos]);
-
+const balanceEliteBJ = useMemo(() => {
  // 💰 CORRECCIÓN DE CAJA: Sumamos totales de entregados + abonos de créditos
     const ingresosVentasReal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
