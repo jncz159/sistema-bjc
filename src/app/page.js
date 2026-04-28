@@ -243,7 +243,14 @@ export default function SistemaBJCMasterFinal() {
     const porcentajeEquilibrio = gastosOperativosMes > 0 ? (gananciaMes / gastosOperativosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
     return { 
-        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0), 
+        // 🚀 FIX: Ahora 'Caja Hoy' solo suma lo cobrado realmente (efectivo/yape) si es crédito
+        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => {
+            if (v.estado_pedido === 'Pendiente de Pago') {
+                return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            }
+            return acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+        }, 0), 
+
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), 
         cG: cajaReal, 
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
