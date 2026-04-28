@@ -201,15 +201,19 @@ export default function SistemaBJCMasterFinal() {
     return { cost, vent, pot };
   }, [productos]);
 
- const balanceEliteBJ = useMemo(() => {
-    const hoyS = getFechaPeru();
-    const mesActual = hoyS.substring(0, 7);
-
-    // 💰 DINERO REAL ENTRADO (Suma de abonos y pagos totales de toda venta no anulada)
-    // Esto hace que la Caja Física suba aunque la venta sea "A Crédito" (usa el abono).
+ // 💰 CORRECCIÓN DE CAJA: Sumamos totales de entregados + abonos de créditos
     const ingresosVentasReal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
+        .reduce((acc, v) => {
+            if (v.estado_pedido === 'Pendiente de Pago') {
+                // Para créditos nuevos, sumamos solo lo recibido (abono parcial)
+                return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            } else {
+                // Para ventas entregadas (pasadas y nuevas), usamos el total (Precio * Cantidad)
+                // Esto evita que tu caja se vaya a negativo con el historial viejo
+                return acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            }
+        }, 0);
         
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
@@ -219,8 +223,8 @@ export default function SistemaBJCMasterFinal() {
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 🏦 CAJA FÍSICA GLOBAL (Sincronizada con Bitácora)
-    const cajaReal = (ingresosVentasReal + ingresosAdmin) - todosLosGastosParaCaja; 
+    // 🏦 CAJA FÍSICA GLOBAL (Recuperada y exacta)
+    const cajaReal = (ingresosVentasReal + ingresosAdmin) - todosLosGastosParaCaja;
 
     // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): 
     // Sumamos Personal SIEMPRE Y CUANDO la descripción no diga "CUADRE"
