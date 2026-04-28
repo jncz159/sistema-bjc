@@ -37,12 +37,12 @@ export default function GestionSection({
   // --- LÓGICA DE CONTROL ABSOLUTO ACTUALIZADA ---
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
     
-    const gastoMarketing = finanzasValidas.filter(f => f.tipo === "📢 Marketing Ads").reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    const gastoLogistica = finanzasValidas.filter(f => f.tipo === "🚚 Logística/Envío").reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    const gastoLocal = finanzasValidas.filter(f => f.tipo === "🏠 Gastos Local").reduce((acc, f) => acc + Number(f.monto || 0), 0);
+   const gastoMarketing = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoLogistica = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("logística")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoLocal     = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("local")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
     
-    // NUEVO: Capturamos los ingresos adicionales
-    const ingresosExtra = finanzasValidas.filter(f => f.tipo?.includes("Ingreso")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    // NUEVO: Capturamos los ingresos adicionales de forma flexible
+    const ingresosExtra = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("ingreso")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
     
     const totalGastosOperativos = gastoMarketing + gastoLogistica + gastoLocal;
     

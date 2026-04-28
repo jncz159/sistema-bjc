@@ -205,30 +205,29 @@ export default function SistemaBJCMasterFinal() {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. VENTAS COMPLETADAS (Tu lógica original)
+    // 1. VENTAS COMPLETADAS (Tu lógica de siempre)
     const ventasCompletadas = ventas
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    // 2. INGRESOS ADMIN (Detecta la palabra aunque tenga emoji 📈)
+    // 2. INGRESOS (Para la Caja)
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 3. GASTOS TOTALES (Detecta todo lo que NO sea ingreso o inversión)
-    // Esto es vital para que la caja vuelva a tus 34 soles reales
-    const gastosTotales = finanzas
-        .filter(f => !f.tipo?.toLowerCase().includes('ingreso') && !f.tipo?.toLowerCase().includes('inversión'))
+    // 3. GASTOS TOTALES (Para la Caja: Resta ABSOLUTAMENTE TODO lo que salió)
+    const gastosTotalesParaCaja = finanzas
+        .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
+    const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotalesParaCaja;
 
-    // 4. GASTOS DEL MES (Para el cuadro "BURN" en Finanzas)
-    // Filtramos TODO lo que se gastó en el mes actual
-    const gastosMes = finanzas
+    // 4. GASTOS DEL MES / PUNTO DE EQUILIBRIO (Solo Local y Personal)
+    // 👈 AQUÍ ESTÁ EL FIX: Solo sumamos Gastos Local y Sueldos para el Punto de Equilibrio
+    const gastosOperativosMes = finanzas
         .filter(f => 
             getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-            !f.tipo?.toLowerCase().includes('ingreso') && !f.tipo?.toLowerCase().includes('inversión')
+            (f.tipo?.includes('Local') || f.tipo?.includes('Personal'))
         )
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 
@@ -248,16 +247,16 @@ export default function SistemaBJCMasterFinal() {
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
-    const porcentajeEquilibrio = gastosMes > 0 ? (gananciaMes / gastosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
+    // El porcentaje se calcula solo con gastos de local/personal
+    const porcentajeEquilibrio = gastosOperativosMes > 0 ? (gananciaMes / gastosOperativosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
     return { 
         cH: cajaHoy, 
         gH: gananciaHoy, 
         cG: cajaReal, 
         bR: utilidadHistorica,
-        pe_g: gananciaMes,      // Ganancia Bruta de Ventas
-        pe_m: gastosMes,       // Gasto Real del Mes (Cuadro Rojo)
-        pe_n: gananciaMes - gastosMes, // 👈 NUEVO: Utilidad Neta del Mes (Ganancia - Gastos)
+        pe_g: gananciaMes,
+        pe_m: gastosOperativosMes, // 👈 Ahora el "Gastos Local" volverá a ser el real
         pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
     };
   }, [ventas, finanzas]);
