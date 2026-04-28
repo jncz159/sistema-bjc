@@ -73,10 +73,10 @@ export default function FinanzasSection({
         limite.setDate(limite.getDate() - dias);
         const vFiltradas = ventas.filter(v => new Date(v.created_at) >= limite && v.estado_pedido !== 'Anulado');
         
-        // CORRECCIÓN AQUÍ: El filtro ahora usa la función 'esGastoOperativo'
         const fFiltradas = finanzas.filter(f => {
             const fecha = new Date(f.created_at);
-            return fecha >= limite && esGastoOperativo(f.tipo);
+            // 👈 FIX CRÍTICO: Ahora pasamos f.descripcion para que el "CUADRE" sea ignorado aquí también
+            return fecha >= limite && esGastoOperativo(f.tipo, f.descripcion);
         });
         
         return procesarPeriodo(vFiltradas, fFiltradas);
