@@ -31,21 +31,24 @@ export default function FinanzasSection({
     // --- FILTROS DE PRECISIÓN ---
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
 
-    // 1. Solo lo que es GASTO REAL (Local, Marketing, Logística)
+   // 1. Solo lo que es GASTO REAL del negocio (Local, Marketing, Logística, Personal)
+    // 👈 FIX: Ahora recibe 'descripcion' para poder ignorar el cuadre
     const esGastoOperativo = (tipo, descripcion) => {
         const t = tipo?.toLowerCase() || "";
         const d = descripcion?.toUpperCase() || "";
-        if (t.includes("local") || t.includes("logística") || t.includes("marketing")) return true;
-        // Si es personal, solo es gasto si NO es un cuadre
-        if (t.includes("personal") && !d.includes("CUADRE")) return true;
-        return false;
+        const esBase = t.includes("local") || t.includes("marketing") || t.includes("logística");
+        const esSueldo = t.includes("personal");
+        const noEsCuadre = !d.includes("CUADRE");
+        
+        return (esBase || esSueldo) && noEsCuadre;
     };
 
-    // 2. Calculamos los totales globales para las tarjetas de arriba
-    const gastoMarketing = finanzasValidas.filter(f => f.tipo?.includes("Marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    const totalGastosOperativosGlobal = finanzasValidas.filter(f => esGastoOperativo(f.tipo)).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    // 2. Calculamos los totales globales pasando descripción al filtro
+    const totalGastosOperativosGlobal = finanzasValidas
+        .filter(f => esGastoOperativo(f.tipo, f.descripcion))
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
     
-    // Utilidad Neta Real (Ahora sí restará solo lo operativo, sin tocar tu inversión en mercadería)
+    // Con esto, la utilidad neta ya no incluirá el ajuste de 19k
     const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativosGlobal;
 
     // --- 3. MOTORES DE CÁLCULO POR PERIODOS (TU ESTRUCTURA ORIGINAL) ---

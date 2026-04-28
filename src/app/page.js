@@ -237,7 +237,7 @@ export default function SistemaBJCMasterFinal() {
             return fechaValida && esTipoOperativo && noEsMercaderia && noEsCuadre;
         })
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-
+ 
     const gananciaMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
