@@ -184,8 +184,7 @@ export default function SistemaBJCMasterFinal() {
         setPinIngresado('');
     }
   };
-
-  // ==========================================
+// ==========================================
   // 7. MOTOR MATEMÁTICO FORENSE
   // ==========================================
   const valorizacionStockBJ = useMemo(() => {
@@ -200,17 +199,19 @@ export default function SistemaBJCMasterFinal() {
     });
     return { cost, vent, pot };
   }, [productos]);
-const balanceEliteBJ = useMemo(() => {
- // 💰 CORRECCIÓN DE CAJA: Sumamos totales de entregados + abonos de créditos
+
+  const balanceEliteBJ = useMemo(() => {
+    // 🚀 LAS DOS LÍNEAS QUE FALTABAN:
+    const hoyS = getFechaPeru();
+    const mesActual = hoyS.substring(0, 7);
+
+    // 💰 CAJA REAL: Sumamos totales de entregados + abonos de créditos
     const ingresosVentasReal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => {
             if (v.estado_pedido === 'Pendiente de Pago') {
-                // Para créditos nuevos, sumamos solo lo recibido (abono parcial)
                 return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
             } else {
-                // Para ventas entregadas (pasadas y nuevas), usamos el total (Precio * Cantidad)
-                // Esto evita que tu caja se vaya a negativo con el historial viejo
                 return acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
             }
         }, 0);
@@ -223,24 +224,15 @@ const balanceEliteBJ = useMemo(() => {
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // 🏦 CAJA FÍSICA GLOBAL (Recuperada y exacta)
     const cajaReal = (ingresosVentasReal + ingresosAdmin) - todosLosGastosParaCaja;
 
-    // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): 
-    // Sumamos Personal SIEMPRE Y CUANDO la descripción no diga "CUADRE"
-    // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): Local + Logística + Personal + Marketing
-    // EXCLUIMOS: "Compra Mercadería" y cualquier descripción que diga "CUADRE"
     const gastosOperativosMes = finanzas
         .filter(f => {
             const fechaValida = getFechaPeru(f.created_at).substring(0,7) === mesActual;
             const t = f.tipo?.toLowerCase() || "";
             const d = f.descripcion?.toUpperCase() || "";
-            
             const esTipoOperativo = t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing');
-            const noEsMercaderia = !t.includes('mercadería');
-            const noEsCuadre = !d.includes('CUADRE');
-
-            return fechaValida && esTipoOperativo && noEsMercaderia && noEsCuadre;
+            return fechaValida && esTipoOperativo && !t.includes('mercadería') && !d.includes('CUADRE');
         })
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
  
@@ -256,7 +248,7 @@ const balanceEliteBJ = useMemo(() => {
         cG: cajaReal, 
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         pe_g: gananciaMes, 
-        pe_m: gastosOperativosMes, // 👈 Este valor será el mismo en ambas pantallas
+        pe_m: gastosOperativosMes, 
         pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio
     };
   }, [ventas, finanzas]);
