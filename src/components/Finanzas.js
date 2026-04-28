@@ -32,8 +32,10 @@ export default function FinanzasSection({
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
 
     // 1. Solo lo que es GASTO REAL (Local, Marketing, Logística)
-    const esGastoOperativo = (tipo) => 
-        tipo?.includes("Local") || tipo?.includes("Marketing") || tipo?.includes("Logística");
+    const esGastoOperativo = (tipo) => {
+        const t = tipo?.toLowerCase() || "";
+        return t.includes("local") || t.includes("personal") || t.includes("logística") || t.includes("marketing");
+    };
 
     // 2. Calculamos los totales globales para las tarjetas de arriba
     const gastoMarketing = finanzasValidas.filter(f => f.tipo?.includes("Marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
@@ -82,7 +84,7 @@ export default function FinanzasSection({
             return f.getMonth() === mesActual && f.getFullYear() === anioActual && v.estado_pedido !== 'Anulado'; 
         });
 
-        // FIX CRÍTICO: Ahora busca Local, Marketing y Logística igual que el Punto de Equilibrio
+        // Sincronizado: Filtra los gastos del mes usando la misma regla de Local/Logística/Personal
         const fFiltradas = finanzas.filter(f => { 
             const fz = new Date(f.created_at); 
             return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && esGastoOperativo(f.tipo); 

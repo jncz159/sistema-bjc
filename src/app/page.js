@@ -209,44 +209,43 @@ export default function SistemaBJCMasterFinal() {
         .filter(v => v.estado_pedido === 'Entregado' || v.estado_pedido === 'En Almacén')
         .reduce((acc, v) => acc + (Number(v.precio_venta_unitario) * Number(v.cantidad)), 0);
         
-    // FIX: Ahora detecta "ingreso" o "inversión" sin importar mayúsculas o emojis
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const gastosTotales = finanzas
+    // CAJA FÍSICA: Resta TODO (Local + Logística + Personal + Mercadería + Marketing)
+    const todosLosGastos = finanzas
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const cajaReal = (ventasCompletadas + ingresosAdmin) - gastosTotales;
+    const cajaReal = (ventasCompletadas + ingresosAdmin) - todosLosGastos;
 
-    // FIX PUNTO EQUILIBRIO: Solo suma Local y Personal (para no mezclar con compras grandes de stock)
+    // GASTOS OPERATIVOS MES (Para Punto de Equilibrio): Local + Logística + Personal + Marketing
     const gastosOperativosMes = finanzas
         .filter(f => 
             getFechaPeru(f.created_at).substring(0,7) === mesActual && 
-            (f.tipo?.toLowerCase().includes('local') || f.tipo?.toLowerCase().includes('personal'))
+            (f.tipo?.toLowerCase().includes('local') || 
+             f.tipo?.toLowerCase().includes('personal') || 
+             f.tipo?.toLowerCase().includes('logística') || 
+             f.tipo?.toLowerCase().includes('marketing'))
         )
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 
     const gananciaMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-        
-    const gananciaHoy = ventas
-        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
-
-    const cajaHoy = ventas
-        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Pendiente de Pago' && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0);
-
-    const utilidadHistorica = ventas
-        .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
     const porcentajeEquilibrio = gastosOperativosMes > 0 ? (gananciaMes / gastosOperativosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
 
-    return { cH: cajaHoy, gH: gananciaHoy, cG: cajaReal, bR: utilidadHistorica, pe_g: gananciaMes, pe_m: gastosOperativosMes, pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio };
+    return { 
+        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + (Number(v.precio_venta_unitario)*Number(v.cantidad)), 0), 
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), 
+        cG: cajaReal, 
+        bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+        pe_g: gananciaMes, 
+        pe_m: gastosOperativosMes, 
+        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio 
+    };
   }, [ventas, finanzas]);
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
