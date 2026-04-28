@@ -213,21 +213,22 @@ export default function SistemaBJCMasterFinal() {
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // CAJA FÍSICA: Resta TODO (Local + Logística + Personal + Mercadería + Marketing)
-    const todosLosGastos = finanzas
+    // 🏦 CAJA FÍSICA: Resta ABSOLUTAMENTE TODO (incluyendo el ajuste de cuadre)
+    const todosLosGastosParaCaja = finanzas
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const cajaReal = (ventasCompletadas + ingresosAdmin) - todosLosGastos;
+    const cajaReal = (ventasCompletadas + ingresosAdmin) - todosLosGastosParaCaja;
 
-    // GASTOS OPERATIVOS MES (Para Punto de Equilibrio): Local + Logística + Personal + Marketing
+    // 🚩 GASTOS OPERATIVOS (Punto de Equilibrio): 
+    // Sumamos Personal SIEMPRE Y CUANDO la descripción no diga "CUADRE"
     const gastosOperativosMes = finanzas
         .filter(f => 
             getFechaPeru(f.created_at).substring(0,7) === mesActual && 
             (f.tipo?.toLowerCase().includes('local') || 
-             f.tipo?.toLowerCase().includes('personal') || 
              f.tipo?.toLowerCase().includes('logística') || 
-             f.tipo?.toLowerCase().includes('marketing'))
+             f.tipo?.toLowerCase().includes('marketing') ||
+             (f.tipo?.toLowerCase().includes('personal') && !f.descripcion?.toUpperCase().includes('CUADRE')))
         )
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 

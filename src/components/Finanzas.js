@@ -32,9 +32,13 @@ export default function FinanzasSection({
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
 
     // 1. Solo lo que es GASTO REAL (Local, Marketing, Logística)
-    const esGastoOperativo = (tipo) => {
+    const esGastoOperativo = (tipo, descripcion) => {
         const t = tipo?.toLowerCase() || "";
-        return t.includes("local") || t.includes("personal") || t.includes("logística") || t.includes("marketing");
+        const d = descripcion?.toUpperCase() || "";
+        if (t.includes("local") || t.includes("logística") || t.includes("marketing")) return true;
+        // Si es personal, solo es gasto si NO es un cuadre
+        if (t.includes("personal") && !d.includes("CUADRE")) return true;
+        return false;
     };
 
     // 2. Calculamos los totales globales para las tarjetas de arriba
@@ -87,7 +91,7 @@ export default function FinanzasSection({
         // Sincronizado: Filtra los gastos del mes usando la misma regla de Local/Logística/Personal
         const fFiltradas = finanzas.filter(f => { 
             const fz = new Date(f.created_at); 
-            return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && esGastoOperativo(f.tipo); 
+            return fz.getMonth() === mesActual && fz.getFullYear() === anioActual && esGastoOperativo(f.tipo, f.descripcion); 
         });
 
         return procesarPeriodo(vFiltradas, fFiltradas);
