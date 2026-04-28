@@ -75,12 +75,37 @@ export default function AlmacenSection({
                             .filter(p => (p?.nombre || '').toLowerCase().includes((busquedaStock || '').toLowerCase()))
                             .map(p => (
                             <div key={p.id} style={{ border: '1px solid #E2E8F0', padding: '20px', borderRadius: '25px', backgroundColor: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                                {idEditProducto === p.id ? (
+                               {idEditProducto === p.id ? (
+                                    /* --- MODO EDICIÓN FULL (Nombre, Precios y Stock) --- */
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <small style={{ fontWeight:'900', color:FUCSIA_PRINCIPAL }}>EDITANDO:</small>
-                                        <input value={formEditProducto.nombre} onChange={e => setFormEditProducto({...formEditProducto, nombre: e.target.value})} style={styleInp} />
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button onClick={() => handleUpdateProductoBJ(p.id)} style={{ flex: 1, background: VERDE_BJ, color: '#fff', border:'none', padding:'12px', borderRadius:'12px', fontWeight:'900' }}>OK</button>
+                                        <small style={{ fontWeight:'900', color:FUCSIA_PRINCIPAL }}>EDITANDO PRODUCTO:</small>
+                                        
+                                        <input placeholder="Nombre" value={formEditProducto.nombre} onChange={e => setFormEditProducto({...formEditProducto, nombre: e.target.value})} style={styleInp} />
+                                        
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                            <div>
+                                                <label style={{fontSize:'9px', fontWeight:'900'}}>P. MAYOR</label>
+                                                <input value={formEditProducto.precio_venta} onChange={e => setFormEditProducto({...formEditProducto, precio_venta: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'10px'}} />
+                                            </div>
+                                            <div>
+                                                <label style={{fontSize:'9px', fontWeight:'900'}}>P. MENOR</label>
+                                                <input value={formEditProducto.precio_menor} onChange={e => setFormEditProducto({...formEditProducto, precio_menor: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'10px'}} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                            <div>
+                                                <label style={{fontSize:'9px', fontWeight:'900'}}>P. COSTO</label>
+                                                <input value={formEditProducto.precio_compra} onChange={e => setFormEditProducto({...formEditProducto, precio_compra: handleInputMonto(e.target.value)})} style={{...styleInp, padding:'10px'}} />
+                                            </div>
+                                            <div>
+                                                <label style={{fontSize:'9px', fontWeight:'900'}}>STOCK</label>
+                                                <input value={formEditProducto.stock} onChange={e => setFormEditProducto({...formEditProducto, stock: e.target.value})} style={{...styleInp, padding:'10px'}} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                                            <button onClick={() => handleUpdateProductoBJ(p.id)} style={{ flex: 1, background: VERDE_BJ, color: '#fff', border:'none', padding:'12px', borderRadius:'12px', fontWeight:'900' }}>GUARDAR ✅</button>
                                             <button onClick={() => setIdEditProducto(null)} style={{ background: '#eee', border:'none', padding:'12px', borderRadius:'12px' }}>✕</button>
                                         </div>
                                     </div>
