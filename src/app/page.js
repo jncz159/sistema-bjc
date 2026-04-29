@@ -409,11 +409,11 @@ const resumenGastosBJ = useMemo(() => {
     if (!cliente || carrito.length === 0) return alert("Carrito vacío");
 
     const ts = new Date().toISOString();
-    // 🛡️ SEGURIDAD: Si balanceEliteBJ es null, usamos 0 para que no se caiga la función
-    const snapCaja = Number(balanceEliteBJ?.cG || 0);
     
-    const pagoRecibidoHoy = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
-    const deudaTotalVenta = Number(desglose.saldo_pendiente || 0);
+    // 🛡️ FILTRO DE SEGURIDAD: Aseguramos que la caja sea número
+    const preCaja = Number(balanceEliteBJ?.cG || 0);
+    const montoRealEntrante = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
+    const deudaVenta = Number(desglose.saldo_pendiente || 0);
 
     const listaVentas = carrito.map((i, index) => ({
       cliente_nombre: cliente,
@@ -424,27 +424,26 @@ const resumenGastosBJ = useMemo(() => {
       precio_costo_unitario: Number(i.precio_compra),
       ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad),
       estado_pedido: estado,
-      localidad: localidad, // Aseguramos que se guarde la ciudad
+      localidad: localidad, // Agregamos la localidad al registro
       created_at: ts,
       monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
       monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
-      saldo_pendiente: index === 0 ? deudaTotalVenta : 0
+      saldo_pendiente: index === 0 ? deudaVenta : 0
     }));
 
     try {
-      // 1. Guardar la venta
-      const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
-      if (errorVenta) throw errorVenta;
+      // 1. Guardar Venta
+      const { error: vErr } = await supabase.from('ventas').insert(listaVentas);
+      if (vErr) throw vErr;
 
-      // 2. 🚀 REGISTRO OBLIGATORIO EN BITÁCORA (Blindado)
-      // Usamos el 'await' para que no siga hasta que la bitácora confirme recepción
+      // 2. 🚀 REGISTRO FORZOSO EN BITÁCORA (Se ejecuta sí o sí)
       await supabase.from('auditoria_bj').insert([{
         cliente: cliente,
         operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
-        detalles: `ENTRÓ: S/ ${pagoRecibidoHoy.toFixed(2)} | DEUDA: S/ ${deudaTotalVenta.toFixed(2)} | Método: ${desglose.metodo_pago}`,
-        monto_operacion: pagoRecibidoHoy,
-        caja_antes: snapCaja,
-        caja_despues: snapCaja + pagoRecibidoHoy
+        detalles: `INGRESÓ: S/ ${montoRealEntrante.toFixed(2)} | DEUDA: S/ ${deudaVenta.toFixed(2)}`,
+        monto_operacion: montoRealEntrante,
+        caja_antes: preCaja,
+        caja_despues: preCaja + montoRealEntrante
       }]);
 
       // 3. Actualizar Stock
@@ -457,13 +456,12 @@ const resumenGastosBJ = useMemo(() => {
         }
       }
 
-      setCarrito([]);
-      setCliente('Tienda');
+      setCarrito([]); setCliente('Tienda');
       await cargarTodoDesdeNube();
       return true;
     } catch (e) {
-      console.error("Fallo de bitácora BJ:", e);
-      alert("Error crítico: La venta se guardó pero la bitácora no respondió.");
+      console.error("Error en registro:", e);
+      alert("❌ Error crítico: La venta se guardó pero la bitácora falló.");
       return false;
     }
   };

@@ -39,35 +39,33 @@ const [esCredito, setEsCredito] = useState(false);
         const confirmacion = window.confirm(mensaje);
         
         if (confirmacion) {
-            try {
-                setIsProcessing(true);
+    try {
+        setIsProcessing(true);
+        const efectivoLimpio = Number(efectivoRecibido || 0);
+        
+        // Determinamos si es crédito basándonos en el botón presionado (modo)
+        const esRealmenteDeuda = modo === 'Pendiente de Pago';
+        
+        const deudaReal = esRealmenteDeuda ? (totalCarrito - efectivoLimpio) : 0;
+        const yapeReal = (!esRealmenteDeuda && efectivoLimpio < totalCarrito) ? (totalCarrito - efectivoLimpio) : 0;
+        const efectivoParaCaja = (!esRealmenteDeuda && efectivoLimpio > totalCarrito) ? totalCarrito : efectivoLimpio;
 
-                // --- EL CEREBRO DEL COBRO ---
-                // --- EL CEREBRO DEL COBRO BLINDADO ---
-                const efectivoLimpio = Number(efectivoRecibido || 0);
-                
-                // Si el modo es 'Pendiente de Pago' (vía botón Crédito), es crédito sí o sí
-                const esRealmenteCredito = modo === 'Pendiente de Pago' || esCredito;
-                
-                const deudaReal = esRealmenteCredito ? (totalCarrito - efectivoLimpio) : 0;
-                const yapeReal = (!esRealmenteCredito && efectivoLimpio < totalCarrito) ? (totalCarrito - efectivoLimpio) : 0;
-                const efectivoParaCaja = (!esRealmenteCredito && efectivoLimpio > totalCarrito) ? totalCarrito : efectivoLimpio;
+        const desglosePago = {
+            monto_efectivo: Number(efectivoParaCaja || 0), // 🛡️ Asegura que sea número
+            monto_yape: Number(yapeReal || 0),           // 🛡️ Asegura que sea número
+            saldo_pendiente: Number(deudaReal || 0),     // 🛡️ Asegura que sea número
+            metodo_pago: esRealmenteDeuda ? 'Crédito' : (yapeReal > 0 ? 'Mixto/Yape' : 'Efectivo')
+        };
 
-                const desglosePago = {
-                    monto_efectivo: Number(efectivoParaCaja || 0),
-                    monto_yape: Number(yapeReal || 0),
-                    saldo_pendiente: Number(deudaReal || 0),
-                    metodo_pago: esRealmenteCredito ? 'Crédito' : (yapeReal > 0 ? 'Yape/Mixto' : 'Efectivo')
-                };
-
-                // Enviamos el objeto con todo el detalle
-                await handleEjecutarVentaBJ(modo, desglosePago);
-                
-                setShowSuccess(true);
-                setEfectivoRecibido('');
-                setEsCredito(false); 
-                setIsProcessing(false);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+        // LLAMADA AL MOTOR PRINCIPAL
+        await handleEjecutarVentaBJ(modo, desglosePago);
+        
+        // Limpieza de estados
+        setShowSuccess(true);
+        setEfectivoRecibido('');
+        setEsCredito(false); 
+        setIsProcessing(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
                 
             } catch (error) {
                 alert("❌ Error en el búnker.");
