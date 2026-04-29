@@ -431,28 +431,32 @@ const resumenGastosBJ = useMemo(() => {
       saldo_pendiente: index === 0 ? deudaVenta : 0
     }));
 
-    try {
-      // 1. Guardar Venta
-      const { error: vErr } = await supabase.from('ventas').insert(listaVentas);
-      if (vErr) throw vErr;
+   try {
+      // 1. Guardar la venta
+      const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
+      if (errorVenta) throw errorVenta;
 
-      // 2. 🚀 REGISTRO FORZOSO EN BITÁCORA (Se ejecuta sí o sí)
-      await supabase.from('auditoria_bj').insert([{
+      // 2. 🛡️ REGISTRO EN BITÁCORA CON DETECTOR DE ERRORES
+      const { error: errorLog } = await supabase.from('auditoria_bj').insert([{
         cliente: cliente,
         operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
-        detalles: `INGRESÓ: S/ ${montoRealEntrante.toFixed(2)} | DEUDA: S/ ${deudaVenta.toFixed(2)}`,
-        monto_operacion: montoRealEntrante,
-        caja_antes: preCaja,
-        caja_despues: preCaja + montoRealEntrante
+        detalles: `RECIBIDO: S/ ${pagoRecibidoHoy} | DEUDA: S/ ${deudaTotalVenta}`,
+        monto_operacion: Number(pagoRecibidoHoy), // Forzamos número
+        caja_antes: Number(balanceEliteBJ?.cG || 0),
+        caja_despues: Number((balanceEliteBJ?.cG || 0) + pagoRecibidoHoy)
       }]);
+      
+      // SI ESTE ALERT APARECE, DIME QUÉ DICE EL MENSAJE
+      if (errorLog) {
+          console.error("Error Supabase:", errorLog);
+          alert("🚨 ERROR BITÁCORA: " + errorLog.message);
+      }
 
       // 3. Actualizar Stock
       for (const item of carrito) {
-        const p = productos.find(prod => String(prod.id) === String(item.producto_id));
+        const p = productos.find(prod => prod.id === item.producto_id);
         if (p) {
-          await supabase.from('productos').update({ 
-            stock: Number(p.stock) - Number(item.cantidad) 
-          }).eq('id', p.id);
+          await supabase.from('productos').update({ stock: Number(p.stock) - Number(item.cantidad) }).eq('id', p.id);
         }
       }
 
@@ -460,11 +464,9 @@ const resumenGastosBJ = useMemo(() => {
       await cargarTodoDesdeNube();
       return true;
     } catch (e) {
-      console.error("Error en registro:", e);
-      alert("❌ Error crítico: La venta se guardó pero la bitácora falló.");
+      alert("❌ Error crítico en el proceso: " + e.message);
       return false;
     }
-  };
 
   const handleUpdateItemVentaBJ = async (id, data) => {
     try {
