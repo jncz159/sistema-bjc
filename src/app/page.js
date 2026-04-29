@@ -424,33 +424,29 @@ const resumenGastosBJ = useMemo(() => {
       precio_costo_unitario: Number(i.precio_compra),
       ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad),
       estado_pedido: estado,
-      localidad: localidad, // Agregamos la localidad al registro
+      localidad: localidad,
       created_at: ts,
       monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
       monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
       saldo_pendiente: index === 0 ? deudaVenta : 0
     }));
 
-   try {
+    try {
       // 1. Guardar la venta
       const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
       if (errorVenta) throw errorVenta;
 
-      // 2. 🛡️ REGISTRO EN BITÁCORA CON DETECTOR DE ERRORES
+      // 2. 🚀 REGISTRO EN BITÁCORA (Nombres de variables corregidos)
       const { error: errorLog } = await supabase.from('auditoria_bj').insert([{
         cliente: cliente,
         operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
-        detalles: `RECIBIDO: S/ ${pagoRecibidoHoy} | DEUDA: S/ ${deudaTotalVenta}`,
-        monto_operacion: Number(pagoRecibidoHoy), // Forzamos número
-        caja_antes: Number(balanceEliteBJ?.cG || 0),
-        caja_despues: Number((balanceEliteBJ?.cG || 0) + pagoRecibidoHoy)
+        detalles: `RECIBIDO: S/ ${montoRealEntrante.toFixed(2)} | DEUDA: S/ ${deudaVenta.toFixed(2)}`,
+        monto_operacion: montoRealEntrante,
+        caja_antes: preCaja,
+        caja_despues: preCaja + montoRealEntrante
       }]);
       
-      // SI ESTE ALERT APARECE, DIME QUÉ DICE EL MENSAJE
-      if (errorLog) {
-          console.error("Error Supabase:", errorLog);
-          alert("🚨 ERROR BITÁCORA: " + errorLog.message);
-      }
+      if (errorLog) throw errorLog;
 
       // 3. Actualizar Stock
       for (const item of carrito) {
@@ -464,10 +460,10 @@ const resumenGastosBJ = useMemo(() => {
       await cargarTodoDesdeNube();
       return true;
     } catch (e) {
-      alert("❌ Error crítico en el proceso: " + e.message);
+      alert("❌ Error crítico en el búnker: " + e.message);
       return false;
     }
-
+  }; // <--- AQUÍ FALTABA ESTA LLAVE PARA CERRAR LA FUNCIÓN
   const handleUpdateItemVentaBJ = async (id, data) => {
     try {
         const { data: itemOriginal } = await supabase.from('ventas').select('*').eq('id', id).single();
@@ -874,7 +870,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
             {vista === 'contabilidad' && (
                 <GestionSection {...{ 
                     balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
-                    auditoriaLogs, handleRegistrarFinanzaBJ, auditoriaLogs,
+                    auditoriaLogs, handleRegistrarFinanzaBJ, 
                     formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, 
                     formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
                     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
