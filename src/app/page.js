@@ -253,20 +253,13 @@ const resumenGastosBJ = useMemo(() => {
   }, [productos]);
 
   const balanceEliteBJ = useMemo(() => {
-    // 🚀 LAS DOS LÍNEAS QUE FALTABAN:
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 💰 CAJA REAL: Sumamos totales de entregados + abonos de créditos
+    // 💰 CAJA REAL: Solo sumamos lo que REALMENTE entró (Efectivo + Yape)
     const ingresosVentasReal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => {
-            if (v.estado_pedido === 'Pendiente de Pago') {
-                return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            } else {
-                return acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-            }
-        }, 0);
+        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
         
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
@@ -283,8 +276,7 @@ const resumenGastosBJ = useMemo(() => {
             const fechaValida = getFechaPeru(f.created_at).substring(0,7) === mesActual;
             const t = f.tipo?.toLowerCase() || "";
             const d = f.descripcion?.toUpperCase() || "";
-            const esTipoOperativo = t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing');
-            return fechaValida && esTipoOperativo && !t.includes('mercadería') && !d.includes('CUADRE');
+            return fechaValida && (t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing')) && !t.includes('mercadería') && !d.includes('CUADRE');
         })
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
  
@@ -292,23 +284,18 @@ const resumenGastosBJ = useMemo(() => {
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
-    const porcentajeEquilibrio = gastosOperativosMes > 0 ? (gananciaMes / gastosOperativosMes) * 100 : (gananciaMes > 0 ? 100 : 0);
-
     return { 
-        // 🚀 FIX: Ahora 'Caja Hoy' solo suma lo cobrado realmente (efectivo/yape) si es crédito
-        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => {
-            if (v.estado_pedido === 'Pendiente de Pago') {
-                return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            }
-            return acc + (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-        }, 0), 
+        // 🚀 CAJA HOY: Solo lo cobrado hoy (Efectivo + Yape)
+        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+                  .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0), 
 
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), 
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+                  .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), 
         cG: cajaReal, 
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         pe_g: gananciaMes, 
         pe_m: gastosOperativosMes, 
-        pe_p: porcentajeEquilibrio > 100 ? 100 : porcentajeEquilibrio
+        pe_p: gastosOperativosMes > 0 ? Math.min((gananciaMes / gastosOperativosMes) * 100, 100) : (gananciaMes > 0 ? 100 : 0)
     };
   }, [ventas, finanzas]);
   const analiticaProBJ = useMemo(() => {
@@ -495,35 +482,42 @@ const resumenGastosBJ = useMemo(() => {
         console.error("Error en update individual:", e); 
     }
   };
-
-  const handleAnularVentaBJ = async (v) => {
-    if (confirm("¿Anular este ítem por completo y devolver el stock?")) {
+const handleAnularVentaBJ = async (v) => {
+    if (confirm(`¿Anular venta de ${v.cliente_nombre} y devolver stock?`)) {
         const snap = balanceEliteBJ.cG;
         const pO = productos.find(p => p.id === v.producto_id);
         
-        // 1. Devolver Stock
+        // 1. Dinero REAL a devolver (lo que entró a caja en su momento)
+        const dineroPagado = Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0);
+        
+        // 2. Registro en auditoría solo si hubo dinero de por medio
+        if (dineroPagado > 0) {
+            await supabase.from('auditoria_bj').insert([{ 
+                cliente: v.cliente_nombre, 
+                operacion: 'ANULACIÓN / DEVOLUCIÓN', 
+                detalles: `Reversión de pago real: S/ ${dineroPagado}`,
+                monto_operacion: -dineroPagado, 
+                caja_antes: snap, 
+                caja_despues: snap - dineroPagado 
+            }]);
+        }
+        
+        // 3. Devolver Stock físicamente
         if (pO) {
             await supabase.from('productos').update({ stock: Number(pO.stock) + Number(v.cantidad) }).eq('id', pO.id);
         }
         
-        // 2. Revertir dinero si no era a crédito
-        if (v.estado_pedido !== 'Pendiente de Pago') {
-            const dineroADevolver = Number(v.precio_venta_unitario) * Number(v.cantidad);
-            await supabase.from('auditoria_bj').insert([{ 
-                cliente: v.cliente_nombre, 
-                operacion: 'DEVOLUCIÓN DE ÍTEM', 
-                monto_operacion: -dineroADevolver, 
-                caja_antes: snap, 
-                caja_despues: snap - dineroADevolver 
-            }]);
-        }
-        
-        // 3. Borrado suave (marcar como anulado para no romper métricas pasadas)
-        await supabase.from('ventas').update({ estado_pedido: 'Anulado' }).eq('id', v.id);
+        // 4. Marcado como Anulado para el historial
+        await supabase.from('ventas').update({ 
+            estado_pedido: 'Anulado',
+            monto_efectivo: 0,
+            monto_yape: 0,
+            saldo_pendiente: 0
+        }).eq('id', v.id);
+
         cargarTodoDesdeNube();
     }
   };
-
   const handleExportarExcelCajaFull = () => {
     let csv = "\uFEFFCLIENTE,HORA,TOTAL\n";
     historialVentasDiaBJ.forEach(g => { 
