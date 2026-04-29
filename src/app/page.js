@@ -736,7 +736,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
         busquedaStock, setBusquedaStock, 
         idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
         handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
-        setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock,
+        setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock, fechaConsulta, setFechaConsulta,
         historialVentasDiaBJ, // 👈 AGREGA ESTA LÍNEA AQUÍ
         FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd 
     }} />

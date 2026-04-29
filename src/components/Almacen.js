@@ -12,13 +12,19 @@ export default function AlmacenSection({
     formProd, setFormProd, handleAddProductoBJ, historialVentasDiaBJ,
     busquedaStock, setBusquedaStock, productos,
     idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto,
-    handleUpdateProductoBJ, handleDeleteProductoBJ,
+    handleUpdateProductoBJ, handleDeleteProductoBJ, fechaConsulta, setFechaConsulta,
     formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
     // --- 📍 PEGAR AQUÍ LOS ESTADOS ---
    const [filtroSalida, setFiltroSalida] = useState('');
-
+// 📅 LÓGICA DE FECHAS PARA ENTRADAS (Las salidas ya vienen filtradas por fechaConsulta)
+    const entradasFiltradas = movimientosStock?.filter(m => {
+        if(!m.created_at) return false;
+        // Convertir la fecha de la base de datos a formato YYYY-MM-DD (Hora Perú)
+        const fechaRegistro = new Date(m.created_at).toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+        return fechaRegistro === fechaConsulta;
+    }) || [];
     // Lógica para filtrar las salidas por cliente o por producto
     const salidasFiltradas = historialVentasDiaBJ?.filter(v => {
         const busqueda = filtroSalida.toLowerCase();
@@ -145,79 +151,93 @@ export default function AlmacenSection({
                 </div>
             </div>
         {/* --- BLOQUE: HISTORIAL DE MOVIMIENTOS (Doble Box) --- */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', marginTop: '40px' }}>
-    
-  {/* BOX SALIDAS: Quién compró y horario */}
-    <div style={{ ...styleCrd, borderTop: `5px solid ${ROJO_BJ}` }}>
-        <h4 style={{ color: ROJO_BJ, marginTop: 0, fontWeight: '900' }}>📤 Salidas (Ventas Hoy)</h4>
-        
-        {/* BUSCADOR DE SALIDAS */}
-        <input 
-            placeholder="🔍 Filtrar por cliente o producto..." 
-            value={filtroSalida}
-            onChange={(e) => setFiltroSalida(e.target.value)}
-            style={{ ...styleInp, marginBottom: '15px', padding: '10px', fontSize: '12px', border: '1px solid #eee', height: '40px' }}
-        />
+{/* --- BLOQUE: HISTORIAL DE MOVIMIENTOS (Doble Box con Fecha) --- */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px', flexWrap: 'wrap', gap: '15px' }}>
+                <h3 style={{ margin: 0, fontWeight: '900', color: OSCURO_BJ, fontSize: '1.6rem' }}>📅 Historial de Movimientos</h3>
+                
+                {/* 🚀 EL NUEVO SELECTOR DE FECHAS */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', padding: '10px', borderRadius: '15px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontWeight: '900', fontSize: '12px', opacity: 0.5 }}>FECHA:</span>
+                    <input 
+                        type="date" 
+                        value={fechaConsulta} 
+                        onChange={(e) => setFechaConsulta(e.target.value)} 
+                        style={{ border: 'none', outline: 'none', fontWeight: '900', color: FUCSIA_PRINCIPAL, background: 'transparent' }} 
+                    />
+                </div>
+            </div>
 
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {salidasFiltradas.length === 0 ? <p style={{opacity:0.5, fontSize:'12px'}}>No hay coincidencias.</p> : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                    <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
-                        <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
-                            <th style={{ padding: '10px 5px' }}>CLIENTE / HORA</th>
-                            <th>PRODUCTO</th>
-                            <th>CANT.</th>
-                            <th style={{ textAlign: 'right' }}>STOCK ACT.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {salidasFiltradas.map((v) => v.items.map((it, idx) => {
-                            const pInfo = productos.find(p => String(p.id) === String(it.producto_id));
-                            return (
-                                <tr key={`${v.id_grupo}-${idx}`} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                    <td style={{ padding: '10px 5px' }}>
-                                        <strong>{v.cliente_nombre}</strong><br/><small>{v.hora}</small>
-                                    </td>
-                                    <td style={{ fontWeight: '600' }}>{pInfo ? pInfo.nombre : "Cargando..."}</td>
-                                    <td style={{ fontWeight: '900', color: ROJO_BJ }}>-{it.cantidad}</td>
-                                    <td style={{ textAlign: 'right', fontWeight: '900' }}>{pInfo ? pInfo.stock : 0} U.</td>
-                                </tr>
-                            );
-                        }))}
-                    </tbody>
-                </table>
-            )}
-        </div>
-    </div>
-    {/* BOX ENTRADAS: Tus recargas de mercadería */}
-    <div style={{ ...styleCrd, borderTop: `5px solid ${VERDE_BJ}` }}>
-        <h4 style={{ color: VERDE_BJ, marginTop: 0, fontWeight: '900' }}>📥 Entradas (Recarga de Mercadería)</h4>
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {!movimientosStock || movimientosStock.length === 0 ? (
-                <p style={{ opacity: 0.5, fontSize: '11px' }}>No hay recargas registradas.</p>
-            ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                    <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
-                        <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
-                            <th style={{ padding: '10px 5px' }}>PRODUCTO</th>
-                            <th style={{ textAlign: 'center' }}>CANT.</th>
-                            <th style={{ textAlign: 'right' }}>HORA</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {movimientosStock.map((m, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                <td style={{ padding: '10px 5px', fontWeight: '700' }}>{m.producto_nombre}</td>
-                                <td style={{ textAlign: 'center', color: VERDE_BJ, fontWeight: '900' }}>+{m.cantidad_agregada}</td>
-                                <td style={{ textAlign: 'right', opacity: 0.6 }}>{new Date(m.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            )}
-        </div>
-    </div>
-</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', marginTop: '15px' }}>
+                
+                {/* BOX SALIDAS */}
+                <div style={{ ...styleCrd, borderTop: `5px solid ${ROJO_BJ}` }}>
+                    <h4 style={{ color: ROJO_BJ, marginTop: 0, fontWeight: '900' }}>📤 Salidas ({fechaConsulta.split('-').reverse().join('/')})</h4>
+                    <input 
+                        placeholder="🔍 Filtrar por cliente o producto..." 
+                        value={filtroSalida} onChange={(e) => setFiltroSalida(e.target.value)}
+                        style={{ ...styleInp, marginBottom: '15px', padding: '10px', fontSize: '12px', border: '1px solid #eee' }}
+                    />
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        {salidasFiltradas.length === 0 ? <p style={{opacity:0.5, fontSize:'12px'}}>No hay salidas en esta fecha.</p> : (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                                <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
+                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
+                                        <th style={{ padding: '10px 5px' }}>CLIENTE / FECHA</th>
+                                        <th>PRODUCTO</th>
+                                        <th>CANT.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {salidasFiltradas.map((v) => v.items.map((it, idx) => {
+                                        const pInfo = productos.find(p => String(p.id) === String(it.producto_id));
+                                        return (
+                                            <tr key={`${v.id_grupo}-${idx}`} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                <td style={{ padding: '10px 5px' }}>
+                                                    <strong>{v.cliente_nombre}</strong><br/>
+                                                    <small style={{ color: '#64748B' }}>{fechaConsulta.split('-').reverse().join('/')} - {v.hora}</small>
+                                                </td>
+                                                <td style={{ fontWeight: '600' }}>{pInfo ? pInfo.nombre : "Modelo"}</td>
+                                                <td style={{ fontWeight: '900', color: ROJO_BJ }}>-{it.cantidad}</td>
+                                            </tr>
+                                        );
+                                    }))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+
+                {/* BOX ENTRADAS */}
+                <div style={{ ...styleCrd, borderTop: `5px solid ${VERDE_BJ}` }}>
+                    <h4 style={{ color: VERDE_BJ, marginTop: 0, fontWeight: '900' }}>📥 Entradas ({fechaConsulta.split('-').reverse().join('/')})</h4>
+                    <p style={{ opacity: 0.5, fontSize: '11px', marginTop: '-10px', marginBottom: '15px' }}>Registro de stock agregado manualmente.</p>
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        {entradasFiltradas.length === 0 ? <p style={{ opacity: 0.5, fontSize: '11px' }}>No hay recargas en esta fecha.</p> : (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                                <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
+                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
+                                        <th style={{ padding: '10px 5px' }}>PRODUCTO</th>
+                                        <th style={{ textAlign: 'center' }}>CANT.</th>
+                                        <th style={{ textAlign: 'right' }}>FECHA Y HORA</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {entradasFiltradas.map((m, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                            <td style={{ padding: '10px 5px', fontWeight: '700' }}>{m.producto_nombre}</td>
+                                            <td style={{ textAlign: 'center', color: VERDE_BJ, fontWeight: '900' }}>+{m.cantidad_agregada}</td>
+                                            <td style={{ textAlign: 'right', opacity: 0.6 }}>
+                                                {new Date(m.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+
+            </div>
         </div>
     );
 }
