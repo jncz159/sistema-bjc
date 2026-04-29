@@ -22,35 +22,52 @@ import FinanzasSection from '../components/Finanzas';
 import ClientesSection from '../components/Clientes';
 // 1. INYECCIÓN DE FUENTE PREMIUM
 if (typeof window !== 'undefined') {
-  const link = document.createElement('link');
-  link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;900&display=swap';
-  link.rel = 'stylesheet';
-  document.head.appendChild(link);
-}
-// INYECCIÓN DE ESTILOS GLOBALES (Ocultar Scrollbars)
-if (typeof window !== 'undefined') {
   const style = document.createElement('style');
   style.innerHTML = `
+    /* 1. TIPOGRAFÍA PREMIUM JAKARTA */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+
+    body { 
+      font-family: 'Plus Jakarta Sans', sans-serif; 
+      background-color: #f8fafc; 
+      color: #0f172a;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 2. OCULTAR SCROLLBARS */
     *::-webkit-scrollbar { display: none; }
     * { -ms-overflow-style: none; scrollbar-width: none; }
-    
-    /* BLOQUE MÓVIL BJ */
+
+    /* 3. CLASES VISUALES PRO */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+      border-radius: 28px;
+      transition: all 0.3s ease;
+    }
+
+    .skeleton { 
+      animation: pulse 1.5s ease-in-out infinite; 
+      background: #e2e8f0; 
+      border-radius: 16px; 
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+    /* 4. AJUSTE MÓVIL CHICLAYO */
     @media (max-width: 768px) {
       .header-desktop { display: none !important; }
       .nav-mobile { 
-        display: flex !important; 
-        position: fixed; 
-        bottom: 0; left: 0; right: 0; 
-        background: #fff; height: 75px; 
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.1); 
-        z-index: 10000; 
-        justify-content: space-around; 
-        align-items: center;
-        padding-bottom: env(safe-area-inset-bottom);
-        border-radius: 25px 25px 0 0;
+        display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; 
+        background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
+        height: 75px; z-index: 10000; justify-content: space-around; align-items: center;
+        padding-bottom: env(safe-area-inset-bottom); border-radius: 25px 25px 0 0;
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.05);
       }
-      main { margin-top: 10px !important; padding: 0 10px 100px 10px !important; }
-      button { min-height: 48px; } /* Evita toques accidentales */
+      main { padding: 0 10px 100px 10px !important; }
     }
   `;
   document.head.appendChild(style);
@@ -699,34 +716,35 @@ const handleRegistrarFinanzaBJ = async (e) => {
   if (cargando) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:FUCSIA_PRINCIPAL, fontWeight:'900' }}>CARGANDO BÚNKER... 🚀</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, paddingBottom: '100px', fontFamily: "'Poppins', system-ui, sans-serif" }}>
-    {/* 📱 NAV INFERIOR MÓVIL */}
+    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9' }}>
+      
+      {/* 📱 NAVEGACIÓN MÓVIL (Visible solo en celulares por CSS) */}
       <nav className="nav-mobile" style={{ display: 'none' }}>
         {[
           {id: 'ventas', icon: '💰', label: 'VENTAS'},
-          {id: 'stock', icon: '📦', label: 'STOCK'},
+          {id: 'stock', icon: '📦', label: 'ALMACÉN'},
           {id: 'logistica', icon: '🚚', label: 'ENVÍOS'},
-          {id: 'contabilidad', icon: '⚙️', label: 'ADMIN'}
+          {id: 'finanzas', icon: '📊', label: 'REPORTES'}
         ].map(t => (
           <button 
             key={t.id} 
-            onClick={() => setVista(t.id)}
+            onClick={() => {
+              if(window.navigator.vibrate) window.navigator.vibrate(20);
+              setVista(t.id);
+            }}
             style={{ 
               background: 'none', border: 'none', 
-              color: vista === t.id ? FUCSIA_PRINCIPAL : '#94A3B8',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+              color: vista === t.id ? FUCSIA_PRINCIPAL : '#94A3B8', 
+              display: 'flex', flexDirection: 'column', alignItems: 'center' 
             }}
           >
             <span style={{ fontSize: '22px' }}>{t.icon}</span>
-            <span style={{ fontSize: '9px', fontWeight: '900' }}>{t.label}</span>
+            <span style={{ fontSize: '9px', fontWeight: '800' }}>{t.label}</span>
           </button>
         ))}
       </nav>
 
-      {/* HEADER ESCRITORIO (Agrega la clase 'header-desktop') */}
-      <header className="header-desktop" style={{ backgroundColor: '#ffffff', padding: '10px 5%', position: 'sticky', top: 0, zIndex: 1000, boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}></header>
-      
-      {/* HEADER LIMPIO (ESTILO ORIGINAL) */}
+      {/* 💻 HEADER (Escritorio y Global) */}
       <header style={{ backgroundColor: '#ffffff', padding: '10px 5%', position: 'sticky', top: 0, zIndex: 1000, boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           
@@ -737,14 +755,14 @@ const handleRegistrarFinanzaBJ = async (e) => {
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>BÚNKER EXTENDIDO v6.0</small>
+                <small style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4 }}>BÚNKER v6.0</small>
                 <button onClick={cerrarSesion} style={{ backgroundColor: '#FEF2F2', color: ROJO_BJ, border: `1px solid ${ROJO_BJ}50`, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: '900', fontSize: '11px' }}>
                     BLOQUEAR 🔒
                 </button>
             </div>
           </div>
           
-          <nav style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '5px', WebkitOverflowScrolling: 'touch' }}>
+          <nav className="header-desktop" style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '5px' }}>
             {['ventas', 'stock', 'logistica', 'finanzas', 'clientes', 'contabilidad'].map(t => (
               <button 
                 key={t} 
@@ -754,11 +772,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
                     backgroundColor: vista === t ? FUCSIA_PRINCIPAL : '#FCA5D415', 
                     border: 'none', 
                     color: vista === t ? '#fff' : FUCSIA_PRINCIPAL, 
-                    padding: '12px 18px', 
-                    borderRadius: '12px', 
-                    cursor: 'pointer', 
-                    fontWeight: '900', 
-                    fontSize: '11px' 
+                    padding: '12px 18px', borderRadius: '12px', cursor: 'pointer', fontWeight: '900', fontSize: '11px' 
                 }}
               >
                 {t === 'contabilidad' ? 'GESTIÓN' : (t === 'clientes' ? 'CRM' : t.toUpperCase())}
@@ -768,65 +782,75 @@ const handleRegistrarFinanzaBJ = async (e) => {
         </div>
       </header>
 
-      {/* RENDERIZADO DE PESTAÑAS (COMPLETAMENTE CONECTADAS) */}
-      <main style={{ maxWidth: '1400px', margin: '25px auto', padding: '0 20px' }}>
-        
-        {vista === 'ventas' && (
-            <VentasSection {...{ 
-                balanceEliteBJ, handleUpdateItemVentaBJ, fechaConsulta, setFechaConsulta, 
-                efectivoRecibido, setEfectivoRecibido, handleExportarExcelCajaFull, 
-                tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, 
-                ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, 
-                descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, 
-                productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, 
-                busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, 
-                analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
-            }} />
-        )}
-        
-        {vista === 'stock' && (
-          <AlmacenSection {...{ 
-        formProd, setFormProd, handleAddProductoBJ, productos, 
-        busquedaStock, setBusquedaStock, 
-        idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
-        handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
-        setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock, fechaConsulta, setFechaConsulta,
-        historialVentasDiaBJ, // 👈 AGREGA ESTA LÍNEA AQUÍ
-        FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd 
-    }} />
-        )}
-        
-        {vista === 'logistica' && (
-            <LogisticaSection {...{ 
-                logisticaInteligente, handleCobrarDeudaBJ, handleAnularCreditoBJ, 
-                handleEliminarItemIndividualLogistica: handleAnularVentaBJ, productos, finanzas, 
-                FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, styleCrd, styleInp 
-            }} />
-        )}
+      {/* 📦 RENDERIZADO DE CONTENIDO (CON SKELETON UI) */}
+      <main style={{ maxWidth: '1400px', margin: 'auto', padding: '20px' }}>
+        {cargando ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="skeleton" style={{ height: '80px', width: '100%' }}></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+               <div className="skeleton" style={{ height: '400px' }}></div>
+               <div className="skeleton" style={{ height: '400px' }}></div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {vista === 'ventas' && (
+                <VentasSection {...{ 
+                    balanceEliteBJ, handleUpdateItemVentaBJ, fechaConsulta, setFechaConsulta, 
+                    efectivoRecibido, setEfectivoRecibido, handleExportarExcelCajaFull, 
+                    tipoVenta, setTipoVenta, cliente, handleAutocompleteCliente: handleAutocompleteClienteBJ, 
+                    ventas, localidad, setLocalidad, telefono, setTelefono, carrito, setCarrito, 
+                    descuento, setDescuento, handleEjecutarVentaBJ, busqueda, setBusqueda, 
+                    productos, coloresElegidos, setColoresElegidos, cantidades, setCantidades, 
+                    busquedaHistorial, setBusquedaHistorial, historialVentasDiaBJ, handleAnularVentaBJ, 
+                    analiticaProBJ, FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
+                }} />
+            )}
+            
+            {vista === 'stock' && (
+              <AlmacenSection {...{ 
+                formProd, setFormProd, handleAddProductoBJ, productos, 
+                busquedaStock, setBusquedaStock, 
+                idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
+                handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
+                setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock, fechaConsulta, setFechaConsulta,
+                historialVentasDiaBJ, 
+                FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd 
+              }} />
+            )}
+            
+            {vista === 'logistica' && (
+                <LogisticaSection {...{ 
+                    logisticaInteligente, handleCobrarDeudaBJ, handleAnularCreditoBJ, 
+                    handleEliminarItemIndividualLogistica: handleAnularVentaBJ, productos, finanzas, 
+                    FUCSIA_PRINCIPAL, VERDE_BJ, AMARILLO_BJ, ROJO_BJ, OSCURO_BJ, styleCrd, styleInp 
+                }} />
+            )}
 
-        {vista === 'finanzas' && (
-            <FinanzasSection {...{ 
-                ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ, resumenGastosBJ,
-                FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
-            }} />
-        )}
+            {vista === 'finanzas' && (
+                <FinanzasSection {...{ 
+                    ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ, resumenGastosBJ,
+                    FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
+                }} />
+            )}
 
-        {vista === 'clientes' && (
-            <ClientesSection {...{ 
-                ventas, FUCSIA_PRINCIPAL, VERDE_BJ, OSCURO_BJ, styleCrd, styleInp 
-            }} />
-        )}
+            {vista === 'clientes' && (
+                <ClientesSection {...{ 
+                    ventas, FUCSIA_PRINCIPAL, VERDE_BJ, OSCURO_BJ, styleCrd, styleInp 
+                }} />
+            )}
 
-        {vista === 'contabilidad' && (
-            <GestionSection {...{ 
-        balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
-        auditoriaLogs, handleRegistrarFinanzaBJ, 
-        formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, 
-        formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
-        FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
-    }} />
+            {vista === 'contabilidad' && (
+                <GestionSection {...{ 
+                    balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
+                    auditoriaLogs, handleRegistrarFinanzaBJ, 
+                    formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, 
+                    formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
+                    FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
+                }} />
+            )}
+          </>
         )}
-
       </main>
     </div>
   );
