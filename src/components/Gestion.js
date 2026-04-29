@@ -22,15 +22,6 @@ export default function GestionSection({
     const [verAuditoria, setVerAuditoria] = useState(false);
     const [logs, setLogs] = useState([]);
 
-    useEffect(() => {
-        if (verAuditoria) {
-            const fetchLogs = async () => {
-                const { data } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: false }).limit(50);
-                if (data) setLogs(data);
-            };
-            fetchLogs();
-        }
-    }, [verAuditoria]);
 
     
     // Sumamos por categorías específicas
@@ -229,19 +220,19 @@ export default function GestionSection({
                                 </tr>
                             </thead>
                             <tbody>
-                                {logs?.filter(l => l != null).length === 0 ? (
-                                    <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#94A3B8' }}>No hay registros en auditoría.</td></tr>
-                                ) : (
-                                    logs?.filter(l => l != null).map(l => (
-                                        <tr key={l?.id || Math.random()} style={{ borderBottom: '1px solid #eee' }}>
-                                            <td style={{ padding: '12px 15px' }}><small>{l?.created_at ? getFechaPeru(l.created_at) : ''}</small><br/><strong>{l?.created_at ? getHoraPeru(l.created_at) : ''}</strong></td>
-                                            <td style={{ padding: '12px 15px' }}><span style={{fontWeight: '900'}}>{l?.operacion || 'N/A'}</span><br/><small>{l?.cliente || 'N/A'}</small></td>
-                                            <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px', color: (l?.monto_operacion || 0) > 0 ? VERDE_BJ : ROJO_BJ }}>{(l?.monto_operacion || 0) > 0 ? "+" : ""} {Number(l?.monto_operacion || 0).toFixed(2)}</td>
-                                            <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px' }}>S/ {Number(l?.caja_despues || 0).toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
+    {auditoriaLogs?.filter(l => l != null).length === 0 ? ( // 👈 CAMBIADO DE 'logs' A 'auditoriaLogs'
+        <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#94A3B8' }}>No hay registros en auditoría.</td></tr>
+    ) : (
+        auditoriaLogs?.filter(l => l != null).map(l => ( // 👈 CAMBIADO DE 'logs' A 'auditoriaLogs'
+            <tr key={l?.id || Math.random()} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '12px 15px' }}><small>{l?.created_at ? getFechaPeru(l.created_at) : ''}</small><br/><strong>{l?.created_at ? getHoraPeru(l.created_at) : ''}</strong></td>
+                <td style={{ padding: '12px 15px' }}><span style={{fontWeight: '900'}}>{l?.operacion || 'N/A'}</span><br/><small>{l?.cliente || 'N/A'}</small></td>
+                <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px', color: (l?.monto_operacion || 0) > 0 ? VERDE_BJ : ROJO_BJ }}>{(l?.monto_operacion || 0) > 0 ? "+" : ""} {Number(l?.monto_operacion || 0).toFixed(2)}</td>
+                <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight:'900', fontSize: '14px' }}>S/ {Number(l?.caja_despues || 0).toFixed(2)}</td>
+            </tr>
+        ))
+    )}
+</tbody>
                         </table>
                     </div>
                 </div>
