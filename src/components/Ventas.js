@@ -43,23 +43,21 @@ const [esCredito, setEsCredito] = useState(false);
                 setIsProcessing(true);
 
                 // --- EL CEREBRO DEL COBRO ---
+                // --- EL CEREBRO DEL COBRO BLINDADO ---
                 const efectivoLimpio = Number(efectivoRecibido || 0);
                 
-                // Si es crédito, el saldo es el Total - lo que dejó de inicial
-                // Si no es crédito, el saldo es 0
-                const deudaReal = esCredito ? (totalCarrito - efectivoLimpio) : 0;
+                // Si el modo es 'Pendiente de Pago' (vía botón Crédito), es crédito sí o sí
+                const esRealmenteCredito = modo === 'Pendiente de Pago' || esCredito;
                 
-                // Si no es crédito y pagó menos del total, el resto es Yape
-                const yapeReal = (!esCredito && efectivoLimpio < totalCarrito) ? (totalCarrito - efectivoLimpio) : 0;
-                
-                // Si pagó de más, el efectivo que entra a caja es solo el total de la venta (el resto es vuelto)
-                const efectivoParaCaja = (!esCredito && efectivoLimpio > totalCarrito) ? totalCarrito : efectivoLimpio;
+                const deudaReal = esRealmenteCredito ? (totalCarrito - efectivoLimpio) : 0;
+                const yapeReal = (!esRealmenteCredito && efectivoLimpio < totalCarrito) ? (totalCarrito - efectivoLimpio) : 0;
+                const efectivoParaCaja = (!esRealmenteCredito && efectivoLimpio > totalCarrito) ? totalCarrito : efectivoLimpio;
 
                 const desglosePago = {
-                    monto_efectivo: efectivoParaCaja,
-                    monto_yape: yapeReal,
-                    saldo_pendiente: deudaReal,
-                    metodo_pago: esCredito ? 'Crédito' : (yapeReal > 0 ? 'Múltiple/Yape' : 'Efectivo')
+                    monto_efectivo: Number(efectivoParaCaja || 0),
+                    monto_yape: Number(yapeReal || 0),
+                    saldo_pendiente: Number(deudaReal || 0),
+                    metodo_pago: esRealmenteCredito ? 'Crédito' : (yapeReal > 0 ? 'Yape/Mixto' : 'Efectivo')
                 };
 
                 // Enviamos el objeto con todo el detalle

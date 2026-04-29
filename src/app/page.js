@@ -409,12 +409,10 @@ const resumenGastosBJ = useMemo(() => {
     if (!cliente || carrito.length === 0) return alert("Carrito vacío");
 
     const ts = new Date().toISOString();
-    const snapCaja = balanceEliteBJ.cG;
+    // 🛡️ SEGURIDAD: Si balanceEliteBJ es null, usamos 0 para que no se caiga la función
+    const snapCaja = Number(balanceEliteBJ?.cG || 0);
     
-    // 💵 DINERO REAL: Solo lo que entró hoy (Cash + Yape)
     const pagoRecibidoHoy = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
-    
-    // 📝 DEUDA REAL: Lo que el cliente queda debiendo
     const deudaTotalVenta = Number(desglose.saldo_pendiente || 0);
 
     const listaVentas = carrito.map((i, index) => ({
@@ -426,33 +424,32 @@ const resumenGastosBJ = useMemo(() => {
       precio_costo_unitario: Number(i.precio_compra),
       ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad),
       estado_pedido: estado,
+      localidad: localidad, // Aseguramos que se guarde la ciudad
       created_at: ts,
-      // EL DINERO SE REGISTRA SOLO EN EL ÍTEM 0 PARA EVITAR DUPLICADOS
       monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
       monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
       saldo_pendiente: index === 0 ? deudaTotalVenta : 0
     }));
 
     try {
-      // 1. Guardar la venta en la tabla ventas
+      // 1. Guardar la venta
       const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
       if (errorVenta) throw errorVenta;
 
-      // 2. 🚀 REGISTRO OBLIGATORIO EN BITÁCORA (No se puede saltar)
-      const { error: errorLog } = await supabase.from('auditoria_bj').insert([{
+      // 2. 🚀 REGISTRO OBLIGATORIO EN BITÁCORA (Blindado)
+      // Usamos el 'await' para que no siga hasta que la bitácora confirme recepción
+      await supabase.from('auditoria_bj').insert([{
         cliente: cliente,
         operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
-        detalles: `RECIBIDO: S/ ${pagoRecibidoHoy} | DEUDA: S/ ${deudaTotalVenta}`,
+        detalles: `ENTRÓ: S/ ${pagoRecibidoHoy.toFixed(2)} | DEUDA: S/ ${deudaTotalVenta.toFixed(2)} | Método: ${desglose.metodo_pago}`,
         monto_operacion: pagoRecibidoHoy,
         caja_antes: snapCaja,
         caja_despues: snapCaja + pagoRecibidoHoy
       }]);
-      
-      if (errorLog) console.error("Error al escribir en bitácora:", errorLog);
 
       // 3. Actualizar Stock
       for (const item of carrito) {
-        const p = productos.find(prod => prod.id === item.producto_id);
+        const p = productos.find(prod => String(prod.id) === String(item.producto_id));
         if (p) {
           await supabase.from('productos').update({ 
             stock: Number(p.stock) - Number(item.cantidad) 
@@ -460,11 +457,13 @@ const resumenGastosBJ = useMemo(() => {
         }
       }
 
-      setCarrito([]); setCliente('Tienda');
-      await cargarTodoDesdeNube(); // Refresca la pantalla inmediatamente
+      setCarrito([]);
+      setCliente('Tienda');
+      await cargarTodoDesdeNube();
       return true;
     } catch (e) {
-      alert("Error crítico: La venta no se registró en el búnker.");
+      console.error("Fallo de bitácora BJ:", e);
+      alert("Error crítico: La venta se guardó pero la bitácora no respondió.");
       return false;
     }
   };
