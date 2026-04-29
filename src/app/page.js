@@ -256,11 +256,16 @@ const resumenGastosBJ = useMemo(() => {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. 💰 INGRESO REAL GLOBAL (Solo lo que tocaste: Efectivo + Yape)
-    // Eliminamos el "respaldo" que inflaba la caja. Solo suma si hay montos reales registrados.
+    // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
     const ingresosVentasGlobales = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
+        .reduce((acc, v) => {
+            const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            // Si hay registro de billetes, lo usamos. 
+            // Si es una venta antigua (cobroReal es 0), usamos el total pactado para no generar el hueco negativo.
+            const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            return acc + (cobroReal > 0 ? cobroReal : respaldo);
+        }, 0);
         
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
@@ -270,15 +275,16 @@ const resumenGastosBJ = useMemo(() => {
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // CAJA GLOBAL REAL: Lo que realmente entró menos lo que salió.
-    const cajaRealTotal = (ingresosVentasGlobales + ingresosAdmin) - todosLosGastos;
+    // UTILIDAD NETA REAL (cG)
+    const utilidadNetaReal = (ingresosVentasGlobales + ingresosAdmin) - todosLosGastos;
 
-    // 2. 🚀 CAJA HOY (Misma lógica estricta)
+    // 2. 🚀 CAJA HOY (ESTRICTA): Solo lo que entró hoy por billetes o Yape
+    // Esta es la que debe coincidir con tu cuenta manual del día.
     const cajaHoyExacta = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
 
-    // 3. 📊 MÉTRICAS MENSUALES (Punto de Equilibrio)
+    // 3. 📊 PUNTO DE EQUILIBRIO (Métricas del Mes)
     const gastosOperativosMes = finanzas
         .filter(f => {
             const fFecha = getFechaPeru(f.created_at).substring(0,7);
@@ -293,8 +299,8 @@ const resumenGastosBJ = useMemo(() => {
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
     return { 
-        cH: cajaHoyExacta, // Caja de hoy (Estricta)
-        cG: cajaRealTotal, // Caja Global Física (Estricta)
+        cH: cajaHoyExacta, 
+        cG: utilidadNetaReal, 
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         pe_g: gananciaMes, 
