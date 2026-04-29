@@ -376,66 +376,63 @@ const resumenGastosBJ = useMemo(() => {
   };
 
   const handleEjecutarVentaBJ = async (estado, desglose) => {
-    if (!cliente || carrito.length === 0) {
-        return alert("Faltan datos del cliente o el carrito está vacío.");
-    }
-    
-    const snap = balanceEliteBJ.cG;
-    const ts = new Date().toISOString();
+    if (!cliente || carrito.length === 0) return alert("Carrito vacío");
 
-    const lista = carrito.map((i, index) => ({ 
-        cliente_nombre: cliente, 
-        localidad: localidad, 
-        telefono: telefono, 
-        producto_id: i.producto_id, 
-        cantidad: Number(i.cantidad), 
-        color: i.color, 
-        precio_venta_unitario: Number(i.precio_venta), 
-        precio_costo_unitario: Number(i.precio_compra), 
-        ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad), 
-        estado_pedido: estado, 
-        created_at: ts,
-        monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
-        monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
-        saldo_pendiente: index === 0 ? Number(desglose.saldo_pendiente || 0) : 0,
-        metodo_pago: index === 0 ? desglose.metodo_pago : ''
+    const ts = new Date().toISOString();
+    const snapCaja = balanceEliteBJ.cG;
+    
+    // 💵 DINERO REAL: Solo lo que entró hoy (Cash + Yape)
+    const pagoRecibidoHoy = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
+    
+    // 📝 DEUDA REAL: Lo que el cliente queda debiendo
+    const deudaTotalVenta = Number(desglose.saldo_pendiente || 0);
+
+    const listaVentas = carrito.map((i, index) => ({
+      cliente_nombre: cliente,
+      producto_id: i.producto_id,
+      cantidad: Number(i.cantidad),
+      color: i.color,
+      precio_venta_unitario: Number(i.precio_venta),
+      precio_costo_unitario: Number(i.precio_compra),
+      ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad),
+      estado_pedido: estado,
+      created_at: ts,
+      // EL DINERO SE REGISTRA SOLO EN EL ÍTEM 0 PARA EVITAR DUPLICADOS
+      monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
+      monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
+      saldo_pendiente: index === 0 ? deudaTotalVenta : 0
     }));
 
     try {
-        const { error } = await supabase.from('ventas').insert(lista).select();
-        if (error) throw error;
+      const { error } = await supabase.from('ventas').insert(listaVentas);
+      if (error) throw error;
 
-        // 🚀 RASTRO FORENSE TOTAL: Registramos la operación SIEMPRE
-        // Sumamos efectivo + yape para el total que entró hoy
-        const montoHoy = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
-        
-        await supabase.from('auditoria_bj').insert([{ 
-            cliente: cliente, 
-            operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA REGISTRADA', 
-            detalles: `Items: ${carrito.length} | Estado: ${estado} | Pago Hoy: S/ ${montoHoy}`,
-            monto_operacion: montoHoy, 
-            caja_antes: snap, 
-            caja_despues: snap + montoHoy 
-        }]);
-        
-        // Actualización de stock
-        for (const it of carrito) {
-            const prodStock = productos.find(p => p.id === it.producto_id);
-            if (prodStock) {
-                await supabase.from('productos').update({ stock: Number(prodStock.stock) - Number(it.cantidad) }).eq('id', it.producto_id);
-            }
+      // 🔍 REGISTRO EN BITÁCORA (Solo dinero líquido)
+      await supabase.from('auditoria_bj').insert([{
+        cliente: cliente,
+        operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO PARCIAL' : 'VENTA',
+        detalles: `Cobrado: S/ ${pagoRecibidoHoy} | Pendiente: S/ ${deudaTotalVenta}`,
+        monto_operacion: pagoRecibidoHoy,
+        caja_antes: snapCaja,
+        caja_despues: snapCaja + pagoRecibidoHoy
+      }]);
+
+      // ACTUALIZAR STOCK EN ALMACÉN
+      for (const item of carrito) {
+        const p = productos.find(prod => prod.id === item.producto_id);
+        if (p) {
+          await supabase.from('productos').update({ 
+            stock: Number(p.stock) - Number(item.cantidad) 
+          }).eq('id', p.id);
         }
-        
-        // Limpieza de estados
-        setCarrito([]); setEfectivoRecibido(''); setCliente('Tienda'); setLocalidad('Chiclayo'); setTelefono(''); setDescuento(0);
-        
-        await cargarTodoDesdeNube();
-        return true; 
+      }
 
-    } catch (err) {
-        console.error("Fallo crítico:", err);
-        alert("🚨 ERROR: No se pudo guardar. Revisa tu conexión en el celular.");
-        return false;
+      setCarrito([]);
+      await cargarTodoDesdeNube();
+      return true;
+    } catch (e) {
+      alert("Error al sincronizar con el Búnker.");
+      return false;
     }
   };
 
@@ -482,40 +479,51 @@ const resumenGastosBJ = useMemo(() => {
         console.error("Error en update individual:", e); 
     }
   };
-const handleAnularVentaBJ = async (v) => {
-    if (confirm(`¿Anular venta de ${v.cliente_nombre} y devolver stock?`)) {
-        const snap = balanceEliteBJ.cG;
-        const pO = productos.find(p => p.id === v.producto_id);
-        
-        // 1. Dinero REAL a devolver (lo que entró a caja en su momento)
-        const dineroPagado = Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0);
-        
-        // 2. Registro en auditoría solo si hubo dinero de por medio
-        if (dineroPagado > 0) {
-            await supabase.from('auditoria_bj').insert([{ 
-                cliente: v.cliente_nombre, 
-                operacion: 'ANULACIÓN / DEVOLUCIÓN', 
-                detalles: `Reversión de pago real: S/ ${dineroPagado}`,
-                monto_operacion: -dineroPagado, 
-                caja_antes: snap, 
-                caja_despues: snap - dineroPagado 
-            }]);
-        }
-        
-        // 3. Devolver Stock físicamente
-        if (pO) {
-            await supabase.from('productos').update({ stock: Number(pO.stock) + Number(v.cantidad) }).eq('id', pO.id);
-        }
-        
-        // 4. Marcado como Anulado para el historial
-        await supabase.from('ventas').update({ 
-            estado_pedido: 'Anulado',
-            monto_efectivo: 0,
-            monto_yape: 0,
-            saldo_pendiente: 0
-        }).eq('id', v.id);
+const handleAnularVentaBJ = async (ventaOriginal) => {
+    // Si la venta ya está anulada, no hacer nada
+    if (ventaOriginal.estado_pedido === 'Anulado') return;
 
-        cargarTodoDesdeNube();
+    if (!confirm(`¿Anular venta de ${ventaOriginal.cliente_nombre}? Restaurará stock y caja.`)) return;
+
+    const snapCaja = balanceEliteBJ.cG;
+    const productoEnAlmacen = productos.find(p => p.id === ventaOriginal.producto_id);
+    
+    // 💵 DINERO QUE DEBEMOS QUITAR DE CAJA (Solo lo que pagó realmente)
+    const dineroAReversar = Number(ventaOriginal.monto_efectivo || 0) + Number(ventaOriginal.monto_yape || 0);
+
+    try {
+      // 1. RESTAURAR STOCK EN ALMACÉN
+      if (productoEnAlmacen) {
+        await supabase.from('productos').update({ 
+          stock: Number(productoEnAlmacen.stock) + Number(ventaOriginal.cantidad) 
+        }).eq('id', productoEnAlmacen.id);
+      }
+
+      // 2. REVERSAR DINERO EN BITÁCORA (Solo si hubo pago)
+      if (dineroAReversar > 0) {
+        await supabase.from('auditoria_bj').insert([{
+          cliente: ventaOriginal.cliente_nombre,
+          operacion: 'ANULACIÓN / DEVOLUCIÓN',
+          detalles: `Reversión de pago real: S/ ${dineroAReversar}`,
+          monto_operacion: -dineroAReversar,
+          caja_antes: snapCaja,
+          caja_despues: snapCaja - dineroAReversar
+        }]);
+      }
+
+      // 3. MARCAR COMO ANULADO EN VENTAS (Limpia montos para evitar doble suma)
+      await supabase.from('ventas').update({
+        estado_pedido: 'Anulado',
+        monto_efectivo: 0,
+        monto_yape: 0,
+        saldo_pendiente: 0,
+        ganancia_total: 0
+      }).eq('id', ventaOriginal.id);
+
+      await cargarTodoDesdeNube();
+      alert("Operación anulada y stock restaurado.");
+    } catch (e) {
+      console.error("Fallo en la anulación:", e);
     }
   };
   const handleExportarExcelCajaFull = () => {
