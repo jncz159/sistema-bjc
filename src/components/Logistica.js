@@ -55,7 +55,6 @@ export default function LogisticaSection({
                 <span>• <strong>{it.cantidad}x</strong> {it.nombre} <small>({it.color})</small></span>
                 <div style={{display:'flex', gap:'8px'}}>
                     <button onClick={() => startEdit(it)} style={{border:'none', background:'none', cursor:'pointer', fontSize:'12px'}}>✏️</button>
-                   /* Reemplaza el bloque del botón 🗑️ dentro de renderItem por este: */
 <button 
     onClick={() => handleEliminarItemIndividualLogistica(it)} 
     style={{ 

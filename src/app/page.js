@@ -370,7 +370,7 @@ const resumenGastosBJ = useMemo(() => {
         groups[hId].items.push(v); 
         groups[hId].total += (Number(v.precio_venta_unitario) * Number(v.cantidad));
     });
-    return Object.values(groups).reverse();
+    return Object.values(groups)();
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
   // ==========================================
