@@ -491,9 +491,23 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
   // ==========================================
   const handleAddProductoBJ = async (e) => { 
       e.preventDefault(); 
-      await supabase.from('productos').insert([formProd]); 
-      setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); 
-      cargarTodoDesdeNube(); 
+      
+      // 1. Insertamos el producto
+      const { data, error } = await supabase.from('productos').insert([formProd]).select(); 
+      
+      if (!error && data) {
+          // 2. 🚀 REGISTRO AUTOMÁTICO EN EL HISTORIAL DE ENTRADAS
+          await supabase.from('movimientos_stock_bj').insert([
+              {
+                  producto_nombre: formProd.nombre,
+                  cantidad_agregada: Number(formProd.stock),
+                  tipo_movimiento: 'NUEVO INGRESO'
+              }
+          ]);
+
+          setFormProd({nombre:'', precio_compra:'', precio_venta:'', precio_menor:'', stock:'', colores:''}); 
+          cargarTodoDesdeNube(); 
+      }
   };
   
   const handleUpdateProductoBJ = async (id) => { 
