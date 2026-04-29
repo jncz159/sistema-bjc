@@ -265,6 +265,7 @@ const resumenGastosBJ = useMemo(() => {
             // Si hay registro de billetes, lo usamos. 
             // Si es una venta antigua (cobroReal es 0), usamos el total pactado para no generar el hueco negativo.
             const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            const valorAportado = (v.monto_efectivo === null && v.monto_yape === null) ? respaldo : cobroReal;
             return acc + (cobroReal > 0 ? cobroReal : respaldo);
         }, 0);
         

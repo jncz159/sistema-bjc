@@ -30,10 +30,11 @@ const [esCredito, setEsCredito] = useState(false);
     // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
     // --- FUNCIÓN DE EJECUCIÓN ACTUALIZADA ---
     const ejecutarVentaConAlerta = async (modo) => {
+        const totalRecibidoVisual = Number(efectivoRecibido || 0) + montoYape;
         const mensaje = `⚠️ ¿PROCESAR VENTA? ⚠️\n\n` +
                         `Cliente: ${cliente}\n` +
                         `Total: S/ ${totalCarrito.toFixed(2)}\n` +
-                        `Recibido: S/ ${Number(efectivoRecibido || 0).toFixed(2)}\n\n` +
+                        `Cobro Total: S/ ${totalRecibidoVisual.toFixed(2)}\n\n` +
                         `¿Confirmar registro?`;
 
         const confirmacion = window.confirm(mensaje);
