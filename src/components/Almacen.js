@@ -13,7 +13,7 @@ export default function AlmacenSection({
     busquedaStock, setBusquedaStock, productos,
     idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto,
     handleUpdateProductoBJ, handleDeleteProductoBJ,
-    formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ,
+    formEditStockBJ, setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
     // --- 📍 PEGAR AQUÍ LOS ESTADOS ---
@@ -182,12 +182,32 @@ export default function AlmacenSection({
         </div>
     </div>
     {/* BOX ENTRADAS: Tus recargas de mercadería */}
+    {/* BOX ENTRADAS: Tus recargas de mercadería */}
     <div style={{ ...styleCrd, borderTop: `5px solid ${VERDE_BJ}` }}>
         <h4 style={{ color: VERDE_BJ, marginTop: 0, fontWeight: '900' }}>📥 Entradas (Recarga de Mercadería)</h4>
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-             {/* Este box mostrará los datos de la tabla movimientos_stock_bj que crearemos */}
-             <p style={{ opacity: 0.5, fontSize: '11px' }}>Registro de stock agregado manualmente hoy.</p>
-             {/* Mapeo de entradas similar al de arriba */}
+            {!movimientosStock || movimientosStock.length === 0 ? (
+                <p style={{ opacity: 0.5, fontSize: '11px' }}>No hay recargas registradas.</p>
+            ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
+                        <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
+                            <th style={{ padding: '10px 5px' }}>PRODUCTO</th>
+                            <th style={{ textAlign: 'center' }}>CANT. AGREGADA</th>
+                            <th style={{ textAlign: 'right' }}>HORA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {movimientosStock.map((m, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                <td style={{ padding: '10px 5px', fontWeight: '700' }}>{m.producto_nombre}</td>
+                                <td style={{ textAlign: 'center', color: VERDE_BJ, fontWeight: '900' }}>+{m.cantidad_agregada}</td>
+                                <td style={{ textAlign: 'right', opacity: 0.6 }}>{new Date(m.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
         </div>
     </div>
 </div>
