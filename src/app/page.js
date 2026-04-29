@@ -266,7 +266,7 @@ const resumenGastosBJ = useMemo(() => {
             // Si es una venta antigua (cobroReal es 0), usamos el total pactado para no generar el hueco negativo.
             const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
             const valorAportado = (v.monto_efectivo === null && v.monto_yape === null) ? respaldo : cobroReal;
-            return acc + (cobroReal > 0 ? cobroReal : respaldo);
+            return acc + valorAportado;
         }, 0);
         
     const ingresosAdmin = finanzas
@@ -450,21 +450,33 @@ const resumenGastosBJ = useMemo(() => {
       if (errorLog) throw errorLog;
 
       // 3. Actualizar Stock
-      for (const item of carrito) {
-        const p = productos.find(prod => prod.id === item.producto_id);
+      // 3. 🚀 ACTUALIZACIÓN DE STOCK INTELIGENTE (Evita stock fantasma)
+      const resumenStock = {};
+      
+      // Sumamos todas las cantidades por ID de producto único antes de enviar a la nube
+      carrito.forEach(item => {
+        resumenStock[item.producto_id] = (resumenStock[item.producto_id] || 0) + Number(item.cantidad);
+      });
+
+      // Ahora hacemos un solo ajuste por cada producto modelo único
+      for (const [id, cantTotal] of Object.entries(resumenStock)) {
+        const p = productos.find(prod => String(prod.id) === String(id));
         if (p) {
-          await supabase.from('productos').update({ stock: Number(p.stock) - Number(item.cantidad) }).eq('id', p.id);
+          await supabase.from('productos').update({ 
+            stock: Number(p.stock) - cantTotal 
+          }).eq('id', id);
         }
       }
 
-      setCarrito([]); setCliente('Tienda');
+      setCarrito([]); 
+      setCliente('Tienda');
       await cargarTodoDesdeNube();
       return true;
     } catch (e) {
       alert("❌ Error crítico en el búnker: " + e.message);
       return false;
     }
-  }; // <--- AQUÍ FALTABA ESTA LLAVE PARA CERRAR LA FUNCIÓN
+  }; // ✅ ESTA LLAVE CIERRA handleEjecutarVentaBJ CORRECTAMENTE
   const handleUpdateItemVentaBJ = async (id, data) => {
     try {
         const { data: itemOriginal } = await supabase.from('ventas').select('*').eq('id', id).single();
