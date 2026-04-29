@@ -177,7 +177,7 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
   const cargarTodoDesdeNube = async () => {
     try {
         const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
-        // CAMBIO: Ahora verás las ventas y la bitácora más reciente al principio
+        // ✅ Ventas y Auditoría con lo más reciente arriba
         const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: false }); 
         const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
         const { data: a } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: false }); 
@@ -367,14 +367,14 @@ const resumenGastosBJ = useMemo(() => {
             groups[hId] = { 
                 id_grupo: hId, 
                 cliente_nombre: v.cliente_nombre, 
-                localidad: v.localidad, 
+                localidad: v.localidad || 'Chiclayo', 
                 telefono: v.telefono, 
                 hora: getHoraPeru(v.created_at), 
-                created_at: v.created_at, // 👈 Clave para forzar el orden correcto
-                estado_pedido: v.estado_pedido, // 👈 Recupera el estado (Entregado/Crédito)
-                monto_efectivo: 0, // 👈 Devuelve el recuadro verde de Efectivo
-                monto_yape: 0,     // 👈 Devuelve el recuadro morado de Yape
-                saldo_pendiente: 0,// 👈 Recupera la vista de deuda
+                created_at: v.created_at, 
+                estado_pedido: v.estado_pedido,
+                monto_efectivo: 0, 
+                monto_yape: 0,     
+                saldo_pendiente: 0,
                 total: 0, 
                 items: [] 
             };
@@ -382,18 +382,14 @@ const resumenGastosBJ = useMemo(() => {
         groups[hId].items.push(v); 
         groups[hId].total += (Number(v.precio_venta_unitario) * Number(v.cantidad));
         
-        // Sumamos los billetes para que la pantalla los detecte y pinte los recuadros
+        // ✅ Suma el dinero de todos los ítems para activar las etiquetas moradas/verdes
         groups[hId].monto_efectivo += Number(v.monto_efectivo || 0);
         groups[hId].monto_yape += Number(v.monto_yape || 0);
         groups[hId].saldo_pendiente += Number(v.saldo_pendiente || 0);
     });
 
-    // 🚀 ORDEN BLINDADO: Siempre ordenará desde la venta más reciente (arriba) a la más antigua (abajo)
-    const historialOrdenado = Object.values(groups).sort((a, b) => {
-        return new Date(b.created_at) - new Date(a.created_at);
-    });
-
-    return historialOrdenado;
+    // 🚀 Ordena siempre de más reciente a más antiguo
+    return Object.values(groups).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
   // ==========================================
