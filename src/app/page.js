@@ -254,16 +254,15 @@ const resumenGastosBJ = useMemo(() => {
 
   const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
-    const mesActual = hoyS.substring(0, 7); // Formato: "2026-04"
+    const mesActual = hoyS.substring(0, 7);
 
-    // 1. 💰 INGRESOS HÍBRIDOS (Pasado y Presente)
-    const ingresosVentasReal = ventas
+    // 1. 💰 CAJA GLOBAL (Mantiene el historial para evitar el negativo)
+    const ingresosVentasGlobal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => {
-            const abonos = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            // Si es crédito, solo sumamos lo cobrado. Si es venta cerrada, usamos abono o el total si es antigua.
-            if (v.estado_pedido === 'Pendiente de Pago') return acc + abonos;
-            return acc + (abonos > 0 ? abonos : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
+            const pagoReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            // Solo para el balance general: si no hay registro de billetes (ventas viejas), usa el total.
+            return acc + (pagoReal > 0 ? pagoReal : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
         }, 0);
         
     const ingresosAdmin = finanzas
@@ -274,42 +273,33 @@ const resumenGastosBJ = useMemo(() => {
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const cajaRealTotal = (ingresosVentasReal + ingresosAdmin) - todosLosGastos;
+    const cajaRealTotal = (ingresosVentasGlobal + ingresosAdmin) - todosLosGastos;
 
-    // 2. 📊 MOTOR DEL PUNTO DE EQUILIBRIO (Métricas del Mes)
-    // Filtramos los gastos operativos de Chiclayo (Luz, Alquiler, Personal, Ads)
+    // 2. 🚀 CAJA HOY (ESTRICTA): Solo lo que entró por billetes o Yape hoy
+    // Aquí es donde volvía a darte el número alto. Ahora es 100% real.
+    const cajaHoyExacta = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
+
+    // 3. 📊 MÉTRICAS DEL MES (Punto de Equilibrio)
     const gastosOperativosMes = finanzas
         .filter(f => {
             const fFecha = getFechaPeru(f.created_at).substring(0,7);
             const t = f.tipo?.toLowerCase() || "";
             const d = f.descripcion?.toUpperCase() || "";
-            // Excluimos compras de mercadería y cuadres de caja del equilibrio operativo
             return fFecha === mesActual && (t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing')) && !t.includes('mercadería') && !d.includes('CUADRE');
         })
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
 
-    // Ganancia real acumulada este mes
     const gananciaMes = ventas
         .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
 
     return { 
-        // Caja de hoy (Billetes + Yape)
-        cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-                  .reduce((acc, v) => {
-                      const pago = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-                      if (v.estado_pedido === 'Pendiente de Pago') return acc + pago;
-                      return acc + (pago > 0 ? pago : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
-                  }, 0), 
-        
-        cG: cajaRealTotal, // Utilidad Neta Real (Caja Física)
-        
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-                  .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        
+        cH: cajaHoyExacta, // 👈 Ahora coincide con tu cuenta manual
+        cG: cajaRealTotal, 
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        
-        // 🚀 Variables para el Punto de Equilibrio
         pe_g: gananciaMes, 
         pe_m: gastosOperativosMes, 
         pe_p: gastosOperativosMes > 0 ? Math.min((gananciaMes / gastosOperativosMes) * 100, 100) : (gananciaMes > 0 ? 100 : 0)
