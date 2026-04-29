@@ -88,7 +88,7 @@ export default function SistemaBJCMasterFinal() {
   const [idEditProducto, setIdEditProducto] = useState(null);
   const [formEditProducto, setFormEditProducto] = useState({});
   const [formEditStockBJ, setFormEditStockBJ] = useState({});
-
+const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Para ver las recargas
   // ==========================================
   // 4. SISTEMA DE SEGURIDAD BÚNKER
   // ==========================================
@@ -151,7 +151,9 @@ export default function SistemaBJCMasterFinal() {
         const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
         const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
         const { data: a } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: true });
-        
+        const { data: m } = await supabase.from('movimientos_stock_bj').select('*').order('created_at', { ascending: false });
+
+        if (m) setMovimientosStock(m);
         if (p) setProductos(p); 
         if (v) setVentas(v); 
         if (f) setFinanzas(f); 
@@ -720,7 +722,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
         busquedaStock, setBusquedaStock, 
         idEditProducto, setIdEditProducto, formEditProducto, setFormEditProducto, 
         handleUpdateProductoBJ, handleDeleteProductoBJ, formEditStockBJ, 
-        setFormEditStockBJ, handleSincronizarStockBJ, 
+        setFormEditStockBJ, handleSincronizarStockBJ, movimientosStock,
         historialVentasDiaBJ, // 👈 AGREGA ESTA LÍNEA AQUÍ
         FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd 
     }} />
