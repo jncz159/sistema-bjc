@@ -17,7 +17,18 @@ export default function AlmacenSection({
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
     // --- 📍 PEGAR AQUÍ LOS ESTADOS ---
-   
+   const [filtroSalida, setFiltroSalida] = useState('');
+
+    // Lógica para filtrar las salidas por cliente o por producto
+    const salidasFiltradas = historialVentasDiaBJ?.filter(v => {
+        const busqueda = filtroSalida.toLowerCase();
+        const coincideCliente = v.cliente_nombre?.toLowerCase().includes(busqueda);
+        const coincideProducto = v.items.some(it => {
+            const pInfo = productos.find(p => String(p.id) === String(it.producto_id));
+            return pInfo?.nombre?.toLowerCase().includes(busqueda);
+        });
+        return coincideCliente || coincideProducto;
+    }) || [];
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
@@ -138,9 +149,18 @@ export default function AlmacenSection({
     
   {/* BOX SALIDAS: Quién compró y horario */}
     <div style={{ ...styleCrd, borderTop: `5px solid ${ROJO_BJ}` }}>
-        <h4 style={{ color: ROJO_BJ, marginTop: 0, fontWeight: '900' }}>📤 Salidas (Ventas en Tiempo Real)</h4>
+        <h4 style={{ color: ROJO_BJ, marginTop: 0, fontWeight: '900' }}>📤 Salidas (Ventas Hoy)</h4>
+        
+        {/* BUSCADOR DE SALIDAS */}
+        <input 
+            placeholder="🔍 Filtrar por cliente o producto..." 
+            value={filtroSalida}
+            onChange={(e) => setFiltroSalida(e.target.value)}
+            style={{ ...styleInp, marginBottom: '15px', padding: '10px', fontSize: '12px', border: '1px solid #eee', height: '40px' }}
+        />
+
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {historialVentasDiaBJ?.length === 0 ? <p style={{opacity:0.5, fontSize:'12px'}}>No hay ventas hoy.</p> : (
+            {salidasFiltradas.length === 0 ? <p style={{opacity:0.5, fontSize:'12px'}}>No hay coincidencias.</p> : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                     <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
                         <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
@@ -151,28 +171,16 @@ export default function AlmacenSection({
                         </tr>
                     </thead>
                     <tbody>
-                        {historialVentasDiaBJ.map((v) => v.items.map((it, idx) => {
-                            // 👈 ESTE ES EL CRUCE DE DATOS QUE FALTABA
+                        {salidasFiltradas.map((v) => v.items.map((it, idx) => {
                             const pInfo = productos.find(p => String(p.id) === String(it.producto_id));
-                            
                             return (
                                 <tr key={`${v.id_grupo}-${idx}`} style={{ borderBottom: '1px solid #f8fafc' }}>
                                     <td style={{ padding: '10px 5px' }}>
-                                        <strong>{v.cliente_nombre}</strong><br/>
-                                        <small>{v.hora}</small>
+                                        <strong>{v.cliente_nombre}</strong><br/><small>{v.hora}</small>
                                     </td>
-                                    {/* Muestra el nombre real del producto */}
-                                    <td style={{ fontWeight: '600' }}>
-                                        {pInfo ? pInfo.nombre : "Cargando..."}
-                                    </td>
-                                    {/* Muestra cuánto se restó */}
-                                    <td style={{ fontWeight: '900', color: ROJO_BJ }}>
-                                        -{it.cantidad}
-                                    </td>
-                                    {/* Muestra el stock que queda en almacén ahorita */}
-                                    <td style={{ textAlign: 'right', fontWeight: '900' }}>
-                                        {pInfo ? pInfo.stock : 0} U.
-                                    </td>
+                                    <td style={{ fontWeight: '600' }}>{pInfo ? pInfo.nombre : "Cargando..."}</td>
+                                    <td style={{ fontWeight: '900', color: ROJO_BJ }}>-{it.cantidad}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: '900' }}>{pInfo ? pInfo.stock : 0} U.</td>
                                 </tr>
                             );
                         }))}
@@ -181,7 +189,6 @@ export default function AlmacenSection({
             )}
         </div>
     </div>
-    {/* BOX ENTRADAS: Tus recargas de mercadería */}
     {/* BOX ENTRADAS: Tus recargas de mercadería */}
     <div style={{ ...styleCrd, borderTop: `5px solid ${VERDE_BJ}` }}>
         <h4 style={{ color: VERDE_BJ, marginTop: 0, fontWeight: '900' }}>📥 Entradas (Recarga de Mercadería)</h4>
@@ -193,7 +200,7 @@ export default function AlmacenSection({
                     <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
                         <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', opacity: 0.5 }}>
                             <th style={{ padding: '10px 5px' }}>PRODUCTO</th>
-                            <th style={{ textAlign: 'center' }}>CANT. AGREGADA</th>
+                            <th style={{ textAlign: 'center' }}>CANT.</th>
                             <th style={{ textAlign: 'right' }}>HORA</th>
                         </tr>
                     </thead>
