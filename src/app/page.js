@@ -254,48 +254,45 @@ const resumenGastosBJ = useMemo(() => {
 
   const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
-    const mesActual = hoyS.substring(0, 7);
-
-    // 💰 CAJA REAL: Solo sumamos lo que REALMENTE entró (Efectivo + Yape)
+    
+    // 💰 CÁLCULO INTELIGENTE: No ignora el pasado
     const ingresosVentasReal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
+        .reduce((acc, v) => {
+            // 1. Si es Crédito: Solo sumamos lo que pagó hoy (billetes)
+            if (v.estado_pedido === 'Pendiente de Pago') {
+                return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            } else {
+                // 2. Si es Venta Cerrada: 
+                // Si tiene montos de billete, los usa. Si están en 0 (ventas antiguas), usa el total de la venta.
+                const abonos = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+                const totalPactado = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+                
+                return acc + (abonos > 0 ? abonos : totalPactado);
+            }
+        }, 0);
         
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const todosLosGastosParaCaja = finanzas
+    const todosLosGastos = finanzas
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    const cajaReal = (ingresosVentasReal + ingresosAdmin) - todosLosGastosParaCaja;
-
-    const gastosOperativosMes = finanzas
-        .filter(f => {
-            const fechaValida = getFechaPeru(f.created_at).substring(0,7) === mesActual;
-            const t = f.tipo?.toLowerCase() || "";
-            const d = f.descripcion?.toUpperCase() || "";
-            return fechaValida && (t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing')) && !t.includes('mercadería') && !d.includes('CUADRE');
-        })
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
- 
-    const gananciaMes = ventas
-        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+    // CAJA GLOBAL = Ingresos Reales - Gastos
+    const cajaRealTotal = (ingresosVentasReal + ingresosAdmin) - todosLosGastos;
 
     return { 
-        // 🚀 CAJA HOY: Solo lo cobrado hoy (Efectivo + Yape)
         cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-                  .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0), 
-
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-                  .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0), 
-        cG: cajaReal, 
-        bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        pe_g: gananciaMes, 
-        pe_m: gastosOperativosMes, 
-        pe_p: gastosOperativosMes > 0 ? Math.min((gananciaMes / gastosOperativosMes) * 100, 100) : (gananciaMes > 0 ? 100 : 0)
+                  .reduce((acc, v) => {
+                      const abonos = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+                      if (v.estado_pedido === 'Pendiente de Pago') return acc + abonos;
+                      return acc + (abonos > 0 ? abonos : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
+                  }, 0), 
+        cG: cajaRealTotal, 
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+        bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0)
     };
   }, [ventas, finanzas]);
   const analiticaProBJ = useMemo(() => {
