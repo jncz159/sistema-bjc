@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 
 export default function FinanzasSection({ 
-    ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ,
+    ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ, resumenGastosBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
 }) {
     // --- 1. ESTADO PARA ARQUEO (TU LÓGICA ORIGINAL) ---
