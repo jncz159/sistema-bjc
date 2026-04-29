@@ -352,25 +352,48 @@ const resumenGastosBJ = useMemo(() => {
     return { almacen: Object.values(mA), deudas: Object.values(mD) };
   }, [ventas, productos]);
 
-  const historialVentasDiaBJ = useMemo(() => {
+ const historialVentasDiaBJ = useMemo(() => {
     const filt = ventas.filter(v => 
         getFechaPeru(v.created_at) === fechaConsulta && 
         v.cliente_nombre?.toLowerCase().includes(busquedaHistorial.toLowerCase()) &&
-        v.estado_pedido !== 'Anulado' // 👈 ESTE ES EL ESCUDO QUE FALTABA
+        v.estado_pedido !== 'Anulado'
     );
+    
     const groups = {};
+    
     filt.forEach(v => {
         const hId = `${v.cliente_nombre}-${v.created_at?.substring(0,16)}`; 
         if (!groups[hId]) {
             groups[hId] = { 
-                id_grupo: hId, cliente_nombre: v.cliente_nombre, localidad: v.localidad, 
-                telefono: v.telefono, hora: getHoraPeru(v.created_at), total: 0, items: [] 
+                id_grupo: hId, 
+                cliente_nombre: v.cliente_nombre, 
+                localidad: v.localidad, 
+                telefono: v.telefono, 
+                hora: getHoraPeru(v.created_at), 
+                created_at: v.created_at, // 👈 Clave para forzar el orden correcto
+                estado_pedido: v.estado_pedido, // 👈 Recupera el estado (Entregado/Crédito)
+                monto_efectivo: 0, // 👈 Devuelve el recuadro verde de Efectivo
+                monto_yape: 0,     // 👈 Devuelve el recuadro morado de Yape
+                saldo_pendiente: 0,// 👈 Recupera la vista de deuda
+                total: 0, 
+                items: [] 
             };
         }
         groups[hId].items.push(v); 
         groups[hId].total += (Number(v.precio_venta_unitario) * Number(v.cantidad));
+        
+        // Sumamos los billetes para que la pantalla los detecte y pinte los recuadros
+        groups[hId].monto_efectivo += Number(v.monto_efectivo || 0);
+        groups[hId].monto_yape += Number(v.monto_yape || 0);
+        groups[hId].saldo_pendiente += Number(v.saldo_pendiente || 0);
     });
-    return Object.values(groups)();
+
+    // 🚀 ORDEN BLINDADO: Siempre ordenará desde la venta más reciente (arriba) a la más antigua (abajo)
+    const historialOrdenado = Object.values(groups).sort((a, b) => {
+        return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    return historialOrdenado;
   }, [ventas, fechaConsulta, busquedaHistorial]);
 
   // ==========================================
