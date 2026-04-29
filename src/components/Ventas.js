@@ -94,7 +94,7 @@ const [esCredito, setEsCredito] = useState(false);
     const vuelto = (!esCredito && Number(efectivoRecibido) > totalCarrito) ? (Number(efectivoRecibido) - totalCarrito) : 0;
     
     // Si no es crédito y recibes menos -> el sistema asume que el resto es YAPE
-    const montoYape = (!esCredito && Number(efectivoRecibido) < totalCarrito && efectivoRecibido > 0) ? (totalCarrito - Number(efectivoRecibido)) : 0;
+    const montoYape = (!esCredito && Number(efectivoRecibido) < totalCarrito) ? (totalCarrito - Number(efectivoRecibido)) : 0;
     
     // Si es crédito -> calculamos cuánto falta pagar
     const saldoPendiente = esCredito ? (totalCarrito - Number(efectivoRecibido)) : 0;
@@ -331,7 +331,7 @@ const enviarComprobanteWA_Historial = (venta) => {
 </div>
 
        {/* Indicador visual de Yape o Saldo */}
-{montoYape > 0 && <div style={{ color: '#0369A1', fontWeight: '900', fontSize: '12px' }}>📱 Diferencia por Yape: S/ {montoYape.toFixed(2)}</div>}
+{montoYape > 0 && carrito.length > 0 && <div style={{ color: '#0369A1', fontWeight: '900', fontSize: '12px' }}>📱 Diferencia por Yape: S/ {montoYape.toFixed(2)}</div>}
 {esCredito && <div style={{ color: ROJO_BJ, fontWeight: '900', fontSize: '12px' }}>📝 Saldo por Cobrar: S/ {saldoPendiente.toFixed(2)}</div>}
                                     <input type="number" value={efectivoRecibido} onChange={e => setEfectivoRecibido(e.target.value)} placeholder="0.00" style={{ width: '120px', border: 'none', borderBottom: `3px solid ${VERDE_BJ}`, background: 'none', textAlign: 'right', fontWeight: '900', fontSize: '24px', outline: 'none', color: VERDE_BJ }} />
                                 </div>

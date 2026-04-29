@@ -31,14 +31,26 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   const style = document.createElement('style');
   style.innerHTML = `
-    /* Ocultar barra de desplazamiento para Chrome, Safari y Opera */
-    *::-webkit-scrollbar {
-      display: none;
-    }
-    /* Ocultar barra de desplazamiento para IE, Edge y Firefox */
-    * {
-      -ms-overflow-style: none;  /* IE and Edge */
-      scrollbar-width: none;  /* Firefox */
+    *::-webkit-scrollbar { display: none; }
+    * { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* BLOQUE MÓVIL BJ */
+    @media (max-width: 768px) {
+      .header-desktop { display: none !important; }
+      .nav-mobile { 
+        display: flex !important; 
+        position: fixed; 
+        bottom: 0; left: 0; right: 0; 
+        background: #fff; height: 75px; 
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.1); 
+        z-index: 10000; 
+        justify-content: space-around; 
+        align-items: center;
+        padding-bottom: env(safe-area-inset-bottom);
+        border-radius: 25px 25px 0 0;
+      }
+      main { margin-top: 10px !important; padding: 0 10px 100px 10px !important; }
+      button { min-height: 48px; } /* Evita toques accidentales */
     }
   `;
   document.head.appendChild(style);
@@ -346,9 +358,6 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
     const snap = balanceEliteBJ.cG;
     const ts = new Date().toISOString();
 
-    // 🚀 LÓGICA DE DISTRIBUCIÓN:
-    // Guardamos el desglose (Efectivo, Yape, Deuda) solo en el primer ítem
-    // para que al sumar en Logística no se dupliquen los montos.
     const lista = carrito.map((i, index) => ({ 
         cliente_nombre: cliente, 
         localidad: localidad, 
@@ -361,28 +370,30 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
         ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad), 
         estado_pedido: estado, 
         created_at: ts,
-        // Solo el primer ítem lleva los montos de pago
         monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
         monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
         saldo_pendiente: index === 0 ? Number(desglose.saldo_pendiente || 0) : 0,
         metodo_pago: index === 0 ? desglose.metodo_pago : ''
     }));
 
-    const { error } = await supabase.from('ventas').insert(lista);
-    
-    if (!error) {
-        // En Auditoría registramos el abono real que entró hoy (montoHoy)
-        const montoHoy = Number(desglose.monto_efectivo || 0);
-        if (montoHoy > 0) {
-            await supabase.from('auditoria_bj').insert([{ 
-                cliente: cliente, 
-                operacion: estado === 'Pendiente de Pago' ? 'ABONO CRÉDITO' : 'COBRO VENTA', 
-                monto_operacion: montoHoy, 
-                caja_antes: snap, 
-                caja_despues: snap + montoHoy 
-            }]);
-        }
+    try {
+        const { error } = await supabase.from('ventas').insert(lista).select();
+        if (error) throw error;
+
+        // 🚀 RASTRO FORENSE TOTAL: Registramos la operación SIEMPRE
+        // Sumamos efectivo + yape para el total que entró hoy
+        const montoHoy = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
         
+        await supabase.from('auditoria_bj').insert([{ 
+            cliente: cliente, 
+            operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA REGISTRADA', 
+            detalles: `Items: ${carrito.length} | Estado: ${estado} | Pago Hoy: S/ ${montoHoy}`,
+            monto_operacion: montoHoy, 
+            caja_antes: snap, 
+            caja_despues: snap + montoHoy 
+        }]);
+        
+        // Actualización de stock
         for (const it of carrito) {
             const prodStock = productos.find(p => p.id === it.producto_id);
             if (prodStock) {
@@ -390,15 +401,16 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
             }
         }
         
-        setCarrito([]); 
-        setEfectivoRecibido(''); 
-        setCliente('Tienda'); 
-        setLocalidad('Chiclayo'); 
-        setTelefono(''); 
-        setDescuento(0);
-        cargarTodoDesdeNube();
-    } else { 
-        alert("Error de conexión al búnker."); 
+        // Limpieza de estados
+        setCarrito([]); setEfectivoRecibido(''); setCliente('Tienda'); setLocalidad('Chiclayo'); setTelefono(''); setDescuento(0);
+        
+        await cargarTodoDesdeNube();
+        return true; 
+
+    } catch (err) {
+        console.error("Fallo crítico:", err);
+        alert("🚨 ERROR: No se pudo guardar. Revisa tu conexión en el celular.");
+        return false;
     }
   };
 
@@ -670,7 +682,31 @@ const handleRegistrarFinanzaBJ = async (e) => {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FFF5F7', color: OSCURO_BJ, paddingBottom: '100px', fontFamily: "'Poppins', system-ui, sans-serif" }}>
-    
+    {/* 📱 NAV INFERIOR MÓVIL */}
+      <nav className="nav-mobile" style={{ display: 'none' }}>
+        {[
+          {id: 'ventas', icon: '💰', label: 'VENTAS'},
+          {id: 'stock', icon: '📦', label: 'STOCK'},
+          {id: 'logistica', icon: '🚚', label: 'ENVÍOS'},
+          {id: 'contabilidad', icon: '⚙️', label: 'ADMIN'}
+        ].map(t => (
+          <button 
+            key={t.id} 
+            onClick={() => setVista(t.id)}
+            style={{ 
+              background: 'none', border: 'none', 
+              color: vista === t.id ? FUCSIA_PRINCIPAL : '#94A3B8',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+            }}
+          >
+            <span style={{ fontSize: '22px' }}>{t.icon}</span>
+            <span style={{ fontSize: '9px', fontWeight: '900' }}>{t.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* HEADER ESCRITORIO (Agrega la clase 'header-desktop') */}
+      <header className="header-desktop" style={{ backgroundColor: '#ffffff', padding: '10px 5%', position: 'sticky', top: 0, zIndex: 1000, boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}></header>
       
       {/* HEADER LIMPIO (ESTILO ORIGINAL) */}
       <header style={{ backgroundColor: '#ffffff', padding: '10px 5%', position: 'sticky', top: 0, zIndex: 1000, boxShadow: `0 4px 15px rgba(0,0,0,0.06)` }}>
