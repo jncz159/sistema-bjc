@@ -177,9 +177,10 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
   const cargarTodoDesdeNube = async () => {
     try {
         const { data: p } = await supabase.from('productos').select('*').order('created_at', { ascending: false });
-        const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: true });
+        // CAMBIO: Ahora verás las ventas y la bitácora más reciente al principio
+        const { data: v } = await supabase.from('ventas').select('*').order('created_at', { ascending: false }); 
         const { data: f } = await supabase.from('finanzas').select('*').order('created_at', { ascending: false });
-        const { data: a } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: true });
+        const { data: a } = await supabase.from('auditoria_bj').select('*').order('created_at', { ascending: false }); 
         const { data: m } = await supabase.from('movimientos_stock_bj').select('*').order('created_at', { ascending: false });
 
         if (m) setMovimientosStock(m);
@@ -419,13 +420,13 @@ const resumenGastosBJ = useMemo(() => {
 
       // 🔍 REGISTRO EN BITÁCORA (Solo dinero líquido)
       await supabase.from('auditoria_bj').insert([{
-        cliente: cliente,
-        operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO PARCIAL' : 'VENTA',
-        detalles: `Cobrado: S/ ${pagoRecibidoHoy} | Pendiente: S/ ${deudaTotalVenta}`,
-        monto_operacion: pagoRecibidoHoy,
-        caja_antes: snapCaja,
-        caja_despues: snapCaja + pagoRecibidoHoy
-      }]);
+    cliente: cliente,
+    operacion: estado === 'Pendiente de Pago' ? 'INICIO CRÉDITO' : 'VENTA CONTADO',
+    detalles: `Cobrado: S/ ${pagoRecibidoHoy} | Deuda: S/ ${deudaTotalVenta} | Items: ${carrito.length}`,
+    monto_operacion: pagoRecibidoHoy,
+    caja_antes: snapCaja,
+    caja_despues: snapCaja + pagoRecibidoHoy
+}]);
 
       // ACTUALIZAR STOCK EN ALMACÉN
       for (const item of carrito) {
@@ -626,33 +627,34 @@ const handleAnularVentaBJ = async (ventaOriginal) => {
   // 10. FUNCIONES: LOGÍSTICA (COBRANZAS)
   // ==========================================
  const handleCobrarDeudaBJ = async (g, montoCobrado) => { 
-      const pre = balanceEliteBJ.cG; 
-      const saldoACobrar = Number(montoCobrado);
+    const saldoACobrar = Number(montoCobrado || 0);
+    if (saldoACobrar <= 0) return alert("Ingresa un monto válido");
 
-      // Usamos un bucle para actualizar cada ítem, pero solo el primero lleva el dinero
-      for(let i = 0; i < g.items_ids.length; i++) {
-          const idActual = g.items_ids[i];
-          const itemData = g.items[i];
+    const preCaja = balanceEliteBJ.cG; 
 
-          await supabase.from('ventas').update({
-              estado_pedido: 'Entregado',
-              saldo_pendiente: 0,
-              // Solo al primer ítem le sumamos el saldo al abono anterior
-              monto_efectivo: i === 0 ? (Number(itemData.monto_efectivo || 0) + saldoACobrar) : Number(itemData.monto_efectivo || 0)
-          }).eq('id', idActual);
-      } 
-      
-      if(saldoACobrar > 0) {
-          await supabase.from('auditoria_bj').insert([{
-              cliente: g.cliente,
-              operacion: 'COBRO SALDO CRÉDITO',
-              monto_operacion: saldoACobrar,
-              caja_antes: pre,
-              caja_despues: pre + saldoACobrar 
-          }]);
-      } 
-      cargarTodoDesdeNube(); 
-  };
+    try {
+        for(let i = 0; i < g.items_ids.length; i++) {
+            await supabase.from('ventas').update({
+                estado_pedido: 'Entregado',
+                saldo_pendiente: 0,
+                // Registramos el dinero en el ítem principal
+                monto_efectivo: i === 0 ? (Number(g.items[i].monto_efectivo || 0) + saldoACobrar) : Number(g.items[i].monto_efectivo || 0)
+            }).eq('id', g.items_ids[i]);
+        } 
+        
+        // 🛡️ REGISTRO OBLIGATORIO EN BITÁCORA
+        await supabase.from('auditoria_bj').insert([{
+            cliente: g.cliente,
+            operacion: 'COBRO SALDO CRÉDITO',
+            detalles: `Cobro de deuda en BJ Importaciones: S/ ${saldoACobrar}`,
+            monto_operacion: saldoACobrar,
+            caja_antes: preCaja,
+            caja_despues: preCaja + saldoACobrar 
+        }]);
+
+        await cargarTodoDesdeNube(); 
+    } catch (e) { alert("Error al registrar cobro"); }
+};
   const handleAnularCreditoBJ = async (g) => { 
       // Devolver stock de todos los ítems de la deuda
       for(const it of g.items) {

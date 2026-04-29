@@ -55,7 +55,22 @@ export default function LogisticaSection({
                 <span>• <strong>{it.cantidad}x</strong> {it.nombre} <small>({it.color})</small></span>
                 <div style={{display:'flex', gap:'8px'}}>
                     <button onClick={() => startEdit(it)} style={{border:'none', background:'none', cursor:'pointer', fontSize:'12px'}}>✏️</button>
-                    <button onClick={() => handleEliminarItemIndividualLogistica(it)} style={{border:'none', background:'none', cursor:'pointer', fontSize:'12px'}}>🗑️</button>
+                   /* Reemplaza el bloque del botón 🗑️ dentro de renderItem por este: */
+<button 
+    onClick={() => handleEliminarItemIndividualLogistica(it)} 
+    style={{ 
+        border: 'none', 
+        background: `${ROJO_BJ}15`, // Fondo rojo suave
+        color: ROJO_BJ, 
+        padding: '5px',
+        borderRadius: '8px',
+        cursor: 'pointer', 
+        fontSize: '14px' 
+    }}
+    title="Anular este producto"
+>
+    🗑️
+</button>
                 </div>
             </div>
         );
@@ -76,7 +91,42 @@ export default function LogisticaSection({
                             <div style={{ background: '#F8FAFC', padding: '15px', borderRadius: '20px', marginBottom: '20px' }}>
                                 {grupo.items?.map(it => renderItem(it))}
                             </div>
-                            <button onClick={() => handleCobrarDeudaBJ(grupo, 0)} style={{ width: '100%', backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', cursor:'pointer' }}>MARCAR ENTREGADO ✅</button>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
+    <button 
+        onClick={() => handleCobrarDeudaBJ(grupo, 0)} 
+        style={{ 
+            backgroundColor: OSCURO_BJ, 
+            color: '#fff', 
+            border: 'none', 
+            padding: '18px', 
+            borderRadius: '15px', 
+            fontWeight: '900', 
+            cursor: 'pointer' 
+        }}
+    >
+        ENTREGADO ✅
+    </button>
+    
+    <button 
+        onClick={() => {
+            if(confirm(`¿Anular todos los productos de ${grupo.cliente} y devolver al stock?`)) {
+                // Ejecuta la anulación individual para cada ítem del grupo
+                grupo.items.forEach(item => handleEliminarItemIndividualLogistica(item));
+            }
+        }} 
+        style={{ 
+            backgroundColor: 'transparent', 
+            color: ROJO_BJ, 
+            border: `2px solid ${ROJO_BJ}`, 
+            padding: '18px', 
+            borderRadius: '15px', 
+            fontWeight: '900', 
+            cursor: 'pointer' 
+        }}
+    >
+        ANULAR 🗑️
+    </button>
+</div>
                         </div>
                     ))}
                 </div>
