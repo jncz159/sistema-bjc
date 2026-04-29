@@ -229,6 +229,38 @@ export default function FinanzasSection({
 
     </div>
   </div>
+  <div className="glass-card" style={{ padding: '15px', background: '#EEF2FF', borderLeft: `5px solid #4F46E5` }}>
+        <small style={{ opacity: 0.6, fontWeight: '900', fontSize: '10px', color: '#4F46E5' }}>📦 INVERSIÓN MERCADERÍA</small>
+        <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#1E1B1C' }}>S/ {resumenGastosBJ.mercaderia.toFixed(2)}</div>
+        <small style={{ fontSize: '9px', opacity: 0.5 }}>Total acumulado en compras</small>
+      </div>
+      <div className="glass-card" style={{ marginTop: '30px', padding: '25px' }}>
+      <h3 style={{ margin: '0 0 20px 0', fontWeight: '800', fontSize: '1.2rem' }}>📜 Historial de Compras de Mercadería</h3>
+      <div style={{ width: '100%', overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <thead>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid #f1f5f9', color: '#64748B' }}>
+              <th style={{ padding: '12px' }}>FECHA Y HORA</th>
+              <th>DESCRIPCIÓN / PROVEEDOR</th>
+              <th style={{ textAlign: 'right' }}>MONTO INVERTIDO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {finanzas
+              .filter(f => f.tipo?.toLowerCase().includes('mercadería') || f.tipo?.toLowerCase().includes('compra'))
+              .map((g, idx) => (
+                <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td style={{ padding: '12px', fontWeight: '600' }}>
+                    {new Date(g.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td style={{ color: '#475569' }}>{g.descripcion}</td>
+                  <td style={{ textAlign: 'right', fontWeight: '800', color: '#1E1B1C' }}>S/ {Number(g.monto).toFixed(2)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
         </div>
     );
 }

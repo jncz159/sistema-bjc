@@ -217,14 +217,17 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
   };
   
 const resumenGastosBJ = useMemo(() => {
-    const totales = { local: 0, logistica: 0, ads: 0, adicional: 0, personal: 0 };
+    // 🚀 Agregamos 'mercaderia' al objeto inicial
+    const totales = { local: 0, logistica: 0, ads: 0, adicional: 0, personal: 0, mercaderia: 0 };
     
     finanzas.forEach(f => {
       const t = f.tipo?.toLowerCase() || "";
       const d = f.descripcion?.toUpperCase() || "";
       const m = Number(f.monto || 0);
 
-      if (t.includes('local')) totales.local += m;
+      // 🔍 Lógica de clasificación
+      if (t.includes('mercadería') || t.includes('compra')) totales.mercaderia += m;
+      else if (t.includes('local')) totales.local += m;
       else if (t.includes('logística')) totales.logistica += m;
       else if (t.includes('marketing') || t.includes('ads')) totales.ads += m;
       else if (t.includes('ingreso') || t.includes('adicional')) totales.adicional += m;
