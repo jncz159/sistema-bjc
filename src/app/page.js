@@ -198,6 +198,24 @@ const [movimientosStock, setMovimientosStock] = useState([]); // 👈 Nuevo: Par
         setPinIngresado('');
     }
   };
+  
+const resumenGastosBJ = useMemo(() => {
+    const totales = { local: 0, logistica: 0, ads: 0, adicional: 0, personal: 0 };
+    
+    finanzas.forEach(f => {
+      const t = f.tipo?.toLowerCase() || "";
+      const d = f.descripcion?.toUpperCase() || "";
+      const m = Number(f.monto || 0);
+
+      if (t.includes('local')) totales.local += m;
+      else if (t.includes('logística')) totales.logistica += m;
+      else if (t.includes('marketing') || t.includes('ads')) totales.ads += m;
+      else if (t.includes('ingreso') || t.includes('adicional')) totales.adicional += m;
+      else if (t.includes('personal') && !d.includes('CUADRE')) totales.personal += m;
+    });
+    
+    return totales;
+  }, [finanzas]);
 // ==========================================
   // 7. MOTOR MATEMÁTICO FORENSE
   // ==========================================
@@ -788,7 +806,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
 
         {vista === 'finanzas' && (
             <FinanzasSection {...{ 
-                ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ,
+                ventas, productos, finanzas, balanceEliteBJ, valorizacionStockBJ, resumenGastosBJ,
                 FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 
             }} />
         )}

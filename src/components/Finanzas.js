@@ -196,6 +196,39 @@ export default function FinanzasSection({
                     </div>
                 ))}
             </div>
+            {/* --- CUADRO RESUMEN DE EGRESOS E INGRESOS --- */}
+  <div style={{ ...styleCrd, marginBottom: '30px', borderLeft: `8px solid ${FUCSIA_PRINCIPAL}` }}>
+    <h3 style={{ marginTop: 0, color: OSCURO_BJ, fontWeight: '900', fontSize: '1.2rem' }}>📊 Resumen Operativo</h3>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px', marginTop: '20px' }}>
+      
+      <div style={{ padding: '15px', background: '#F1F5F9', borderRadius: '15px' }}>
+        <small style={{ opacity: 0.6, fontWeight: '900', fontSize: '10px' }}>🏠 GASTOS LOCALES</small>
+        <div style={{ fontSize: '1.3rem', fontWeight: '900', color: OSCURO_BJ }}>S/ {resumenGastosBJ.local.toFixed(2)}</div>
+      </div>
+
+      <div style={{ padding: '15px', background: '#F1F5F9', borderRadius: '15px' }}>
+        <small style={{ opacity: 0.6, fontWeight: '900', fontSize: '10px' }}>🚚 LOGÍSTICA</small>
+        <div style={{ fontSize: '1.3rem', fontWeight: '900', color: OSCURO_BJ }}>S/ {resumenGastosBJ.logistica.toFixed(2)}</div>
+      </div>
+
+      <div style={{ padding: '15px', background: '#F1F5F9', borderRadius: '15px' }}>
+        <small style={{ opacity: 0.6, fontWeight: '900', fontSize: '10px' }}>📱 ADS / MARKETING</small>
+        <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#0369A1' }}>S/ {resumenGastosBJ.ads.toFixed(2)}</div>
+      </div>
+
+      <div style={{ padding: '15px', background: `${VERDE_BJ}10`, borderRadius: '15px' }}>
+        <small style={{ opacity: 0.6, fontWeight: '900', fontSize: '10px', color: VERDE_BJ }}>💰 INGRESOS ADIC.</small>
+        <div style={{ fontSize: '1.3rem', fontWeight: '900', color: VERDE_BJ }}>S/ {resumenGastosBJ.adicional.toFixed(2)}</div>
+      </div>
+
+      <div style={{ padding: '15px', background: `${ROJO_BJ}10`, borderRadius: '15px' }}>
+        <small style={{ opacity: 0.6, fontWeight: '900', fontSize: '10px', color: ROJO_BJ }}>👤 RETIROS PERSONALES</small>
+        <div style={{ fontSize: '1.3rem', fontWeight: '900', color: ROJO_BJ }}>S/ {resumenGastosBJ.personal.toFixed(2)}</div>
+        <small style={{ fontSize: '9px', opacity: 0.5 }}>Excluye Cuadre de Caja</small>
+      </div>
+
+    </div>
+  </div>
         </div>
     );
 }
