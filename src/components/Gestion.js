@@ -15,35 +15,28 @@ import { getFechaPeru, getHoraPeru, formatForInputDT, handleInputMonto } from '.
 
 export default function GestionSection({
     balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas,
-    idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, auditoriaLogs,
+    auditoriaLogs, // <--- Verifica que esta prop llegue desde page.js
+    idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza,
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
- 
+    // ✅ RESTAURADO: Esta línea es la que faltaba y causaba el error
+    const [verAuditoria, setVerAuditoria] = useState(false);
 
-
+    const finanzasValidas = finanzas?.filter(f => f != null) || [];
     
-    // Sumamos por categorías específicas
-  // --- LÓGICA DE CONTROL ABSOLUTO ACTUALIZADA ---
-   // --- LÓGICA DE CONTROL ABSOLUTO SINCRONIZADA ---
-  const finanzasValidas = finanzas?.filter(f => f != null) || [];
-  
-  // 1. Mantenemos los cálculos individuales para las tarjetas de abajo
-  const gastoMarketing = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
-  const gastoLogistica = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("logística")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
-  const gastoLocal     = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("local")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
-  
-  // 2. 👈 FIX CRÍTICO: Usamos el valor real del mes que viene de page.js
-  // Esto incluye Personal/Sueldos y excluye el "CUADRE" automáticamente
-  const totalGastosOperativos = balanceEliteBJ?.pe_m || 0;
-  
-  // 3. 👈 FIX UTILIDAD: (Ganancia bruta del mes) - (Gastos operativos del mes)
-  // Esto hará que el número ya no sea negativo por culpa del cuadre
-  const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativos;
+    const gastoMarketing = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoLogistica = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("logística")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    const gastoLocal     = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("local")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
+    
+    const totalGastosOperativos = balanceEliteBJ?.pe_m || 0;
+    const utilidadNetaReal = (balanceEliteBJ?.pe_g || 0) - totalGastosOperativos;
+
+    // ... el resto del return se queda exactamente igual
 
   // El ingreso extra se mantiene para consulta
   const ingresosExtra = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("ingreso")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
-    return (
+    return (    
         <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             
             {/* --- BLOQUE 1: INDICADORES ESTRATÉGICOS --- */}
