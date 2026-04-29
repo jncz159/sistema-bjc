@@ -872,7 +872,7 @@ const handleRegistrarFinanzaBJ = async (e) => {
             {vista === 'contabilidad' && (
                 <GestionSection {...{ 
                     balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas, 
-                    auditoriaLogs, handleRegistrarFinanzaBJ, 
+                    auditoriaLogs, handleRegistrarFinanzaBJ, auditoriaLogs,
                     formFinanzas, setFormFinanzas, idEditFinanza, setIdEditFinanza, 
                     formEditFinanza, setFormEditFinanza, handleUpdateFinanzaBJ,
                     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd 

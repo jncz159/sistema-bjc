@@ -15,7 +15,7 @@ import { getFechaPeru, getHoraPeru, formatForInputDT, handleInputMonto } from '.
 
 export default function GestionSection({
     balanceEliteBJ, valorizacionStockBJ, analiticaProBJ, finanzas,
-    idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza,
+    idEditFinanza, setIdEditFinanza, formEditFinanza, setFormEditFinanza, auditoriaLogs,
     handleUpdateFinanzaBJ, formFinanzas, setFormFinanzas, handleRegistrarFinanzaBJ,
     FUCSIA_PRINCIPAL, VERDE_BJ, ROJO_BJ, AMARILLO_BJ, OSCURO_BJ, styleInp, styleCrd
 }) {
