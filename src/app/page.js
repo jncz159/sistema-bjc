@@ -254,22 +254,16 @@ const resumenGastosBJ = useMemo(() => {
 
   const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
-    
-    // 💰 CÁLCULO INTELIGENTE: No ignora el pasado
+    const mesActual = hoyS.substring(0, 7); // Formato: "2026-04"
+
+    // 1. 💰 INGRESOS HÍBRIDOS (Pasado y Presente)
     const ingresosVentasReal = ventas
         .filter(v => v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => {
-            // 1. Si es Crédito: Solo sumamos lo que pagó hoy (billetes)
-            if (v.estado_pedido === 'Pendiente de Pago') {
-                return acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            } else {
-                // 2. Si es Venta Cerrada: 
-                // Si tiene montos de billete, los usa. Si están en 0 (ventas antiguas), usa el total de la venta.
-                const abonos = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-                const totalPactado = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-                
-                return acc + (abonos > 0 ? abonos : totalPactado);
-            }
+            const abonos = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            // Si es crédito, solo sumamos lo cobrado. Si es venta cerrada, usamos abono o el total si es antigua.
+            if (v.estado_pedido === 'Pendiente de Pago') return acc + abonos;
+            return acc + (abonos > 0 ? abonos : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
         }, 0);
         
     const ingresosAdmin = finanzas
@@ -280,19 +274,45 @@ const resumenGastosBJ = useMemo(() => {
         .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
         
-    // CAJA GLOBAL = Ingresos Reales - Gastos
     const cajaRealTotal = (ingresosVentasReal + ingresosAdmin) - todosLosGastos;
 
+    // 2. 📊 MOTOR DEL PUNTO DE EQUILIBRIO (Métricas del Mes)
+    // Filtramos los gastos operativos de Chiclayo (Luz, Alquiler, Personal, Ads)
+    const gastosOperativosMes = finanzas
+        .filter(f => {
+            const fFecha = getFechaPeru(f.created_at).substring(0,7);
+            const t = f.tipo?.toLowerCase() || "";
+            const d = f.descripcion?.toUpperCase() || "";
+            // Excluimos compras de mercadería y cuadres de caja del equilibrio operativo
+            return fFecha === mesActual && (t.includes('local') || t.includes('personal') || t.includes('logística') || t.includes('marketing')) && !t.includes('mercadería') && !d.includes('CUADRE');
+        })
+        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
+
+    // Ganancia real acumulada este mes
+    const gananciaMes = ventas
+        .filter(v => getFechaPeru(v.created_at).substring(0,7) === mesActual && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0);
+
     return { 
+        // Caja de hoy (Billetes + Yape)
         cH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
                   .reduce((acc, v) => {
-                      const abonos = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-                      if (v.estado_pedido === 'Pendiente de Pago') return acc + abonos;
-                      return acc + (abonos > 0 ? abonos : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
+                      const pago = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+                      if (v.estado_pedido === 'Pendiente de Pago') return acc + pago;
+                      return acc + (pago > 0 ? pago : (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0)));
                   }, 0), 
-        cG: cajaRealTotal, 
-        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
-        bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0)
+        
+        cG: cajaRealTotal, // Utilidad Neta Real (Caja Física)
+        
+        gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+                  .reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+        
+        bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
+        
+        // 🚀 Variables para el Punto de Equilibrio
+        pe_g: gananciaMes, 
+        pe_m: gastosOperativosMes, 
+        pe_p: gastosOperativosMes > 0 ? Math.min((gananciaMes / gastosOperativosMes) * 100, 100) : (gananciaMes > 0 ? 100 : 0)
     };
   }, [ventas, finanzas]);
   const analiticaProBJ = useMemo(() => {
