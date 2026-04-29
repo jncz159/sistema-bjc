@@ -434,20 +434,23 @@ const resumenGastosBJ = useMemo(() => {
     }));
 
     try {
-      const { error } = await supabase.from('ventas').insert(listaVentas);
-      if (error) throw error;
+      // 1. Guardar la venta en la tabla ventas
+      const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
+      if (errorVenta) throw errorVenta;
 
-      // 🔍 REGISTRO EN BITÁCORA (Solo dinero líquido)
-      await supabase.from('auditoria_bj').insert([{
-    cliente: cliente,
-    operacion: estado === 'Pendiente de Pago' ? 'INICIO CRÉDITO' : 'VENTA CONTADO',
-    detalles: `Cobrado: S/ ${pagoRecibidoHoy} | Deuda: S/ ${deudaTotalVenta} | Items: ${carrito.length}`,
-    monto_operacion: pagoRecibidoHoy,
-    caja_antes: snapCaja,
-    caja_despues: snapCaja + pagoRecibidoHoy
-}]);
+      // 2. 🚀 REGISTRO OBLIGATORIO EN BITÁCORA (No se puede saltar)
+      const { error: errorLog } = await supabase.from('auditoria_bj').insert([{
+        cliente: cliente,
+        operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
+        detalles: `RECIBIDO: S/ ${pagoRecibidoHoy} | DEUDA: S/ ${deudaTotalVenta}`,
+        monto_operacion: pagoRecibidoHoy,
+        caja_antes: snapCaja,
+        caja_despues: snapCaja + pagoRecibidoHoy
+      }]);
+      
+      if (errorLog) console.error("Error al escribir en bitácora:", errorLog);
 
-      // ACTUALIZAR STOCK EN ALMACÉN
+      // 3. Actualizar Stock
       for (const item of carrito) {
         const p = productos.find(prod => prod.id === item.producto_id);
         if (p) {
@@ -457,11 +460,11 @@ const resumenGastosBJ = useMemo(() => {
         }
       }
 
-      setCarrito([]);
-      await cargarTodoDesdeNube();
+      setCarrito([]); setCliente('Tienda');
+      await cargarTodoDesdeNube(); // Refresca la pantalla inmediatamente
       return true;
     } catch (e) {
-      alert("Error al sincronizar con el Búnker.");
+      alert("Error crítico: La venta no se registró en el búnker.");
       return false;
     }
   };
@@ -510,48 +513,41 @@ const resumenGastosBJ = useMemo(() => {
     }
   };
 const handleAnularVentaBJ = async (ventaOriginal) => {
-    // Si la venta ya está anulada, no hacer nada
     if (ventaOriginal.estado_pedido === 'Anulado') return;
-
     if (!confirm(`¿Anular venta de ${ventaOriginal.cliente_nombre}? Restaurará stock y caja.`)) return;
 
     const snapCaja = balanceEliteBJ.cG;
     const productoEnAlmacen = productos.find(p => p.id === ventaOriginal.producto_id);
-    
-    // 💵 DINERO QUE DEBEMOS QUITAR DE CAJA (Solo lo que pagó realmente)
     const dineroAReversar = Number(ventaOriginal.monto_efectivo || 0) + Number(ventaOriginal.monto_yape || 0);
 
     try {
-      // 1. RESTAURAR STOCK EN ALMACÉN
+      // 1. Devolver Stock
       if (productoEnAlmacen) {
         await supabase.from('productos').update({ 
           stock: Number(productoEnAlmacen.stock) + Number(ventaOriginal.cantidad) 
         }).eq('id', productoEnAlmacen.id);
       }
 
-      // 2. REVERSAR DINERO EN BITÁCORA (Solo si hubo pago)
+      // 2. 🛡️ REVERSIÓN EN BITÁCORA (Solo si hubo dinero real)
       if (dineroAReversar > 0) {
         await supabase.from('auditoria_bj').insert([{
           cliente: ventaOriginal.cliente_nombre,
           operacion: 'ANULACIÓN / DEVOLUCIÓN',
-          detalles: `Reversión de pago real: S/ ${dineroAReversar}`,
+          detalles: `Reversión de pago: -S/ ${dineroAReversar} por anulación de venta`,
           monto_operacion: -dineroAReversar,
           caja_antes: snapCaja,
           caja_despues: snapCaja - dineroAReversar
         }]);
       }
 
-      // 3. MARCAR COMO ANULADO EN VENTAS (Limpia montos para evitar doble suma)
+      // 3. Limpiar la venta
       await supabase.from('ventas').update({
         estado_pedido: 'Anulado',
-        monto_efectivo: 0,
-        monto_yape: 0,
-        saldo_pendiente: 0,
-        ganancia_total: 0
+        monto_efectivo: 0, monto_yape: 0, saldo_pendiente: 0, ganancia_total: 0
       }).eq('id', ventaOriginal.id);
 
       await cargarTodoDesdeNube();
-      alert("Operación anulada y stock restaurado.");
+      alert("Operación anulada y rastro registrado en bitácora.");
     } catch (e) {
       console.error("Fallo en la anulación:", e);
     }
