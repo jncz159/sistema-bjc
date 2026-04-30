@@ -258,17 +258,24 @@ const resumenGastosBJ = useMemo(() => {
     const mesActual = hoyS.substring(0, 7);
 
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
-    // BUSCA ESTO EN page.js (~Línea 225)
-// BUSCA ESTO EN page.js (~Línea 225)
-// BUSCA ESTO EN page.js (Línea ~225 aprox)
+
+// 1. 💰 INGRESO GLOBAL HÍBRIDO (RESTAURADO Y FILTRADO)
 const ingresosVentasGlobales = ventas
     .filter(v => v.estado_pedido !== 'Anulado')
     .reduce((acc, v) => {
         const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
         const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
         
-        // RESTAURADO: Volvemos a tu lógica original para cuadrar la caja
-        return acc + (cobroReal > 0 ? cobroReal : respaldo);
+        // 🛡️ EL FILTRO: 
+        // Si el dinero es exactamente 0 (ítem secundario de venta nueva), no sumamos nada.
+        // Si el dinero es NULL (ventas antiguas que no tenían estos campos), usamos tu respaldo.
+        const esItemSecundario = v.monto_efectivo === 0 && v.monto_yape === 0;
+
+        // Mantengo tu lógica original (cobroReal > 0 ? cobroReal : respaldo) 
+        // pero envuelta en el filtro para evitar el doble cobro futuro.
+        const valorAportado = esItemSecundario ? 0 : (cobroReal > 0 ? cobroReal : respaldo);
+        
+        return acc + valorAportado;
     }, 0);
         
     const ingresosAdmin = finanzas
