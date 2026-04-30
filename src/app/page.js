@@ -260,24 +260,20 @@ const resumenGastosBJ = useMemo(() => {
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
 
 // 1. 💰 INGRESO GLOBAL HÍBRIDO (RESTAURADO Y FILTRADO)
-const ingresosVentasGlobales = ventas
-    .filter(v => v.estado_pedido !== 'Anulado')
-    .reduce((acc, v) => {
-        const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-        const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-        
-        // 🛡️ EL FILTRO: 
-        // Si el dinero es exactamente 0 (ítem secundario de venta nueva), no sumamos nada.
-        // Si el dinero es NULL (ventas antiguas que no tenían estos campos), usamos tu respaldo.
-        const esItemSecundario = v.monto_efectivo === 0 && v.monto_yape === 0;
-
-        // Mantengo tu lógica original (cobroReal > 0 ? cobroReal : respaldo) 
-        // pero envuelta en el filtro para evitar el doble cobro futuro.
-        const valorAportado = esItemSecundario ? 0 : (cobroReal > 0 ? cobroReal : respaldo);
-        
-        return acc + valorAportado;
-    }, 0);
-        
+// 1. 💰 INGRESO GLOBAL HÍBRIDO (BLINDADO)
+    const ingresosVentasGlobales = ventas
+        .filter(v => v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => {
+            const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            
+            // 🛡️ PROTECCIÓN HISTÓRICA PARA CHICLAYO:
+            // Solo si el monto es estrictamente 0 (item secundario nuevo), sumamos 0.
+            // Si el campo está vacío (null/ventas antiguas), seguirá sumando el respaldo.
+            const esCeroReal = v.monto_efectivo === 0 && v.monto_yape === 0;
+            
+            return acc + (esCeroReal ? 0 : (cobroReal > 0 ? cobroReal : respaldo));
+        }, 0);
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
