@@ -258,16 +258,21 @@ const resumenGastosBJ = useMemo(() => {
     const mesActual = hoyS.substring(0, 7);
 
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
-    const ingresosVentasGlobales = ventas
-        .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => {
-            const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            // Si hay registro de billetes, lo usamos. 
-            // Si es una venta antigua (cobroReal es 0), usamos el total pactado para no generar el hueco negativo.
-            const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-            const valorAportado = (v.monto_efectivo === null && v.monto_yape === null) ? respaldo : cobroReal;
-            return acc + valorAportado;
-        }, 0);
+    // BUSCA ESTO EN page.js (~Línea 225)
+const ingresosVentasGlobales = ventas
+    .filter(v => v.estado_pedido !== 'Anulado')
+    .reduce((acc, v) => {
+        const cobroReal = Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0);
+        const respaldo = Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0);
+
+        // 🛡️ Lógica Híbrida BJ:
+        // Si es venta antigua (campos NULL), usamos el respaldo.
+        // Si es venta nueva (campos 0 o más), usamos el cobro real.
+        // Esto evita que el item 2 de una venta sume dinero otra vez.
+        const valorAportado = (v.monto_efectivo === null && v.monto_yape === null) ? respaldo : cobroReal;
+
+        return acc + valorAportado;
+    }, 0);
         
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
