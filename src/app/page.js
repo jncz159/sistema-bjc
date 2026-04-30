@@ -259,21 +259,26 @@ const resumenGastosBJ = useMemo(() => {
 
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
 
-// 1. 💰 INGRESO GLOBAL HÍBRIDO (RESTAURADO Y FILTRADO)
-// 1. 💰 INGRESO GLOBAL HÍBRIDO (BLINDADO)
-    const ingresosVentasGlobales = ventas
-        .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => {
-            const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-            
-            // 🛡️ PROTECCIÓN HISTÓRICA PARA CHICLAYO:
-            // Solo si el monto es estrictamente 0 (item secundario nuevo), sumamos 0.
-            // Si el campo está vacío (null/ventas antiguas), seguirá sumando el respaldo.
-            const esCeroReal = v.monto_efectivo === 0 && v.monto_yape === 0;
-            
-            return acc + (esCeroReal ? 0 : (cobroReal > 0 ? cobroReal : respaldo));
-        }, 0);
+
+// 1. 💰 INGRESO GLOBAL HÍBRIDO (BLINDADO - SIN TOCAR TU CUADRE)
+const ingresosVentasGlobales = ventas
+    .filter(v => v.estado_pedido !== 'Anulado')
+    .reduce((acc, v) => {
+        const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+        const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+        
+        // 🛡️ FILTRO DE SEGURIDAD PARA CHICLAYO:
+        // Solo ignoramos el ítem si es un ítem secundario de una venta nueva (donde pusimos 0 explícito).
+        // Si los campos están vacíos (ventas antiguas con NULL), NO entrará aquí y usará tu respaldo.
+        const esItemDuplicadoNuevo = v.monto_efectivo === 0 && v.monto_yape === 0 && v.saldo_pendiente === 0;
+
+        if (esItemDuplicadoNuevo) {
+            return acc; // No suma nada, evita que se cuente el dinero del ítem 2 o 3
+        }
+        
+        // Mantenemos TU lógica original exacta para no mover tu cuadre
+        return acc + (cobroReal > 0 ? cobroReal : respaldo);
+    }, 0);
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
