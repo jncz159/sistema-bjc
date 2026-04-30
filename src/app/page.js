@@ -260,24 +260,20 @@ const resumenGastosBJ = useMemo(() => {
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
 
 
-// 1. 💰 INGRESO GLOBAL HÍBRIDO (BLINDADO - SIN TOCAR TU CUADRE)
+// 1. 💰 INGRESO GLOBAL HÍBRIDO (BLINDADO - SIN ALTERAR TU CUADRE)
 const ingresosVentasGlobales = ventas
     .filter(v => v.estado_pedido !== 'Anulado')
     .reduce((acc, v) => {
         const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
         const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
         
-        // 🛡️ FILTRO DE SEGURIDAD PARA CHICLAYO:
-        // Solo ignoramos el ítem si es un ítem secundario de una venta nueva (donde pusimos 0 explícito).
-        // Si los campos están vacíos (ventas antiguas con NULL), NO entrará aquí y usará tu respaldo.
-        const esItemDuplicadoNuevo = v.monto_efectivo === 0 && v.monto_yape === 0 && v.saldo_pendiente === 0;
-
-        if (esItemDuplicadoNuevo) {
-            return acc; // No suma nada, evita que se cuente el dinero del ítem 2 o 3
-        }
+        // 🛡️ PROTECCIÓN HISTÓRICA:
+        // Solo ignoramos el ítem si es un "0" intencional (ítem secundario de venta nueva).
+        // Si el campo es NULL (ventas antiguas), el sistema lo ignora y usa tu RESPALDO.
+        // Esto evita que tu caja se ponga en negativo.
+        const esCeroIntencional = v.monto_efectivo === 0 && v.monto_yape === 0 && v.monto_efectivo !== null;
         
-        // Mantenemos TU lógica original exacta para no mover tu cuadre
-        return acc + (cobroReal > 0 ? cobroReal : respaldo);
+        return acc + (esCeroIntencional ? 0 : (cobroReal > 0 ? cobroReal : respaldo));
     }, 0);
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
