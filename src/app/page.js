@@ -262,16 +262,11 @@ const resumenGastosBJ = useMemo(() => {
 const ingresosVentasGlobales = ventas
     .filter(v => v.estado_pedido !== 'Anulado')
     .reduce((acc, v) => {
-        const cobroReal = Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0);
-        const respaldo = Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0);
-
-        // 🛡️ Lógica Híbrida BJ:
-        // Si es venta antigua (campos NULL), usamos el respaldo.
-        // Si es venta nueva (campos 0 o más), usamos el cobro real.
-        // Esto evita que el item 2 de una venta sume dinero otra vez.
-        const valorAportado = (v.monto_efectivo === null && v.monto_yape === null) ? respaldo : cobroReal;
-
-        return acc + valorAportado;
+        const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+        const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+        
+        // RESTAURADO: Volvemos a tu lógica original para cuadrar la caja
+        return acc + (cobroReal > 0 ? cobroReal : respaldo);
     }, 0);
         
     const ingresosAdmin = finanzas
