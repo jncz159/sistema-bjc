@@ -259,14 +259,19 @@ const resumenGastosBJ = useMemo(() => {
 
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
     // BUSCA ESTO EN page.js (~Línea 225)
+// BUSCA ESTO EN page.js (~Línea 225)
 const ingresosVentasGlobales = ventas
     .filter(v => v.estado_pedido !== 'Anulado')
     .reduce((acc, v) => {
         const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
         const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
         
-        // RESTAURADO: Volvemos a tu lógica original para cuadrar la caja
-        return acc + (cobroReal > 0 ? cobroReal : respaldo);
+        // 🛡️ LÓGICA BLINDADA: 
+        // Si los campos de dinero son NULL (venta vieja), usamos respaldo.
+        // Si los campos son 0 o más (venta nueva), usamos cobroReal.
+        const valorAportado = (v.monto_efectivo === null && v.monto_yape === null) ? respaldo : cobroReal;
+        
+        return acc + valorAportado;
     }, 0);
         
     const ingresosAdmin = finanzas
@@ -482,7 +487,7 @@ const ingresosVentasGlobales = ventas
         const { data: itemOriginal } = await supabase.from('ventas').select('*').eq('id', id).single();
         if (!itemOriginal) return;
 
-        const pO = productos.find(p => p.id === itemOriginal.producto_id);
+        const pO = productos.find(p => String(p.id) === String(itemOriginal.producto_id));
         const snap = balanceEliteBJ.cG; 
 
         // Diferenciales Matemáticos
