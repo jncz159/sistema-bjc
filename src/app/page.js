@@ -260,20 +260,30 @@ const resumenGastosBJ = useMemo(() => {
     // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
 
 
-// 1. 💰 INGRESO GLOBAL HÍBRIDO (BLINDADO - SIN ALTERAR TU CUADRE)
+// 1. 💰 INGRESO GLOBAL (RESTAURADO Y BLINDADO)
 const ingresosVentasGlobales = ventas
     .filter(v => v.estado_pedido !== 'Anulado')
     .reduce((acc, v) => {
         const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
         const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
         
-        // 🛡️ PROTECCIÓN HISTÓRICA:
-        // Solo ignoramos el ítem si es un "0" intencional (ítem secundario de venta nueva).
-        // Si el campo es NULL (ventas antiguas), el sistema lo ignora y usa tu RESPALDO.
-        // Esto evita que tu caja se ponga en negativo.
-        const esCeroIntencional = v.monto_efectivo === 0 && v.monto_yape === 0 && v.monto_efectivo !== null;
-        
-        return acc + (esCeroIntencional ? 0 : (cobroReal > 0 ? cobroReal : respaldo));
+        // 1. PROTECCIÓN TOTAL PARA EL PASADO:
+        // Si el campo es NULL (venta antigua), sumamos el respaldo SIEMPRE.
+        // Esto te devuelve el saldo positivo que ya tenías.
+        if (v.monto_efectivo === null || v.monto_efectivo === undefined) {
+            return acc + respaldo;
+        }
+
+        // 2. FILTRO PARA EL FUTURO:
+        // Si el monto es un 0 real (ítem secundario de venta nueva), no sumamos nada.
+        // Así evitamos el doble cobro de ahora en adelante.
+        if (v.monto_efectivo === 0 && v.monto_yape === 0) {
+            return acc; 
+        }
+
+        // 3. CASO GENERAL:
+        // Si hay dinero registrado, sumamos ese dinero.
+        return acc + (cobroReal > 0 ? cobroReal : respaldo);
     }, 0);
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
