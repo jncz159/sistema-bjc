@@ -92,7 +92,17 @@ export default function LogisticaSection({
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
     <button 
-        onClick={() => handleCobrarDeudaBJ(grupo, 0)} 
+        onClick={() => {
+            // ALERTA DE CONFIRMACIÓN (Opcional pero recomendada)
+            if(confirm(`¿Marcar los productos de ${grupo.cliente} como entregados?`)){
+                // Aquí usamos una estructura que le dice a tu backend: 
+                // "No cobres nada, solo cambia el estado".
+                handleCobrarDeudaBJ({
+                    ...grupo,
+                    isSoloEntrega: true // Bandera clave para evitar el error de monto
+                }, 0); 
+            }
+        }} 
         style={{ 
             backgroundColor: OSCURO_BJ, 
             color: '#fff', 

@@ -665,8 +665,13 @@ const handleAnularVentaBJ = async (ventaOriginal) => {
   // ==========================================
  const handleCobrarDeudaBJ = async (g, montoCobrado) => { 
     const saldoACobrar = Number(montoCobrado || 0);
-    if (saldoACobrar <= 0) return alert("Ingresa un monto válido");
 
+    // 🛡️ NUEVA VALIDACIÓN COMPATIBLE CON TU LOGISTICA.JS
+    // Solo bloquea si el monto es 0 Y NO tiene la marca "isSoloEntrega".
+    // Si viene con isSoloEntrega (desde la caja de "Pendientes Pagado"), le da pase libre.
+    if (!g.isSoloEntrega && saldoACobrar <= 0) {
+        return alert("Ingresa un monto válido");
+    }
     const preCaja = balanceEliteBJ.cG; 
 
     try {
