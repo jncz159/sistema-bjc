@@ -30,10 +30,12 @@ const [esCredito, setEsCredito] = useState(false);
     // Moldes de estilo nuevos para el look SaaS Profesional
 const cardPremium = {
     ...styleCrd,
-    background: '#FFFFFF',
+    background: 'rgba(255, 255, 255, 0.7)', // Un poco transparente
+    backdropFilter: 'blur(12px)',           // El efecto de cristal
     borderRadius: '24px',
-    border: '1px solid #E2E8F0',
-    boxShadow: '0 4px 20px rgba(15, 23, 42, 0.03)'
+    border: '1px solid rgba(226, 232, 240, 0.5)',
+    boxShadow: '0 8px 32px rgba(15, 23, 42, 0.05)',
+    transition: 'all 0.3s ease'             // Suaviza cualquier cambio
 };
 
 const inpPremium = {
@@ -145,7 +147,21 @@ const enviarComprobanteWA_Historial = (venta) => {
         window.open(`https://wa.me/51${nro}?text=${msg}`, '_blank');
     };
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', position: 'relative' }}>
+        <div style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    gap: '30px', 
+    position: 'relative',
+    minHeight: '100vh',
+    padding: '20px',
+    // ESTE ES EL NUEVO FONDO CON VIDA:
+    backgroundColor: '#f1f5f9',
+    backgroundImage: `
+        radial-gradient(circle at 0% 0%, ${FUCSIA_PRINCIPAL}08 0%, transparent 40%),
+        radial-gradient(circle at 100% 100%, ${VERDE_BJ}08 0%, transparent 40%)
+    `,
+    backgroundAttachment: 'fixed'
+}}>
             {/* 5. CORTINA DE HUMO */}
             {isProcessing && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)', zIndex: 10000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
