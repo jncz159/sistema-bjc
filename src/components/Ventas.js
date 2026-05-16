@@ -27,6 +27,24 @@ const [esCredito, setEsCredito] = useState(false);
             return () => clearTimeout(timer);
         }
     }, [showSuccess]);
+    // Moldes de estilo nuevos para el look SaaS Profesional
+const cardPremium = {
+    ...styleCrd,
+    background: '#FFFFFF',
+    borderRadius: '24px',
+    border: '1px solid #E2E8F0',
+    boxShadow: '0 4px 20px rgba(15, 23, 42, 0.03)'
+};
+
+const inpPremium = {
+    ...styleInp,
+    borderRadius: '14px',
+    padding: '14px 18px',
+    backgroundColor: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    fontSize: '14px',
+    fontWeight: '500'
+};
 // Calculadora automática del stock total
     const stockTotalUnidades = productos.reduce((acc, p) => acc + Number(p.stock || 0), 0);
     // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
@@ -202,7 +220,7 @@ const enviarComprobanteWA_Historial = (venta) => {
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '30px' }}>
                 {/* --- BLOQUE 2: CATÁLOGO --- */}
-                <div style={styleCrd}>
+                <div style={cardPremium}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                         <h3 style={{ margin: 0, color: FUCSIA_PRINCIPAL, fontWeight: '900', fontSize: '1.4rem' }}>🛍️ Catálogo BJ</h3>
                         <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '15px', padding: '5px' }}>
@@ -214,7 +232,7 @@ const enviarComprobanteWA_Historial = (venta) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                         <div>
                             <label style={{ fontSize: '12px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '8px', display: 'block' }}>CLIENTE *</label>
-                            <input list="clis-data" value={cliente} onChange={handleAutocompleteCliente} placeholder="Escribe el nombre del cliente" style={{ ...styleInp, border: `2px solid ${cliente === 'Tienda' ? '#FCC2E2' : FUCSIA_PRINCIPAL}` }} />
+                            <input list="clis-data" value={cliente} onChange={handleAutocompleteCliente} placeholder="Escribe el nombre del cliente" style={{ ...inpPremium, border: `2px solid ${cliente === 'Tienda' ? '#FCC2E2' : FUCSIA_PRINCIPAL}` }} />
                             <datalist id="clis-data">
                                 {[...new Set(ventas.map(v => v.cliente_nombre))].map((c, i) => <option key={i} value={c} />)}
                             </datalist>
@@ -222,15 +240,15 @@ const enviarComprobanteWA_Historial = (venta) => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                             <div>
                                 <label style={{ fontSize: '12px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '8px', display: 'block' }}>LOCALIDAD *</label>
-                                <input value={localidad} onChange={e => setLocalidad(e.target.value)} placeholder="Ej. Chiclayo" style={styleInp} />
+                                <input value={localidad} onChange={e => setLocalidad(e.target.value)} placeholder="Ej. Chiclayo" style={inpPremium} />
                             </div>
                             <div>
                                 <label style={{ fontSize: '12px', fontWeight: '900', color: OSCURO_BJ, marginBottom: '8px', display: 'block' }}>WHATSAPP</label>
-                                <input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="999 000 000" style={styleInp} />
+                                <input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="999 000 000" style={inpPremium} />
                             </div>
                         </div>
                         
-                        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar modelo, foco, led..." style={{ ...styleInp, border: `2px solid ${OSCURO_BJ}`, backgroundColor: '#F8FAFC' }} />
+                        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar modelo, foco, led..." style={{ ...inpPremium, border: `2px solid ${OSCURO_BJ}`, backgroundColor: '#F8FAFC' }} />
 
                         <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', paddingRight: '5px' }}>
                             {productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()) && p.stock > 0).map(p => {
@@ -264,7 +282,7 @@ const enviarComprobanteWA_Historial = (venta) => {
                                         </div>
                                         
                                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.6fr', gap: '10px', marginTop: '15px' }}>
-                                            <select value={coloresElegidos[p.id] || 'Único'} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...styleInp, padding: '10px', fontSize: '12px' }}>
+                                            <select value={coloresElegidos[p.id] || 'Único'} onChange={e => setColoresElegidos({...coloresElegidos, [p.id]: e.target.value})} style={{ ...inpPremium, padding: '10px', fontSize: '12px' }}>
                                                 {p.colores?.split(',').map((c, idx) => <option key={idx} value={c.trim()}>{c.trim()}</option>) || <option>Único</option>}
                                             </select>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
@@ -311,11 +329,11 @@ const enviarComprobanteWA_Historial = (venta) => {
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                             <div>
                                                 <label style={{ fontSize: '10px', fontWeight: '900', color: '#94A3B8', display: 'block', marginBottom: '5px' }}>UNITARIO (S/)</label>
-                                                <input type="number" value={item.precio_venta} onChange={(e) => { const n = [...carrito]; n[idx].precio_venta = Number(e.target.value); setCarrito(n); }} style={{ ...styleInp, padding: '12px', textAlign: 'center', backgroundColor: '#fff' }} />
+                                                <input type="number" value={item.precio_venta} onChange={(e) => { const n = [...carrito]; n[idx].precio_venta = Number(e.target.value); setCarrito(n); }} style={{ ...inpPremium, padding: '12px', textAlign: 'center', backgroundColor: '#fff' }} />
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '10px', fontWeight: '900', color: VERDE_BJ, display: 'block', marginBottom: '5px' }}>SUBTOTAL (S/)</label>
-                                                <input type="number" value={(item.precio_venta * item.cantidad).toFixed(2)} onChange={(e) => { const n = [...carrito]; n[idx].precio_venta = Number(e.target.value) / item.cantidad; setCarrito(n); }} style={{ ...styleInp, padding: '12px', textAlign: 'center', border: `2px solid ${VERDE_BJ}50`, backgroundColor: '#fff' }} />
+                                                <input type="number" value={(item.precio_venta * item.cantidad).toFixed(2)} onChange={(e) => { const n = [...carrito]; n[idx].precio_venta = Number(e.target.value) / item.cantidad; setCarrito(n); }} style={{ ...inpPremium, padding: '12px', textAlign: 'center', border: `2px solid ${VERDE_BJ}50`, backgroundColor: '#fff' }} />
                                             </div>
                                         </div>
                                     </div>
@@ -388,16 +406,16 @@ const enviarComprobanteWA_Historial = (venta) => {
             </div>
 
             {/* --- BLOQUE 4: LIBRO DEL DÍA FORENSE --- */}
-            <div style={styleCrd}>
+            <div style={cardPremium}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
                     <h3 style={{ margin: 0, fontWeight: '900', fontSize: '1.4rem' }}>📖 Libro del Día</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ ...styleInp, width: 'auto', padding: '12px' }} />
+                        <input type="date" value={fechaConsulta} onChange={e => setFechaConsulta(e.target.value)} style={{ ...inpPremium, width: 'auto', padding: '12px' }} />
                         <button onClick={handleExportarExcelCajaFull} style={{ backgroundColor: OSCURO_BJ, color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer', fontSize: '12px' }}>EXCEL</button>
                     </div>
                 </div>
 
-                <input value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} placeholder="🔍 Buscar cliente en historial..." style={{ ...styleInp, marginBottom: '25px', backgroundColor: '#F8FAFC' }} />
+                <input value={busquedaHistorial} onChange={e => setBusquedaHistorial(e.target.value)} placeholder="🔍 Buscar cliente en historial..." style={{ ...inpPremium, marginBottom: '25px', backgroundColor: '#F8FAFC' }} />
                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {historialVentasDiaBJ.map((g, i) => (   
                         <div key={i} style={{ border: '1px solid #F1F5F9', borderRadius: '30px', padding: '25px', backgroundColor: '#fff', boxShadow: '0 5px 20px rgba(0,0,0,0.02)' }}>
