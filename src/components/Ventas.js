@@ -191,50 +191,71 @@ const enviarComprobanteWA_Historial = (venta) => {
                 </button>
             </div>
             {/* --- BLOQUE 1: DASHBOARD DE MÉTRICAS PREMIUM --- */}
-           {verMetricas && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', fontFamily: "'Poppins', sans-serif" }}>
-                
-                {/* TARJETA CAJA */}
-                <div style={{ ...styleCrd, display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `8px solid ${AMARILLO_BJ}` }}>
-                    <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: `${AMARILLO_BJ}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
-                        💵
-                    </div>
-                    <div>
-                        <small style={{ fontWeight: '600', opacity: 0.4, fontSize: '11px', letterSpacing: '1px' }}>CAJA FÍSICA HOY</small>
-                        <div style={{ fontSize: '1.8rem', fontWeight: '900', color: OSCURO_BJ }}>
-                            S/ {(balanceEliteBJ?.cH || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+            {verMetricas && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', fontFamily: "'Poppins', sans-serif" }}>
+                    
+                    {/* TARJETA CAJA */}
+                    <div style={{ 
+                        ...cardPremium, 
+                        display: 'flex', alignItems: 'center', gap: '20px', 
+                        background: 'linear-gradient(135deg, #FFFFFF 0%, #FFFDF5 100%)',
+                        border: '1px solid rgba(202, 138, 4, 0.15)',
+                        borderLeft: `10px solid ${AMARILLO_BJ}`,
+                        boxShadow: '0 20px 35px -10px rgba(202, 138, 4, 0.08)'
+                    }}>
+                        <div style={{ width: '60px', height: '60px', borderRadius: '18px', backgroundColor: `${AMARILLO_BJ}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                            💵
+                        </div>
+                        <div>
+                            <small style={{ fontWeight: '700', color: '#856404', opacity: 0.6, fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '2px' }}>CAJA FÍSICA HOY</small>
+                            <div style={{ fontSize: '1.8rem', fontWeight: '800', color: OSCURO_BJ }}>
+                                S/ {(balanceEliteBJ?.cH || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* TARJETA GANANCIA */}
-                <div style={{ ...styleCrd, display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `8px solid ${VERDE_BJ}` }}>
-                    <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: `${VERDE_BJ}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
-                        📈
-                    </div>
-                    <div>
-                        <small style={{ fontWeight: '600', opacity: 0.4, fontSize: '11px', letterSpacing: '1px' }}>GANANCIA NETA</small>
-                        <div style={{ fontSize: '1.8rem', fontWeight: '900', color: VERDE_BJ }}>
-                            S/ {(balanceEliteBJ?.gH || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+                    {/* TARJETA GANANCIA */}
+                    <div style={{ 
+                        ...cardPremium, 
+                        display: 'flex', alignItems: 'center', gap: '20px', 
+                        background: 'linear-gradient(135deg, #FFFFFF 0%, #F4FBF7 100%)',
+                        border: '1px solid rgba(22, 163, 74, 0.15)',
+                        borderLeft: `10px solid ${VERDE_BJ}`,
+                        boxShadow: '0 20px 35px -10px rgba(22, 163, 74, 0.08)'
+                    }}>
+                        <div style={{ width: '60px', height: '60px', borderRadius: '18px', backgroundColor: `${VERDE_BJ}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                            📈
+                        </div>
+                        <div>
+                            <small style={{ fontWeight: '700', color: '#166534', opacity: 0.6, fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '2px' }}>GANANCIA NETA</small>
+                            <div style={{ fontSize: '1.8rem', fontWeight: '800', color: VERDE_BJ }}>
+                                S/ {(balanceEliteBJ?.gH || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* TARJETA STOCK */}
-                <div style={{ ...styleCrd, display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `8px solid ${OSCURO_BJ}`, background: '#1E1B1C', color: '#fff' }}>
-                    <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
-                        📦
-                    </div>
-                    <div>
-                        <small style={{ fontWeight: '600', opacity: 0.5, fontSize: '11px', letterSpacing: '1px' }}>STOCK ALMACÉN</small>
-                        <div style={{ fontSize: '1.8rem', fontWeight: '900' }}>
-                            {stockTotalUnidades} <span style={{ fontSize: '14px', opacity: 0.6 }}>und.</span>
+                    {/* TARJETA STOCK */}
+                    <div style={{ 
+                        ...cardPremium, 
+                        display: 'flex', alignItems: 'center', gap: '20px', 
+                        background: 'linear-gradient(135deg, #1E1B1C 0%, #2D2A2B 100%)',
+                        border: '1px solid #1E1B1C',
+                        borderLeft: `10px solid #454041`,
+                        color: '#fff',
+                        boxShadow: '0 20px 35px -10px rgba(0, 0, 0, 0.15)'
+                    }}>
+                        <div style={{ width: '60px', height: '60px', borderRadius: '18px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                            📦
+                        </div>
+                        <div>
+                            <small style={{ fontWeight: '700', color: '#94A3B8', fontSize: '11px', letterSpacing: '1px', display: 'block', marginBottom: '2px' }}>STOCK ALMACÉN</small>
+                            <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#FFFFFF' }}>
+                                {stockTotalUnidades} <span style={{ fontSize: '14px', opacity: 0.6 }}>und.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '30px' }}>
                 {/* --- BLOQUE 2: CATÁLOGO --- */}
                 <div style={cardPremium}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -323,7 +344,7 @@ const enviarComprobanteWA_Historial = (venta) => {
                 </div>
 
                 {/* --- BLOQUE 3: CARRITO MÁSTER --- */}
-                <div style={{ ...styleCrd, position: 'sticky', top: '80px', alignSelf: 'start', height: 'fit-content', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
+                <div style={{ ...cardPremium, position: 'sticky', top: '80px', alignSelf: 'start', height: 'fit-content', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
                     <h3 style={{ marginTop: 0, color: VERDE_BJ, fontWeight: '900', position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 10, paddingBottom: '10px' }}>🛒 Carrito</h3>
                     {carrito.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94A3B8', border: '2px dashed #E2E8F0', borderRadius: '20px' }}>
