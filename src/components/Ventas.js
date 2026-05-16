@@ -17,6 +17,8 @@ export default function VentasSection({
     // NUEVOS ESTADOS DE UX
     const [isProcessing, setIsProcessing] = useState(false);
     const [animatingId, setAnimatingId] = useState(null);
+    // Agrega esta línea junto a los otros useState al inicio del componente
+const [verMetricas, setVerMetricas] = useState(true);
 // Agrega esta línea junto a los otros useState al inicio del componente
 const [esCredito, setEsCredito] = useState(false);
     useEffect(() => {
@@ -139,8 +141,23 @@ const enviarComprobanteWA_Historial = (venta) => {
                     ✅ VENTA REGISTRADA
                 </div>
             )}
-
+{/* 👁️ BOTÓN DE PRIVACIDAD PARA OCULTAR/VER CUADROS */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                    onClick={() => setVerMetricas(!verMetricas)} 
+                    style={{
+                        backgroundColor: verMetricas ? '#F1F5F9' : `${FUCSIA_PRINCIPAL}15`, 
+                        color: verMetricas ? '#64748B' : FUCSIA_PRINCIPAL, 
+                        border: 'none', padding: '12px 20px', borderRadius: '16px', 
+                        cursor: 'pointer', fontWeight: '800', fontSize: '12px',
+                        display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s'
+                    }}
+                >
+                    {verMetricas ? '🙈 OCULTAR PANEL' : '👁️ VER PANEL DE CAJA'}
+                </button>
+            </div>
             {/* --- BLOQUE 1: DASHBOARD DE MÉTRICAS PREMIUM --- */}
+           {verMetricas && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', fontFamily: "'Poppins', sans-serif" }}>
                 
                 {/* TARJETA CAJA */}
@@ -182,6 +199,7 @@ const enviarComprobanteWA_Historial = (venta) => {
                     </div>
                 </div>
             </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '30px' }}>
                 {/* --- BLOQUE 2: CATÁLOGO --- */}
                 <div style={styleCrd}>
