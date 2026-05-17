@@ -156,7 +156,7 @@ const enviarComprobanteWA_Historial = (venta) => {
         minHeight: '100vh',
         padding: '20px',
         // 👇 AQUÍ ESTÁ EL NUEVO FONDO ROSADO TENUE PREMIUM
-        backgroundColor: '#F9EBF3', 
+        backgroundColor: '#F3F4F6' ,
         backgroundImage: `
             radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.7) 0%, transparent 60%),
             radial-gradient(circle at 100% 100%, ${FUCSIA_PRINCIPAL}10 0%, transparent 50%)
