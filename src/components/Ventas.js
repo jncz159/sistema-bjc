@@ -28,25 +28,26 @@ const [esCredito, setEsCredito] = useState(false);
         }
     }, [showSuccess]);
     // Moldes de estilo nuevos para el look SaaS Profesional
-const cardPremium = {
-    ...styleCrd,
-    background: 'rgba(255, 255, 255, 0.7)', // Un poco transparente
-    backdropFilter: 'blur(12px)',           // El efecto de cristal
-    borderRadius: '24px',
-    border: '1px solid rgba(226, 232, 240, 0.5)',
-    boxShadow: '0 8px 32px rgba(15, 23, 42, 0.05)',
-    transition: 'all 0.3s ease'             // Suaviza cualquier cambio
-};
+// Nuevo estilo: Nítido, limpio y corporativo
+    const cardPremium = {
+        ...styleCrd,
+        background: '#FFFFFF', // Blanco puro para máximo contraste
+        borderRadius: '20px',
+        border: '1px solid #E5E7EB', // Borde gris súper fino y sutil
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)', // Sombra flotante tipo Apple
+        transition: 'all 0.3s ease'
+    };
 
-const inpPremium = {
-    ...styleInp,
-    borderRadius: '14px',
-    padding: '14px 18px',
-    backgroundColor: '#F8FAFC',
-    border: '1px solid #E2E8F0',
-    fontSize: '14px',
-    fontWeight: '500'
-};
+    const inpPremium = {
+        ...styleInp,
+        borderRadius: '12px',
+        padding: '14px 18px',
+        backgroundColor: '#F9FAFB', 
+        border: '1px solid #D1D5DB', // Borde un poco más definido
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#1F2937'
+    };
 // Calculadora automática del stock total
     const stockTotalUnidades = productos.reduce((acc, p) => acc + Number(p.stock || 0), 0);
     // --- FUNCIÓN DE EJECUCIÓN CON DOBLE VALIDACIÓN ---
