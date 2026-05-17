@@ -190,7 +190,7 @@ const enviarComprobanteWA_Historial = (venta) => {
                     {verMetricas ? '🙈 OCULTAR PANEL' : '👁️ VER PANEL DE CAJA'}
                 </button>
             </div>
-            {/* --- BLOQUE 1: DASHBOARD DE MÉTRICAS PREMIUM --- */}
+           {/* --- BLOQUE 1: DASHBOARD DE MÉTRICAS PREMIUM --- */}
             {verMetricas && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', fontFamily: "'Poppins', sans-serif" }}>
                     
@@ -256,6 +256,7 @@ const enviarComprobanteWA_Historial = (venta) => {
                     </div>
                 </div>
             )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '30px' }}>
                 {/* --- BLOQUE 2: CATÁLOGO --- */}
                 <div style={cardPremium}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
