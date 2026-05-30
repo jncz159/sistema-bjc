@@ -485,23 +485,23 @@ const resumenGastosBJ = useMemo(() => {
         if (!itemOriginal) return;
 
         const pO = productos.find(p => String(p.id) === String(itemOriginal.producto_id));
-        const snap = balanceEliteBJ.cG; 
+        
+        // 🛡️ CORRECCIÓN: Tomar el saldo vivo real de la bitácora para calcular el diferencial
+        const ultimoLog = auditoriaLogs[0];
+        const snap = ultimoLog ? Number(ultimoLog.caja_despues || 0) : Number(balanceEliteBJ.cG || 0);
 
-        // Diferenciales Matemáticos
         const diffCant = Number(itemOriginal.cantidad) - Number(data.cantidad);
         const totalOriginal = Number(itemOriginal.precio_venta_unitario) * Number(itemOriginal.cantidad);
         const totalNuevo = Number(data.precio_venta_unitario) * Number(data.cantidad);
         const diffCaja = totalOriginal - totalNuevo; 
         const nuevaGanancia = (Number(data.precio_venta_unitario) - Number(itemOriginal.precio_costo_unitario)) * Number(data.cantidad);
         
-        // Actualizar el ítem en la base de datos
         await supabase.from('ventas').update({ 
             cantidad: Number(data.cantidad), 
             precio_venta_unitario: Number(data.precio_venta_unitario), 
             ganancia_total: nuevaGanancia 
         }).eq('id', id);
 
-        // Registro forense si hubo impacto en caja (solo ventas no a crédito)
         if (itemOriginal.estado_pedido !== 'Pendiente de Pago' && diffCaja !== 0) {
             await supabase.from('auditoria_bj').insert([{ 
                 cliente: itemOriginal.cliente_nombre, 
@@ -513,11 +513,10 @@ const resumenGastosBJ = useMemo(() => {
             }]);
         }
         
-        // Devolución o resta de stock si cambió la cantidad
         if (pO && diffCant !== 0) {
             await supabase.from('productos').update({ stock: Number(pO.stock) + diffCant }).eq('id', pO.id);
         }
-        cargarTodoDesdeNube();
+        await cargarTodoDesdeNube();
     } catch (e) { 
         console.error("Error en update individual:", e); 
     }
@@ -526,19 +525,20 @@ const handleAnularVentaBJ = async (ventaOriginal) => {
     if (ventaOriginal.estado_pedido === 'Anulado') return;
     if (!confirm(`¿Anular venta de ${ventaOriginal.cliente_nombre}? Restaurará stock y caja.`)) return;
 
-    const snapCaja = balanceEliteBJ.cG;
+    // 🛡️ CORRECCIÓN: Saldo tomado estrictamente de la última fila escrita
+    const ultimoLog = auditoriaLogs[0];
+    const snapCaja = ultimoLog ? Number(ultimoLog.caja_despues || 0) : Number(balanceEliteBJ.cG || 0);
+    
     const productoEnAlmacen = productos.find(p => p.id === ventaOriginal.producto_id);
     const dineroAReversar = Number(ventaOriginal.monto_efectivo || 0) + Number(ventaOriginal.monto_yape || 0);
 
     try {
-      // 1. Devolver Stock
       if (productoEnAlmacen) {
         await supabase.from('productos').update({ 
           stock: Number(productoEnAlmacen.stock) + Number(ventaOriginal.cantidad) 
         }).eq('id', productoEnAlmacen.id);
       }
 
-      // 2. 🛡️ REVERSIÓN EN BITÁCORA (Solo si hubo dinero real)
       if (dineroAReversar > 0) {
         await supabase.from('auditoria_bj').insert([{
           cliente: ventaOriginal.cliente_nombre,
@@ -550,7 +550,6 @@ const handleAnularVentaBJ = async (ventaOriginal) => {
         }]);
       }
 
-      // 3. Limpiar la venta
       await supabase.from('ventas').update({
         estado_pedido: 'Anulado',
         monto_efectivo: 0, monto_yape: 0, saldo_pendiente: 0, ganancia_total: 0
