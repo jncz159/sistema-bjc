@@ -253,54 +253,42 @@ const resumenGastosBJ = useMemo(() => {
     return { cost, vent, pot };
   }, [productos]);
 
-  const balanceEliteBJ = useMemo(() => {
+ const balanceEliteBJ = useMemo(() => {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. 💰 INGRESO GLOBAL HÍBRIDO (Para eliminar el negativo)
+    // 1. 🛡️ SALDO VIVO DE LA BITÁCORA (Nuestra nueva ancla de realidad)
+    const ultimoLog = auditoriaLogs[0];
+    const cajaVivaReal = ultimoLog ? Number(ultimoLog.caja_despues || 0) : 0;
 
+    // 2. 💰 INGRESO GLOBAL BRUTO (Para reportes estadísticos históricos)
+    const ingresosVentasGlobales = ventas
+        .filter(v => v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => {
+            const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
+            const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
+            if (v.monto_efectivo === null || v.monto_efectivo === undefined) return acc + respaldo;
+            if (v.monto_efectivo === 0 && v.monto_yape === 0) return acc; 
+            return acc + (cobroReal > 0 ? cobroReal : respaldo);
+        }, 0);
 
-// 1. 💰 INGRESO GLOBAL (RESTAURADO PARA RECUPERAR SALDO)
-const ingresosVentasGlobales = ventas
-    .filter(v => v.estado_pedido !== 'Anulado')
-    .reduce((acc, v) => {
-        const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-        const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-        
-        // 🛡️ PROTECCIÓN DE SALDO:
-        // Si la venta es antigua (campo NULL), sumamos el respaldo SIEMPRE.
-        // Esto te devuelve el dinero que te puso la caja en negativo.
-        if (v.monto_efectivo === null || v.monto_efectivo === undefined) {
-            return acc + respaldo;
-        }
-
-        // 🛡️ FILTRO DE COBRO DOBLE:
-        // Solo si el monto es un "0" real (ítem 2 o 3 de una venta nueva), no sumamos nada.
-        if (v.monto_efectivo === 0 && v.monto_yape === 0) {
-            return acc; 
-        }
-
-        // CASO GENERAL: Si hay dinero, se suma. Si no, se usa respaldo.
-        return acc + (cobroReal > 0 ? cobroReal : respaldo);
-    }, 0);
     const ingresosAdmin = finanzas
         .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
         .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-        
-    const todosLosGastos = finanzas
-        .filter(f => f.tipo && !f.tipo.toLowerCase().includes('ingreso') && !f.tipo.toLowerCase().includes('inversión'))
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-        
-    // UTILIDAD NETA REAL (cG)
-    const utilidadNetaReal = (ingresosVentasGlobales + ingresosAdmin) - todosLosGastos;
 
-    // 2. 🚀 CAJA HOY (ESTRICTA): Solo lo que entró hoy por billetes o Yape
-    // Esta es la que debe coincidir con tu cuenta manual del día.
-    const cajaHoyExacta = ventas
+    // 3. 🚀 SEPARACIÓN DE CAJA EN MOSTRADOR (EFECTIVO) VS DIGITAL (YAPE/PLIN)
+    // Contamos lo que entró en efectivo vs digital HOY para que tu arqueo cuadre en la noche
+    const efectivoHoy = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => acc + (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0)), 0);
+        .reduce((acc, v) => acc + Number(v.monto_efectivo || 0), 0);
 
-    // 3. 📊 PUNTO DE EQUILIBRIO (Métricas del Mes)
+    const digitalHoy = ventas
+        .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
+        .reduce((acc, v) => acc + Number(v.monto_yape || 0), 0);
+
+    const cajaHoyExacta = efectivoHoy + digitalHoy;
+
+    // 4. 📊 METRICAS DEL MES (Punto de Equilibrio)
     const gastosOperativosMes = finanzas
         .filter(f => {
             const fFecha = getFechaPeru(f.created_at).substring(0,7);
@@ -316,14 +304,16 @@ const ingresosVentasGlobales = ventas
 
     return { 
         cH: cajaHoyExacta, 
-        cG: utilidadNetaReal, 
+        cG: cajaVivaReal, // 👈 CORRECCIÓN: La utilidad neta real del negocio ahora es tu caja viva real
+        efectivoHoy: efectivoHoy, // 👈 NUEVO: Datos limpios para el arqueo en mostrador
+        digitalHoy: digitalHoy,   // 👈 NUEVO: Datos limpios para el arqueo digital
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         pe_g: gananciaMes, 
         pe_m: gastosOperativosMes, 
         pe_p: gastosOperativosMes > 0 ? Math.min((gananciaMes / gastosOperativosMes) * 100, 100) : (gananciaMes > 0 ? 100 : 0)
     };
-  }, [ventas, finanzas]);
+  }, [ventas, finanzas, auditoriaLogs]); // 👈 Agregamos auditoriaLogs para que refresque al instante
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
     ventas.forEach(v => { 
