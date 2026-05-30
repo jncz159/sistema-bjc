@@ -257,27 +257,11 @@ const resumenGastosBJ = useMemo(() => {
     const hoyS = getFechaPeru();
     const mesActual = hoyS.substring(0, 7);
 
-    // 1. 🛡️ SALDO VIVO DE LA BITÁCORA (Nuestra nueva ancla de realidad)
+    // 🛡️ ANCLA DE REALIDAD BLINDADA: Saldo tomado directo del último log inmutable
     const ultimoLog = auditoriaLogs[0];
     const cajaVivaReal = ultimoLog ? Number(ultimoLog.caja_despues || 0) : 0;
 
-    // 2. 💰 INGRESO GLOBAL BRUTO (Para reportes estadísticos históricos)
-    const ingresosVentasGlobales = ventas
-        .filter(v => v.estado_pedido !== 'Anulado')
-        .reduce((acc, v) => {
-            const cobroReal = (Number(v.monto_efectivo || 0) + Number(v.monto_yape || 0));
-            const respaldo = (Number(v.precio_venta_unitario || 0) * Number(v.cantidad || 0));
-            if (v.monto_efectivo === null || v.monto_efectivo === undefined) return acc + respaldo;
-            if (v.monto_efectivo === 0 && v.monto_yape === 0) return acc; 
-            return acc + (cobroReal > 0 ? cobroReal : respaldo);
-        }, 0);
-
-    const ingresosAdmin = finanzas
-        .filter(f => f.tipo?.toLowerCase().includes('ingreso') || f.tipo?.toLowerCase().includes('inversión'))
-        .reduce((acc, f) => acc + Number(f.monto || 0), 0);
-
-    // 3. 🚀 SEPARACIÓN DE CAJA EN MOSTRADOR (EFECTIVO) VS DIGITAL (YAPE/PLIN)
-    // Contamos lo que entró en efectivo vs digital HOY para que tu arqueo cuadre en la noche
+    // 🚀 SEPARACIÓN DE ARQUEO DIARIO FÍSICO VS DIGITAL
     const efectivoHoy = ventas
         .filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado')
         .reduce((acc, v) => acc + Number(v.monto_efectivo || 0), 0);
@@ -288,7 +272,7 @@ const resumenGastosBJ = useMemo(() => {
 
     const cajaHoyExacta = efectivoHoy + digitalHoy;
 
-    // 4. 📊 METRICAS DEL MES (Punto de Equilibrio)
+    // 📊 METRICAS DEL MES (Punto de Equilibrio sin arrastrar históricos de 33K)
     const gastosOperativosMes = finanzas
         .filter(f => {
             const fFecha = getFechaPeru(f.created_at).substring(0,7);
@@ -304,16 +288,16 @@ const resumenGastosBJ = useMemo(() => {
 
     return { 
         cH: cajaHoyExacta, 
-        cG: cajaVivaReal, // 👈 CORRECCIÓN: La utilidad neta real del negocio ahora es tu caja viva real
-        efectivoHoy: efectivoHoy, // 👈 NUEVO: Datos limpios para el arqueo en mostrador
-        digitalHoy: digitalHoy,   // 👈 NUEVO: Datos limpios para el arqueo digital
+        cG: cajaVivaReal, 
+        efectivoHoy: efectivoHoy, 
+        digitalHoy: digitalHoy,  
         gH: ventas.filter(v => getFechaPeru(v.created_at) === hoyS && v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         bR: ventas.filter(v => v.estado_pedido !== 'Anulado').reduce((acc, v) => acc + Number(v.ganancia_total || 0), 0),
         pe_g: gananciaMes, 
         pe_m: gastosOperativosMes, 
         pe_p: gastosOperativosMes > 0 ? Math.min((gananciaMes / gastosOperativosMes) * 100, 100) : (gananciaMes > 0 ? 100 : 0)
     };
-  }, [ventas, finanzas, auditoriaLogs]); // 👈 Agregamos auditoriaLogs para que refresque al instante
+  }, [ventas, finanzas, auditoriaLogs]);
   const analiticaProBJ = useMemo(() => {
     const counts = {}; 
     ventas.forEach(v => { 
