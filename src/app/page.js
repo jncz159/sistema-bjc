@@ -425,8 +425,10 @@ const ingresosVentasGlobales = ventas
 
     const ts = new Date().toISOString();
     
-    // 🛡️ FILTRO DE SEGURIDAD: Aseguramos que la caja sea número
-    const preCaja = Number(balanceEliteBJ?.cG || 0);
+    // 🛡️ CORRECCIÓN DE SALDO VIVO: Tomamos el saldo de la última fila escrita en la bitácora
+    const ultimoLog = auditoriaLogs[0]; // Como viene ordenado desc, el [0] es el más reciente
+    const preCaja = ultimoLog ? Number(ultimoLog.caja_despues || 0) : Number(balanceEliteBJ?.cG || 0);
+    
     const montoRealEntrante = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
     const deudaVenta = Number(desglose.saldo_pendiente || 0);
 
@@ -451,28 +453,24 @@ const ingresosVentasGlobales = ventas
       const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
       if (errorVenta) throw errorVenta;
 
-      // 2. 🚀 REGISTRO EN BITÁCORA (Nombres de variables corregidos)
+      // 2. 🚀 REGISTRO EN BITÁCORA CON SALDO CONSECONSECUTIVO BLINDADO
       const { error: errorLog } = await supabase.from('auditoria_bj').insert([{
         cliente: cliente,
         operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
         detalles: `RECIBIDO: S/ ${montoRealEntrante.toFixed(2)} | DEUDA: S/ ${deudaVenta.toFixed(2)}`,
         monto_operacion: montoRealEntrante,
         caja_antes: preCaja,
-        caja_despues: preCaja + montoRealEntrante
+        caja_despues: preCaja + montoRealEntrante // Flujo limpio correlativo
       }]);
       
       if (errorLog) throw errorLog;
 
-      // 3. Actualizar Stock
-      // 3. 🚀 ACTUALIZACIÓN DE STOCK INTELIGENTE (Evita stock fantasma)
+      // 3. Actualización de stock inteligente (Tu código base sigue igual aquí)
       const resumenStock = {};
-      
-      // Sumamos todas las cantidades por ID de producto único antes de enviar a la nube
       carrito.forEach(item => {
         resumenStock[item.producto_id] = (resumenStock[item.producto_id] || 0) + Number(item.cantidad);
       });
 
-      // Ahora hacemos un solo ajuste por cada producto modelo único
       for (const [id, cantTotal] of Object.entries(resumenStock)) {
         const p = productos.find(prod => String(prod.id) === String(id));
         if (p) {
@@ -666,25 +664,24 @@ const handleAnularVentaBJ = async (ventaOriginal) => {
  const handleCobrarDeudaBJ = async (g, montoCobrado) => { 
     const saldoACobrar = Number(montoCobrado || 0);
 
-    // 🛡️ NUEVA VALIDACIÓN COMPATIBLE CON TU LOGISTICA.JS
-    // Solo bloquea si el monto es 0 Y NO tiene la marca "isSoloEntrega".
-    // Si viene con isSoloEntrega (desde la caja de "Pendientes Pagado"), le da pase libre.
     if (!g.isSoloEntrega && saldoACobrar <= 0) {
         return alert("Ingresa un monto válido");
     }
-    const preCaja = balanceEliteBJ.cG; 
+    
+    // 🛡️ CORRECCIÓN DE SALDO EN COBRANZA
+    const ultimoLog = auditoriaLogs[0];
+    const preCaja = ultimoLog ? Number(ultimoLog.caja_despues || 0) : Number(balanceEliteBJ?.cG || 0);
 
     try {
         for(let i = 0; i < g.items_ids.length; i++) {
             await supabase.from('ventas').update({
                 estado_pedido: 'Entregado',
                 saldo_pendiente: 0,
-                // Registramos el dinero en el ítem principal
                 monto_efectivo: i === 0 ? (Number(g.items[i].monto_efectivo || 0) + saldoACobrar) : Number(g.items[i].monto_efectivo || 0)
             }).eq('id', g.items_ids[i]);
         } 
         
-        // 🛡️ REGISTRO OBLIGATORIO EN BITÁCORA
+        // 🛡️ REGISTRO OBLIGATORIO EN BITÁCORA CORRELATIVO
         await supabase.from('auditoria_bj').insert([{
             cliente: g.cliente,
             operacion: 'COBRO SALDO CRÉDITO',
@@ -730,16 +727,23 @@ const handleRegistrarFinanzaBJ = async (e) => {
       const esIngreso = formFinanzas.tipo?.toLowerCase().includes('ingreso') || formFinanzas.tipo?.toLowerCase().includes('inversión');
       const delta = esIngreso ? mF : -mF; 
       
+      // 🛡️ CORRECCIÓN DE SALDO VIVO EN GASTOS/RETIROS:
+      // Leemos el saldo real del último movimiento escrito en la bitácora
+      const ultimoLog = auditoriaLogs[0];
+      const preCaja = ultimoLog ? Number(ultimoLog.caja_despues || 0) : Number(balanceEliteBJ.cG || 0);
+
       const { error } = await supabase.from('finanzas').insert([{ ...formFinanzas, monto: mF }]);
       
       if (!error) {
+          // Escribe en la bitácora forense sumando o restando directamente sobre el saldo vivo
           await supabase.from('auditoria_bj').insert([{ 
               cliente: 'ADMINISTRATIVO', 
               operacion: formFinanzas.tipo.toUpperCase(), 
               monto_operacion: delta, 
-              caja_antes: balanceEliteBJ.cG, 
-              caja_despues: balanceEliteBJ.cG + delta 
+              caja_antes: preCaja, 
+              caja_despues: preCaja + delta // Resta o suma con precisión matemática pura
           }]);
+          
           // IMPORTANTE: Resetear con el nombre exacto que usas en el select
           setFormFinanzas({ tipo: '🏠 Gastos Local', descripcion: '', monto: '' });
           cargarTodoDesdeNube(); 
