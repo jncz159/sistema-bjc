@@ -91,7 +91,9 @@ export default function GestionSection({
                 </div>
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${AMARILLO_BJ}` }}>
     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>CAJA ACTUAL FÍSICA</small>
-    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>S/ {(balanceEliteBJ?.cG || 0).toFixed(2)}</h4>
+    <h4 style={{fontSize:'2rem', margin:'10px 0'}}>
+        S/ {(auditoriaLogs?.[0]?.caja_despues || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+    </h4>
 </div>
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${VERDE_BJ}`, backgroundColor: `${VERDE_BJ}05` }}>
                     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px', color: VERDE_BJ}}>DINERO POTENCIAL A GANAR</small>
