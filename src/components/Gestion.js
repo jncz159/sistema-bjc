@@ -23,23 +23,6 @@ export default function GestionSection({
     // ✅ RESTAURADO: Esta línea es la que faltaba y causaba el error
     const [verAuditoria, setVerAuditoria] = useState(false);
     
-    // 🧠 NUEVO BLINDAJE ANTI-TIMEOUT: Estado local para la caja acumulada real
-    const [cajaFisicaReal, setCajaFisicaReal] = useState(null);
-
-    useEffect(() => {
-        const cargarCajaFisicaSupa = async () => {
-            try {
-                const { data, error } = await supabase.rpc('obtener_caja_acumulada');
-                if (!error && data !== null) {
-                    setCajaFisicaReal(Number(data));
-                }
-            } catch (err) {
-                console.error("Error cargando caja real:", err);
-            }
-        };
-        cargarCajaFisicaSupa();
-    }, []);
-
     const finanzasValidas = finanzas?.filter(f => f != null) || [];
     
     const gastoMarketing = finanzasValidas.filter(f => f.tipo?.toLowerCase().includes("marketing")).reduce((acc, f) => acc + Number(f.monto || 0), 0);
@@ -109,7 +92,7 @@ export default function GestionSection({
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${AMARILLO_BJ}` }}>
     <small style={{fontWeight:'900', opacity:0.6, fontSize:'11px'}}>CAJA ACTUAL FÍSICA</small>
     <h4 style={{fontSize:'2rem', margin:'10px 0'}}>
-        S/ {(cajaFisicaReal !== null ? cajaFisicaReal : (balanceEliteBJ?.cG || 0)).toLocaleString('es-PE', {minimumFractionDigits: 2})}
+        S/ {(balanceEliteBJ?.cG || 0).toLocaleString('es-PE', {minimumFractionDigits: 2})}
     </h4>
 </div>
                 <div style={{ ...styleCrd, padding:'20px', borderLeft:`10px solid ${VERDE_BJ}`, backgroundColor: `${VERDE_BJ}05` }}>
