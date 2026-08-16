@@ -394,7 +394,7 @@ const resumenGastosBJ = useMemo(() => {
     }
   };
 
-  const handleEjecutarVentaBJ = async (estado, desglose) => {
+ const handleEjecutarVentaBJ = async (estado, desglose) => {
     if (!cliente || carrito.length === 0) return alert("Carrito vacío");
 
     const ts = new Date().toISOString();
@@ -403,32 +403,42 @@ const resumenGastosBJ = useMemo(() => {
     const ultimoLog = auditoriaLogs[0]; // Como viene ordenado desc, el [0] es el más reciente
     const preCaja = ultimoLog ? Number(ultimoLog.caja_despues || 0) : Number(balanceEliteBJ?.cG || 0);
     
-    const montoRealEntrante = Number(desglose.monto_efectivo || 0) + Number(desglose.monto_yape || 0);
-    const deudaVenta = Number(desglose.saldo_pendiente || 0);
+    const montoRealEntrante = Number(desglose?.monto_efectivo || 0) + Number(desglose?.monto_yape || 0);
+    const deudaVenta = Number(desglose?.saldo_pendiente || 0);
 
-    const listaVentas = carrito.map((i, index) => ({
-      cliente_nombre: cliente,
-      producto_id: i.producto_id,
-      cantidad: Number(i.cantidad),
-      color: i.color,
-      precio_venta_unitario: Number(i.precio_venta),
-      precio_costo_unitario: Number(i.precio_compra),
-      ganancia_total: (Number(i.precio_venta) - Number(i.precio_compra)) * Number(i.cantidad),
-      estado_pedido: estado,
-      localidad: localidad,
-      created_at: ts,
-      monto_efectivo: index === 0 ? Number(desglose.monto_efectivo || 0) : 0,
-      monto_yape: index === 0 ? Number(desglose.monto_yape || 0) : 0,
-      saldo_pendiente: index === 0 ? deudaVenta : 0
-    }));
+    // 🚀 MAPEO BLINDADO CON GENERACIÓN DE UUID (SOLUCIONA EL ERROR ANTERIOR)
+    const listaVentas = carrito.map((i, index) => {
+      const prodId = i.producto_id || i.id;
+      const pVenta = Number(i.precio_venta ?? i.precio ?? 0);
+      const pCosto = Number(i.precio_compra ?? i.costo ?? 0);
+      const cant = Number(i.cantidad || 1);
+
+      return {
+        id: crypto.randomUUID(), // 🔑 SOLUCIÓN: Genera el UUID que exige la columna 'id' NOT NULL
+        cliente_nombre: cliente,
+        producto_id: prodId,
+        cantidad: cant,
+        color: i.color || '',
+        precio_venta_unitario: pVenta,
+        precio_costo_unitario: pCosto,
+        ganancia_total: (pVenta - pCosto) * cant,
+        estado_pedido: estado,
+        localidad: localidad,
+        created_at: ts,
+        monto_efectivo: index === 0 ? Number(desglose?.monto_efectivo || 0) : 0,
+        monto_yape: index === 0 ? Number(desglose?.monto_yape || 0) : 0,
+        saldo_pendiente: index === 0 ? deudaVenta : 0
+      };
+    });
 
     try {
-      // 1. Guardar la venta
+      // 1. Guardar la venta en Supabase
       const { error: errorVenta } = await supabase.from('ventas').insert(listaVentas);
       if (errorVenta) throw errorVenta;
 
-      // 2. 🚀 REGISTRO EN BITÁCORA CON SALDO CONSECONSECUTIVO BLINDADO
+      // 2. 🚀 REGISTRO EN BITÁCORA CON SALDO CONSECUTIVO BLINDADO
       const { error: errorLog } = await supabase.from('auditoria_bj').insert([{
+        id: crypto.randomUUID(), // Blindaje de ID también en auditoría
         cliente: cliente,
         operacion: estado === 'Pendiente de Pago' ? 'CRÉDITO INICIADO' : 'VENTA CONTADO',
         detalles: `RECIBIDO: S/ ${montoRealEntrante.toFixed(2)} | DEUDA: S/ ${deudaVenta.toFixed(2)}`,
@@ -439,10 +449,11 @@ const resumenGastosBJ = useMemo(() => {
       
       if (errorLog) throw errorLog;
 
-      // 3. Actualización de stock inteligente (Tu código base sigue igual aquí)
+      // 3. Actualización de stock inteligente
       const resumenStock = {};
       carrito.forEach(item => {
-        resumenStock[item.producto_id] = (resumenStock[item.producto_id] || 0) + Number(item.cantidad);
+        const pId = item.producto_id || item.id;
+        resumenStock[pId] = (resumenStock[pId] || 0) + Number(item.cantidad || 1);
       });
 
       for (const [id, cantTotal] of Object.entries(resumenStock)) {
@@ -462,6 +473,7 @@ const resumenGastosBJ = useMemo(() => {
       alert("❌ Error crítico en el búnker: " + e.message);
       return false;
     }
+};
   }; // ✅ ESTA LLAVE CIERRA handleEjecutarVentaBJ CORRECTAMENTE
   const handleUpdateItemVentaBJ = async (id, data) => {
     try {
